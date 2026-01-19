@@ -1,0 +1,20 @@
+ticker,asset_class,benchmark_primary,benchmark_secondary
+VTV, Equities, SPY, IWV
+VBR, Equities, SPY, IWV
+MTUM, Equities, SPY, IWV
+USMV, Equities, SPY, IWV
+QUAL, Equities, SPY, IWV
+IJR, Equities, SPY, IWV
+VTI, Equities, SPY, IWV
+QQQM, Equities, SPY, IWV
+VOO, Equities, SPY, IWV
+RSP, Equities, SPY, IWV
+VWO, International Equities, ACWI
+IMTM, International Equities, ACWI
+VEA, International Equities, ACWI
+BND, Fixed Income, AGG
+CLOA, Alternative Assets, VNQ, GSG
+VNQ, Alternative Assets, VNQ, GSG
+BCI, Alternative Assets, VNQ, GSG
+VGIT, Cash, BIL
+VGSH, Cash, BIL
