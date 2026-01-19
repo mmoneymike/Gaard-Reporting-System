@@ -85,6 +85,13 @@ def normalize_model_bucket(model: str) -> str:
     return "Unclassified"
 
 
+def extract_symbol_from_description(description: str) -> str | None:
+    if not description: return None
+    # Regex: Matches "ICSH(US...)" and captures "ICSH"
+    match = re.match(r"^([A-Z0-9\\.]+)\\(", description.strip())
+    return match.group(1) if match else None
+
+
 def _coerce_float(value) -> float:
     """Robust string-to-float converter (handles '$1,000.00' and '(500)')."""
     if value is None or value == "": return 0.0
