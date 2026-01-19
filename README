@@ -1,0 +1,14 @@
+## Statement CSV ingestion
+
+Use `src/statement_ingestion.py` to parse the interactive broker statement CSVs
+and extract key sections like Positions, Trades, and Dividends.
+
+Example usage:
+
+```python
+from src.statement_ingestion import build_statement_sections
+
+sections = build_statement_sections("U21244041_20250730_20260112.csv")
+positions = sections.positions
+dividends = sections.dividends
+```
