@@ -111,9 +111,13 @@ def normalize_model_bucket(model: str) -> str:
 
 def extract_symbol_from_description(description: str) -> str | None:
     if not description: return None
-    # Regex: Matches "ICSH(US...)" and captures "ICSH"
-    match = re.match(r"^([A-Z0-9\\.]+)\\(", description.strip())
-    return match.group(1) if match else None
+    # --- FIXED REGEX ---
+    # Looks for characters like 'ICSH' followed immediately by a literal '('
+    try:
+        match = re.match(r"^([A-Z0-9.]+)\(", description.strip())
+        return match.group(1) if match else None
+    except Exception:
+        return None
 
 
 def _coerce_float(value) -> float:

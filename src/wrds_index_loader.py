@@ -1,13 +1,13 @@
 import pandas as pd
+try:
+    import wrds
+except ImportError:
+    wrds = None
 
 def get_wrds_connection():
     """Establishes connection to WRDS."""
-    try:
-        import wrds
-    except ImportError as exc:
-        raise ImportError(
-            "WRDS library not installed. Install with `pip install wrds`."
-        ) from exc
+    if wrds is None:
+        raise ImportError("WRDS library not installed.")
     print("Connecting to WRDS...")
     return wrds.Connection()
 
@@ -22,6 +22,7 @@ def fetch_benchmark_returns_wrds(connection, tickers, start_date=None):
     date_clause = f"AND dsf.date >= '{start_date}'" if start_date else ""
     
     # Query: Join StockNames (to get Ticker) with DSF (Daily Stock File)
+    # FIX: Changed 'nameendt' to 'nameenddt'
     query = f"""
         SELECT 
             dsf.date, 
@@ -30,7 +31,7 @@ def fetch_benchmark_returns_wrds(connection, tickers, start_date=None):
         FROM crsp.dsf AS dsf
         JOIN crsp.stocknames AS sn
             ON dsf.permno = sn.permno 
-            AND dsf.date BETWEEN sn.namedt AND sn.nameendt
+            AND dsf.date BETWEEN sn.namedt AND sn.nameenddt
         WHERE sn.ticker IN ('{formatted_tickers}')
         {date_clause}
         ORDER BY dsf.date
