@@ -2,9 +2,9 @@ import pandas as pd
 import os
 
 # --- 1. IMPORTS ---
-from statement_ingestion import get_portfolio_holdings
+from statement_ingestion import get_portfolio_holdings, auto_classify_asset
 from yf_loader import*
-from wrds_loader import get_wrds_connection, fetch_benchmark_returns_wrds
+from wrds_loader import*
 from report_metrics import get_cumulative_return, get_cumulative_index
 
 # ==========================================
@@ -36,24 +36,43 @@ def run_pipeline():
     try:
         holdings, report_date = get_portfolio_holdings(IBKR_FILE)
         
-        # === AUTO-CLASSIFICATION (VIA YAHOO) ===
-        print("   > Running Auto-Classification via Yahoo Finance...")
-        try:
-            my_tickers = holdings['ticker'].unique().tolist()
+        # === 2. HYBRID CLASSIFICATION (With Reporting) ===
+        print("   > Running Hybrid Classification (IBKR -> Yahoo Fallback)...")
+        
+        # Identify "Unclassified" positions
+        unclassified_mask = holdings['asset_class'] == 'Unclassified'
+        unknown_tickers = holdings.loc[unclassified_mask, 'ticker'].unique().tolist()
+        
+        if unknown_tickers:
+            print(f"   > Found {len(unknown_tickers)} unclassified positions. Fetching details...")
             
-            # # 1. Fetch Names from Yahoo
-            # name_map = fetch_security_names_yf(my_tickers)
+            # Fetch Names
+            name_map = fetch_security_names_yf(unknown_tickers)
             
-            # # 2. Apply Logic
-            # holdings['official_name'] = holdings['ticker'].map(name_map).fillna('')
-            # holdings['asset_class'] = holdings.apply(
-            #     lambda row: auto_classify_asset(row['ticker'], row['official_name']), 
-            #     axis=1
-            # )
-            # print(f"   > Successfully classified positions.")
+            # Save Official Name to DF
+            # We map ONLY the unknown ones to avoid overwriting existing logic if we wanted, 
+            # but mapping all is fine too.
+            holdings.loc[unclassified_mask, 'official_name'] = holdings.loc[unclassified_mask, 'ticker'].map(name_map)
             
-        except Exception as e:
-            print(f"   > Auto-Classification Warning: {e}")
+            # Apply Logic
+            def refine_bucket(row):
+                if row['asset_class'] != 'Unclassified':
+                    return row['asset_class']
+                return auto_classify_asset(row['ticker'], row.get('official_name', ''))
+
+            # Update Asset Class
+            holdings['asset_class'] = holdings.apply(refine_bucket, axis=1)
+            
+            # --- NEW: PRINT THE CHANGE LOG ---
+            print(f"\n   >>> RE-CLASSIFICATION REPORT <<<")
+            changed_df = holdings[holdings['ticker'].isin(unknown_tickers)][['ticker', 'official_name', 'asset_class']].copy()
+            changed_df.columns = ['Ticker', 'Security Name', 'New Asset Class']
+            print(changed_df.to_string(index=False))
+            print("-" * 50)
+            # ---------------------------------
+            
+        else:
+            print("   > All positions were already classified by IBKR Models.")
         # =======================================
 
         print(f"Statement Date: {report_date}")

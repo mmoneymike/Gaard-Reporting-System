@@ -305,3 +305,53 @@ def get_portfolio_holdings(file_path):
     cols = ['ticker', 'asset_class', 'weight', 'avg_cost', 'raw_value', 'total_dividends', 'cumulative_return']
     return df[cols], report_date
 
+
+# WORK IN PROGRESS - ASSET-CLASS SORTING AUTOMATION
+def auto_classify_asset(ticker: str, security_name: str) -> str:
+    """
+    Determines Asset Class based on Ticker and Official Name.
+    Uses 'Specific to General' logic to catch Cash Equivalents (VGSH)
+    before they get caught by Fixed Income (AGG).
+    """
+    t = str(ticker).upper().strip()
+    n = str(security_name).upper().strip()
+    
+    # --- 1. HARDCODED "CASH" LIST (The Safest Way) ---
+    # These are universally accepted as Cash Substitutes
+    cash_tickers = [
+        'BIL', 'SGOV', 'SHV', 'GBIL', 'BILS',  # 0-3 Month Treasuries
+        'VGSH', 'SHY', 'SCHO',                 # 1-3 Year Treasuries (Often treated as cash/reserve)
+        'ICSH', 'MINT', 'PULS',                # Ultra-Short Cash Mgmt
+        'USFR', 'TFLO'                         # Floating Rate (Cash-like)
+    ]
+    if t in cash_tickers: return 'Cash'
+
+    # --- 2. SMART KEYWORD LOGIC ---
+    
+    # A. CASH EQUIVALENTS (Keyword Search)
+    # Look for "Short Term" AND "Treasury" combined to catch things like "Vanguard Short-Term Treasury"
+    if "SHORT TERM" in n and ("TREASURY" in n or "GOVT" in n):
+        return 'Cash'
+    if "0-3 MONTH" in n or "ULTRASHORT" in n or "MONEY MARKET" in n:
+        return 'Cash'
+
+    # B. INTERNATIONAL EQUITIES
+    # Keywords: International, Emerging, Europe, Pacific, Asia, China, Japan, Developed, Ex-US
+    intl_keywords = ['INTL', 'INTERNATIONAL', 'EMERGING', 'EUROPE', 'PACIFIC', 'ASIA', 'CHINA', 'JAPAN', 'EX-US', 'DEVELOPED MKT', 'VXUS']
+    if any(k in n for k in intl_keywords):
+        return 'International Equities'
+        
+    # C. FIXED INCOME (General)
+    # Note: We check this AFTER Cash, so "Short Term Treasury" is already caught above.
+    fi_keywords = ['BOND', 'TREASURY', 'AGGREGATE', 'FIXED INC', 'MUNICIPAL', 'AGNCY', 'CORP BD', 'AGG', 'BND', 'LQD']
+    if any(k in n for k in fi_keywords):
+        return 'Fixed Income'
+        
+    # D. ALTERNATIVE ASSETS (Real Assets)
+    alt_keywords = ['REIT', 'REAL ESTATE', 'GOLD', 'SILVER', 'COMMODITY', 'CRYPTO', 'BITCOIN', 'OIL', 'GLD', 'IAU', 'SLV', 'VNQ']
+    if any(k in n for k in alt_keywords):
+        return 'Alternative Assets'
+
+    # --- 3. DEFAULT ---
+    # If it's in the database but matches none of the above, it's likely a standard US Stock
+    return 'U.S. Equities'
