@@ -263,17 +263,29 @@ def calculate_cumulative_returns_with_dividends(sections: StatementSections) -> 
 def get_portfolio_holdings(file_path):
     """
     Orchestrates the ingestion process and returns a standardized DataFrame
-    that main.py can consume.
+    AND the report date that main.py can consume.
+    
+    Returns: (DataFrame, str)
     """
     # 1. Parse and Calculate
     sections = build_statement_sections(file_path)
     results = calculate_cumulative_returns_with_dividends(sections)
     
-    if results.positions.empty:
-        return pd.DataFrame()
+    # 2. Extract Date from Metadata
+    # Access the new metadata object you created
+    meta = sections.statement_metadata
+    raw_date = meta.when_generated # e.g., "2026-01-13, 10:55:58 EST"
+    
+    # Clean the date string
+    report_date = "2024-01-01" # Default fallback
+    if raw_date:
+        # Split on comma to remove time
+        report_date = raw_date.split(',')[0].strip()
 
-    # 2. Rename columns to Pipeline Standard
-    # The pipeline expects: ['ticker', 'asset_class', 'weight', 'avg_cost', 'raw_value', 'cumulative_return']
+    if results.positions.empty:
+        return pd.DataFrame(), report_date
+
+    # 3. Rename columns to Pipeline Standard
     df = results.positions.rename(columns={
         'Symbol': 'ticker',
         'Bucket': 'asset_class',
@@ -281,10 +293,11 @@ def get_portfolio_holdings(file_path):
         'cost_basis': 'avg_cost'
     })
     
-    # 3. Calculate Weight based on Market Value
+    # 4. Calculate Weight
     total_mv = df['raw_value'].sum()
     df['weight'] = df['raw_value'] / total_mv if total_mv else 0
     
-    # 4. Return the clean subset
+    # 5. Return Clean Data AND Date
     cols = ['ticker', 'asset_class', 'weight', 'avg_cost', 'raw_value', 'total_dividends', 'cumulative_return']
-    return df[cols]
+    return df[cols], report_date
+
