@@ -14,16 +14,25 @@ SECTION_DATA = "Data"
 @dataclass(frozen=True)
 class StatementSections:
     raw_sections: dict[str, pd.DataFrame]
+    statement_metadata: "StatementMetadata"
     positions: pd.DataFrame                 # Has Model (Asset Class/Bucket)
     open_positions: pd.DataFrame            # Has Cost Basis & Value
     dividends: pd.DataFrame                 
     trades: pd.DataFrame
-
+    
 
 @dataclass(frozen=True)
 class CumulativeReturnResults:
     positions: pd.DataFrame
     buckets: pd.DataFrame
+
+
+@dataclass(frozen=True)
+class StatementMetadata:
+    title: str | None
+    period: str | None
+    when_generated: str | None
+
 
 
 def read_statement_csv(path: str | Path) -> dict[str, pd.DataFrame]:
@@ -54,33 +63,48 @@ def read_statement_csv(path: str | Path) -> dict[str, pd.DataFrame]:
     return {k: pd.DataFrame(v) for k, v in rows.items()}
 
 
+def extract_statement_metadata(statement: pd.DataFrame) -> StatementMetadata:
+    if statement.empty:
+        return StatementMetadata(title=None, period=None, when_generated=None)
+
+    def lookup(field_name: str) -> str | None:
+        matches = statement[statement["Field Name"].str.strip().str.lower() == field_name.lower()]
+        if matches.empty:
+            return None
+        value = matches["Field Value"].iloc[-1]
+        if isinstance(value, str):
+            value = value.strip()
+        return value if value else None
+
+    return StatementMetadata(
+        title=lookup("Title"),
+        period=lookup("Period"),
+        when_generated=lookup("WhenGenerated"),
+    )
+    
+    
 def normalize_model_bucket(model: str) -> str:
     """
     Maps IBKR Model names to your 5 Standard Buckets.
+    Uses keyboard matching to match assets to asset class/bucket.
     """
     if not model: return "Unclassified"
     cleaned = model.strip().lower()
-    
     # 1. U.S. Equities
     if "domestic" in cleaned or "u.s" in cleaned or "us " in cleaned:
         return "U.S. Equities"
-        
     # 2. International Equities
     if "international" in cleaned:
         return "International Equities"
-        
     # 3. Fixed Income
     if "fixed" in cleaned or "income" in cleaned:
         return "Fixed Income"
-        
-    # 4. Alternative Assets
+    # 4. Alternative Assets (Real Assets)
     if "alternative" in cleaned:
-        return "Alternative Assets"
-        
+        return "Alternative Assets" 
     # 5. Cash
     if "cash" in cleaned:
-        return "Cash"
-        
+        return "Cash"   
     # Handle "Independent" or unknown
     return "Unclassified"
 
@@ -109,15 +133,43 @@ def _coerce_float(value) -> float:
     except ValueError:
         return 0.0
 
+
+def extract_generated_date(sections: dict) -> str:
+    """
+    Looks into the 'Statement' section for 'WhenGenerated'.
+    Format in CSV: "2026-01-13, 10:55:58 EST"
+    Returns: "2026-01-13"
+    """
+    df = sections.get("Statement", pd.DataFrame())
+    if df.empty: return "2024-01-01" # Fallback
+
+    # Look for the row where 'Field Name' is 'WhenGenerated'
+    # Note: Column names might vary, so we check columns 0 and 1 roughly
+    try:
+        # Usually Column 0 is 'Field Name', Column 1 is 'Field Value'
+        # But based on your CSV snippet: Field Name, Field Value
+        row = df[df['Field Name'] == 'WhenGenerated']
+        if not row.empty:
+            raw_date = row['Field Value'].iloc[0]
+            # Split "2026-01-13, 10:55..." -> "2026-01-13"
+            return raw_date.split(',')[0].strip()
+    except Exception:
+        pass
+        
+    return "2024-01-01" # Fallback
+
+
 def build_statement_sections(path: str | Path) -> StatementSections:
     sections = read_statement_csv(path)
     
+    statement_metadata = extract_statement_metadata(sections.get("Statement", pd.DataFrame()))
     positions = sections.get("Positions", pd.DataFrame())
     open_positions = sections.get("Open Positions", pd.DataFrame())
     dividends = sections.get("Dividends", pd.DataFrame())
     trades = sections.get("Trades", pd.DataFrame())
 
-    return StatementSections(sections, positions, open_positions, dividends, trades)
+    return StatementSections(sections, statement_metadata, positions, open_positions, dividends, trades)
+
 
 def calculate_cumulative_returns_with_dividends(sections: StatementSections) -> CumulativeReturnResults:
     """
@@ -203,3 +255,36 @@ def calculate_cumulative_returns_with_dividends(sections: StatementSections) -> 
     bucket_summary = bucket_summary.sort_values('market_value', ascending=False)
     
     return CumulativeReturnResults(positions=df, buckets=bucket_summary.reset_index())
+
+
+# ==========================================
+# BRIDGE FUNCTION (Required for main.py)
+# ==========================================
+def get_portfolio_holdings(file_path):
+    """
+    Orchestrates the ingestion process and returns a standardized DataFrame
+    that main.py can consume.
+    """
+    # 1. Parse and Calculate
+    sections = build_statement_sections(file_path)
+    results = calculate_cumulative_returns_with_dividends(sections)
+    
+    if results.positions.empty:
+        return pd.DataFrame()
+
+    # 2. Rename columns to Pipeline Standard
+    # The pipeline expects: ['ticker', 'asset_class', 'weight', 'avg_cost', 'raw_value', 'cumulative_return']
+    df = results.positions.rename(columns={
+        'Symbol': 'ticker',
+        'Bucket': 'asset_class',
+        'market_value': 'raw_value',
+        'cost_basis': 'avg_cost'
+    })
+    
+    # 3. Calculate Weight based on Market Value
+    total_mv = df['raw_value'].sum()
+    df['weight'] = df['raw_value'] / total_mv if total_mv else 0
+    
+    # 4. Return the clean subset
+    cols = ['ticker', 'asset_class', 'weight', 'avg_cost', 'raw_value', 'total_dividends', 'cumulative_return']
+    return df[cols]
