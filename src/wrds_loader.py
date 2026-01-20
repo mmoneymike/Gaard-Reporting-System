@@ -8,8 +8,10 @@ def get_wrds_connection():
     """Establishes connection to WRDS."""
     if wrds is None:
         raise ImportError("WRDS library not installed.")
+
     print("Connecting to WRDS...")
     return wrds.Connection()
+
 
 def fetch_benchmark_returns_wrds(connection, tickers, start_date=None):
     """
@@ -52,3 +54,33 @@ def fetch_benchmark_returns_wrds(connection, tickers, start_date=None):
     pivot_rets = data.pivot(index='date', columns='ticker', values='ret')
     
     return pivot_rets
+
+
+def fetch_security_names(connection, tickers):
+    """
+    Fetches the official company name (COMNAM) from CRSP for a list of tickers.
+    Returns a Dictionary: {'VXUS': 'VANGUARD INTL EQUITY...', 'SPY': 'SPDR TR...'}
+    """
+    if not tickers: return {}
+    
+    clean_tickers = [t.upper() for t in tickers]
+    formatted_tickers = "', '".join(clean_tickers)
+    
+    # Query CRSP Stocknames
+    # We get the most recent name (max date) for each ticker
+    query = f"""
+        SELECT ticker, comnam
+        FROM crsp.stocknames
+        WHERE ticker IN ('{formatted_tickers}')
+        ORDER BY nameenddt DESC
+    """
+    
+    print(f"Auto-Classifying {len(clean_tickers)} tickers via WRDS...")
+    try:
+        data = connection.raw_sql(query)
+        # Drop duplicates (keep top/most recent one due to SQL order)
+        data = data.drop_duplicates(subset='ticker', keep='first')
+        return dict(zip(data['ticker'], data['comnam']))
+    except Exception as e:
+        print(f"WRDS Name Query Failed: {e}")
+        return {}
