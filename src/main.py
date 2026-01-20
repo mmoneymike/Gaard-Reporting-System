@@ -3,7 +3,8 @@ import os
 
 # --- 1. IMPORTS ---
 from statement_ingestion import get_portfolio_holdings
-from wrds_index_loader import get_wrds_connection, fetch_benchmark_returns_wrds
+from yf_loader import*
+from wrds_loader import get_wrds_connection, fetch_benchmark_returns_wrds
 from report_metrics import get_cumulative_return, get_cumulative_index
 
 # ==========================================
@@ -24,7 +25,7 @@ def run_pipeline():
     project_root = os.path.dirname(script_dir)
     IBKR_FILE = os.path.join(project_root, "data", "U21244041_20250730_20260112.csv")
     
-    BENCHMARK_START_FIXED = "2024-01-01" 
+    BENCHMARK_START_FIXED = "2025-07-30" # ISSUE: returning no data from 2025.
 
     # --- 1. INGESTION ---
     print(f"--- 1. Ingesting Portfolio (Internal) ---")
@@ -34,33 +35,72 @@ def run_pipeline():
 
     try:
         holdings, report_date = get_portfolio_holdings(IBKR_FILE)
-        print(f"Successfully loaded {len(holdings)} positions.")
+        
+        # === AUTO-CLASSIFICATION (VIA YAHOO) ===
+        print("   > Running Auto-Classification via Yahoo Finance...")
+        try:
+            my_tickers = holdings['ticker'].unique().tolist()
+            
+            # # 1. Fetch Names from Yahoo
+            # name_map = fetch_security_names_yf(my_tickers)
+            
+            # # 2. Apply Logic
+            # holdings['official_name'] = holdings['ticker'].map(name_map).fillna('')
+            # holdings['asset_class'] = holdings.apply(
+            #     lambda row: auto_classify_asset(row['ticker'], row['official_name']), 
+            #     axis=1
+            # )
+            # print(f"   > Successfully classified positions.")
+            
+        except Exception as e:
+            print(f"   > Auto-Classification Warning: {e}")
+        # =======================================
+
         print(f"Statement Date: {report_date}")
+        print(f"Successfully loaded {len(holdings)} positions.")
+        
     except ValueError as e:
         print(f"Error unpacking data: {e}")
         return
 
     # --- 2. MARKET DATA ---
-    print("\n--- 2. Fetching Benchmark Data (WRDS) ---")
+    print("\n--- 2. Fetching Benchmark Data (Yahoo) ---")
     all_benchmarks = [t for sublist in BENCHMARK_CONFIG.values() for t in sublist]
     unique_benchmarks = list(set(all_benchmarks))
     
     bench_growth = pd.DataFrame()
     
     try:
-        db = get_wrds_connection()
-        bench_returns = fetch_benchmark_returns_wrds(db, unique_benchmarks, start_date=BENCHMARK_START_FIXED)
+        # NO CONNECTION OBJECT NEEDED FOR YAHOO
+        bench_returns = fetch_benchmark_returns_yf(unique_benchmarks, start_date=BENCHMARK_START_FIXED)
+        
         if not bench_returns.empty:
             bench_growth = get_cumulative_index(bench_returns, start_value=100)
         else:
-            print("Warning: No data returned from WRDS.")
+            print("Warning: No data returned from Yahoo.")
     except Exception as e:
-        print(f"WRDS Connection Error: {e}")
-        print("Proceeding with Portfolio data only...")
+        print(f"Yahoo Connection Error: {e}")
+        
+    # print("\n--- 2. Fetching Benchmark Data (WRDS) ---")
+    # all_benchmarks = [t for sublist in BENCHMARK_CONFIG.values() for t in sublist]
+    # unique_benchmarks = list(set(all_benchmarks))
+    
+    # bench_growth = pd.DataFrame()
+    
+    # try:
+    #     db = get_wrds_connection()
+    #     bench_returns = fetch_benchmark_returns_wrds(db, unique_benchmarks, start_date=BENCHMARK_START_FIXED)
+    #     if not bench_returns.empty:
+    #         bench_growth = get_cumulative_index(bench_returns, start_value=100)
+    #     else:
+    #         print("Warning: No data returned from WRDS.")
+    # except Exception as e:
+    #     print(f"WRDS Connection Error: {e}")
+    #     print("Proceeding with Portfolio data only...")
 
     # --- 3. SUMMARY REPORT ---
     print("\n" + "="*80)
-    print(f" PERFORMANCE REPORT (As of {report_date})")
+    print(f" PERFORMANCE REPORT (As of {report_date} since {BENCHMARK_START_FIXED})")
     print("="*80)
     
     report_rows = []
