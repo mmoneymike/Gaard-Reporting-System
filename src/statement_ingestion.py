@@ -316,18 +316,29 @@ def auto_classify_asset(ticker: str, security_name: str) -> str:
     t = str(ticker).upper().strip()
     n = str(security_name).upper().strip()
     
-    # --- 1. HARDCODED "CASH" LIST (The Safest Way) ---
-    # These are universally accepted as Cash Substitutes
+    # --- 1. HARDCODED ASSET LIST ---
     cash_tickers = [
-        'BIL', 'SGOV', 'SHV', 'GBIL', 'BILS',  # 0-3 Month Treasuries
-        'VGSH', 'SHY', 'SCHO',                 # 1-3 Year Treasuries (Often treated as cash/reserve)
-        'ICSH', 'MINT', 'PULS',                # Ultra-Short Cash Mgmt
-        'USFR', 'TFLO'                         # Floating Rate (Cash-like)
+        'VGSH', 'VGIT'                        
     ]
     if t in cash_tickers: return 'Cash'
 
-    # --- 2. SMART KEYWORD LOGIC ---
+    intl_tickers = [
+        'VEA', 'VWO', 'IMTM'
+    ]
+    if t in intl_tickers: return 'International Equities'
     
+    fi_tickers = [
+        'BND'
+    ]
+    if t in fi_tickers: return 'Fixed Income'
+    
+    alt_tickers = [
+        'VNQ', 'BCI'
+    ]
+    if t in alt_tickers: return 'Alternative Assets'
+    
+    
+    # --- 2. SMART KEYWORD LOGIC ---
     # A. CASH EQUIVALENTS (Keyword Search)
     # Look for "Short Term" AND "Treasury" combined to catch things like "Vanguard Short-Term Treasury"
     if "SHORT TERM" in n and ("TREASURY" in n or "GOVT" in n):
@@ -337,7 +348,7 @@ def auto_classify_asset(ticker: str, security_name: str) -> str:
 
     # B. INTERNATIONAL EQUITIES
     # Keywords: International, Emerging, Europe, Pacific, Asia, China, Japan, Developed, Ex-US
-    intl_keywords = ['INTL', 'INTERNATIONAL', 'EMERGING', 'EUROPE', 'PACIFIC', 'ASIA', 'CHINA', 'JAPAN', 'EX-US', 'DEVELOPED MKT', 'VXUS']
+    intl_keywords = ['INTL', 'INTERNATIONAL', 'EMERGING', 'EUROPE', 'PACIFIC', 'ASIA', 'CHINA', 'JAPAN', 'EX-US', 'DEVELOPED MKT', 'VXUS', 'VEA', 'VWO']
     if any(k in n for k in intl_keywords):
         return 'International Equities'
         
