@@ -1,0 +1,14 @@
+# Virtual env
+.venv/
+venv/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# OS / editor junk
+.DS_Store
+
+# Excel temp/lock files
+~$*.xlsx
