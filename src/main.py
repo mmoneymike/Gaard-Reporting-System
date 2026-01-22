@@ -1,12 +1,13 @@
 import pandas as pd
 import os
+import datetime
 
 # --- 1. PROJECT IMPORTS ---
 from statement_ingestion import get_portfolio_holdings, auto_classify_asset
 from yf_loader import*
 from wrds_loader import*
 from report_metrics import get_cumulative_return, get_cumulative_index
-
+from excel_writer import write_portfolio_report
 
 
     # print("\n--- 2. Fetching Benchmark Data (WRDS) ---")
@@ -42,15 +43,21 @@ def run_pipeline():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(script_dir)
     IBKR_FILE = os.path.join(project_root, "data", "U21244041_20250730_20260112.csv")
-    BENCHMARK_START_FIXED = "2025-07-30" 
 
+    # OUTPUT FILE
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
+    EXCEL_FILE = os.path.join(project_root, f"Portfolio_Report_{timestamp}.xlsx")
+    
+    # Start of Benchmark Returns
+    BENCHMARK_START_FIXED = "2025-07-30" 
+    
     print(f"--- 1. Ingesting Portfolio (Internal) ---")
     if not os.path.exists(IBKR_FILE):
         print(f"CRITICAL ERROR: Could not find file at: {IBKR_FILE}")
         return
 
     try:
-        # 1. Load Data (Plus new NAV and Orphans)
+        # === 1. Load Data (Plus new NAV and Orphans) ===
         holdings, report_date, true_nav, orphaned_divs = get_portfolio_holdings(IBKR_FILE)
         
         print(f"   > File Date: {report_date}")
@@ -71,7 +78,6 @@ def run_pipeline():
             lambda row: auto_classify_asset(row['ticker'], row['official_name']), 
             axis=1
         )
-        # ========================================
 
         # === 3. THE CASH PLUG ===
         # Sum of current positions
@@ -241,5 +247,84 @@ def run_pipeline():
 
     print("\n" + "="*80)
 
+    # --- 5. PREPARE DATA FOR EXCEL ---
+    print("\n--- 3. Generating Excel Report ---")
+    
+    # A. Total Metrics
+    grand_cost = holdings['avg_cost'].sum()
+    grand_val = holdings['raw_value'].sum()
+    grand_divs = holdings['total_dividends'].sum()
+    
+    total_ret_val = 0.0
+    if grand_cost != 0:
+        total_ret_val = (grand_val + grand_divs) / grand_cost - 1.0
+        
+    metrics = {
+        'return': total_ret_val,
+        'value': grand_val
+    }
+    
+    # B. Summary DataFrame (Asset Class vs Benchmarks)
+    summary_rows = []
+    my_buckets = holdings['asset_class'].unique()
+    
+    sorted_buckets = [b for b in BENCHMARK_CONFIG if b in my_buckets]
+    for b in my_buckets:
+        if b not in sorted_buckets: sorted_buckets.append(b)
+
+    for bucket in sorted_buckets:
+        bucket_data = holdings[holdings['asset_class'] == bucket]
+        
+        b_mv = bucket_data['raw_value'].sum()
+        b_cost = bucket_data['avg_cost'].sum()
+        b_divs = bucket_data['total_dividends'].sum()
+        
+        if b_cost != 0:
+            my_return = (b_mv + b_divs) / b_cost - 1
+        else:
+            my_return = 0.0
+        
+        # Handle Cash display
+        display_return = f"${b_mv:,.0f}" if bucket == 'Cash' else my_return
+            
+        summary_rows.append({
+            'Asset Class': f"{bucket}", # Removed ** for Excel cleanliness
+            'Type': 'Portfolio',
+            'Return': display_return
+        })
+        
+        # Benchmarks
+        targets = BENCHMARK_CONFIG.get(bucket, [])
+        for b_ticker in targets:
+            b_val = 0.0
+            if not bench_growth.empty and b_ticker in bench_growth.columns:
+                b_val = get_cumulative_return(bench_growth[b_ticker], 'INCEPTION')
+            
+            summary_rows.append({
+                'Asset Class': f"   {b_ticker}", 
+                'Type': 'Benchmark',
+                'Return': b_val
+            })
+
+    summary_df = pd.DataFrame(summary_rows)
+
+    # --- 6. WRITE TO EXCEL ---
+    try:
+        write_portfolio_report(
+            summary_df=summary_df,
+            holdings_df=holdings,
+            total_metrics=metrics,
+            report_date=report_date,
+            output_path=EXCEL_FILE
+        )
+        
+        # Also print to console for quick verification
+        print(f"DONE! Report generated: {os.path.basename(EXCEL_FILE)}")
+        print(f"Total Return: {total_ret_val:.2%}")
+        
+    except Exception as e:
+        print(f"Failed to write Excel: {e}")
+        
+        
 if __name__ == "__main__":
     run_pipeline()
