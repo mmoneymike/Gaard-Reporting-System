@@ -293,7 +293,7 @@ def get_portfolio_holdings(file_path, benchmark_default_date: str):
         account_title=account_title,
         report_date=report_date,
         total_nav=total_nav,
-        oprhaned_divs=results.orphaned_divs,
+        orphaned_divs=results.orphaned_divs,
     )
 
 # ========================================
