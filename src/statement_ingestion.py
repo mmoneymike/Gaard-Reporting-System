@@ -35,7 +35,14 @@ class StatementMetadata:
     period: str | None
     when_generated: str | None
 
-
+@dataclass(frozen=True)
+class PortfolioData:
+    """Strict definition of this portfolio data contract."""
+    holdings: pd.DataFrame
+    account_title: str
+    report_date: str
+    total_nav: float
+    orphaned_divs: float
 
 def read_statement_csv(path: str | Path) -> dict[str, pd.DataFrame]:
     """Parses IBKR CSV into a dictionary of DataFrames."""
@@ -250,7 +257,7 @@ def calculate_cumulative_returns_with_dividends(sections: StatementSections) -> 
     return CumulativeReturnResults(positions=df, buckets=pd.DataFrame(), orphaned_divs=orphaned_total)
 
 
-def get_portfolio_holdings(file_path):
+def get_portfolio_holdings(file_path, benchmark_default_date: str):
     """
     Returns: (DataFrame, report_date, total_nav_from_file, orphaned_dividends)
     """
@@ -262,8 +269,9 @@ def get_portfolio_holdings(file_path):
 
     # Extract Date
     meta = sections.statement_metadata
+    account_title = meta.title if meta.title else "Total Portfolio"
     raw_date = meta.when_generated
-    report_date = raw_date.split(',')[0].strip() if raw_date else "2024-01-01"
+    report_date = raw_date.split(',')[0].strip() if raw_date else benchmark_default_date
 
     if results.positions.empty:
         return pd.DataFrame(), report_date, total_nav, 0.0
@@ -279,7 +287,14 @@ def get_portfolio_holdings(file_path):
     # We will do full Auto-Classification in main.py
     
     cols = ['ticker', 'avg_cost', 'raw_value', 'total_dividends', 'cumulative_return']
-    return df[cols], report_date, total_nav, results.orphaned_divs
+    
+    return PortfolioData(
+        holdings=df[cols], 
+        account_title=account_title,
+        report_date=report_date,
+        total_nav=total_nav,
+        oprhaned_divs=results.orphaned_divs,
+    )
 
 # ========================================
 #  ASSET CLASSIFICATION MECHANICISMS below
