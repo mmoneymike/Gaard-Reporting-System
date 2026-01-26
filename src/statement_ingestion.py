@@ -15,6 +15,7 @@ SECTION_DATA = "Data"
 class StatementSections:
     raw_sections: dict[str, pd.DataFrame]
     statement_metadata: "StatementMetadata"
+    accounts: pd.DataFrame
     positions: pd.DataFrame                 # Model (Asset Class/Bucket)
     open_positions: pd.DataFrame            # Cost Basis & Value
     dividends: pd.DataFrame                 
@@ -35,6 +36,7 @@ class StatementMetadata:
     period: str | None
     when_generated: str | None
 
+
 @dataclass(frozen=True)
 class PortfolioData:
     """Strict definition of this portfolio data contract."""
@@ -43,6 +45,7 @@ class PortfolioData:
     report_date: str
     total_nav: float
     orphaned_divs: float
+
 
 def read_statement_csv(path: str | Path) -> dict[str, pd.DataFrame]:
     """Parses IBKR CSV into a dictionary of DataFrames."""
@@ -73,6 +76,7 @@ def read_statement_csv(path: str | Path) -> dict[str, pd.DataFrame]:
 
 
 def extract_statement_metadata(statement: pd.DataFrame) -> StatementMetadata:
+    """Extracts metadata from the 'Statement' section in IKBR CSV."""
     if statement.empty:
         return StatementMetadata(title=None, period=None, when_generated=None)
 
@@ -91,6 +95,25 @@ def extract_statement_metadata(statement: pd.DataFrame) -> StatementMetadata:
         when_generated=lookup("WhenGenerated"),
     )
     
+    
+def extract_account_name(accounts_df: pd.DataFrame) -> str:
+    """
+    Extracts the Account Name from the 'Accounts' section of the raw dataframe.
+    Expected format: Accounts, Data, [Name], [ID], ...
+    """
+    if accounts_df.empty:
+        return "Total Portfolio"
+   
+    if "Name" not in accounts_df.columns:
+        return "Total Portfolio"
+
+    try:
+        # Grab the first row's value in the "Name" column
+        name_val = accounts_df["Name"].iloc[0]
+        return str(name_val).strip()
+    except Exception:
+        return "Total Portfolio"
+
 
 def extract_generated_date(sections: dict) -> str:
     """
@@ -194,13 +217,14 @@ def build_statement_sections(path: str | Path) -> StatementSections:
     sections = read_statement_csv(path)
     
     meta = extract_statement_metadata(sections.get("Statement", pd.DataFrame()))
+    account = sections.get("Accounts", pd.DataFrame())
     pos = sections.get("Positions", pd.DataFrame())
     open_pos = sections.get("Open Positions", pd.DataFrame())
     divs = sections.get("Dividends", pd.DataFrame())
     trades = sections.get("Trades", pd.DataFrame())
     nav = sections.get("Net Asset Value", pd.DataFrame())
 
-    return StatementSections(sections, meta, pos, open_pos, divs, trades, nav)
+    return StatementSections(sections, meta, account, pos, open_pos, divs, trades, nav)
 
 
 def calculate_cumulative_returns_with_dividends(sections: StatementSections) -> CumulativeReturnResults:
@@ -259,17 +283,18 @@ def calculate_cumulative_returns_with_dividends(sections: StatementSections) -> 
 
 def get_portfolio_holdings(file_path, benchmark_default_date: str):
     """
-    Returns: (DataFrame, report_date, total_nav_from_file, orphaned_dividends)
+    Returns: (DataFrame, account title, report_date, total_nav_from_file, orphaned_dividends)
     """
     sections = build_statement_sections(file_path)
     results = calculate_cumulative_returns_with_dividends(sections)
+    
+    account_title = extract_account_name(sections.accounts)
     
     # Get True NAV
     total_nav = get_total_nav_from_file(sections)
 
     # Extract Date
     meta = sections.statement_metadata
-    account_title = meta.title if meta.title else "Total Portfolio"
     raw_date = meta.when_generated
     report_date = raw_date.split(',')[0].strip() if raw_date else benchmark_default_date
 
