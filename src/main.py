@@ -40,7 +40,7 @@ def run_pipeline():
     
     EXCEL_FILE = os.path.join(output_dir, f"Portfolio_Report_{timestamp}.xlsx")
     
-    BENCHMARK_START_FIXED = "2025-07-30" 
+    BENCHMARK_START_FIXED = "2025-07-30" # CURRENTLY STATIC 
 
     print(f"--- 1. Ingesting Portfolio (Internal) ---")
     if not os.path.exists(IBKR_FILE):
@@ -49,7 +49,13 @@ def run_pipeline():
 
     try:
         # 1. Load Data
-        holdings, report_date, true_nav, orphaned_divs = get_portfolio_holdings(IBKR_FILE)
+        portfolio_data = get_portfolio_holdings(IBKR_FILE, BENCHMARK_START_FIXED)
+        holdings = portfolio_data.holdings
+        account_title = portfolio_data.account_title
+        report_date = portfolio_data.report_date
+        total_nav = portfolio_data.total_nav
+        orphaned_divs = portfolio_data.orphaned_divs
+
         
         # 2. Auto-Classify
         print("   > Running Auto-Classification...")
@@ -64,7 +70,7 @@ def run_pipeline():
 
         # 3. Cash Plug
         positions_val = holdings['raw_value'].sum()
-        cash_plug_val = true_nav - positions_val if true_nav > 0 else 0.0
+        cash_plug_val = total_nav - positions_val if total_nav > 0 else 0.0
         
         if abs(cash_plug_val) > 1.0: 
             cash_row = {
@@ -146,9 +152,8 @@ def run_pipeline():
         else:
             my_return = 0.0
         
-        # Portfolio Row (FIXED: 'Type' instead of 'RowType')
         summary_rows.append({
-            'Type': 'Bucket',         # <--- FIXED
+            'Type': 'Bucket',         
             'Name': bucket,
             'MarketValue': b_mv,
             'Allocation': b_alloc,
@@ -156,7 +161,6 @@ def run_pipeline():
             'IsCash': (bucket == 'Cash')
         })
         
-        # Benchmark Rows (FIXED: 'Type' instead of 'RowType')
         targets = BENCHMARK_CONFIG.get(bucket, [])
         for b_ticker in targets:
             b_val = 0.0
@@ -166,7 +170,7 @@ def run_pipeline():
             friendly_name = BENCHMARK_NAMES.get(b_ticker, b_ticker)
             
             summary_rows.append({
-                'Type': 'Benchmark',      # <--- FIXED
+                'Type': 'Benchmark',     
                 'Name': friendly_name,
                 'MarketValue': None,
                 'Allocation': None,
@@ -179,6 +183,7 @@ def run_pipeline():
     # --- 6. WRITE TO EXCEL ---
     try:
         write_portfolio_report(
+            account_title=account_title,
             summary_df=summary_df,
             holdings_df=holdings,
             total_metrics=metrics,

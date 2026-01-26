@@ -7,7 +7,8 @@ def write_portfolio_report(
     holdings_df: pd.DataFrame, 
     total_metrics: dict, 
     report_date: str,
-    output_path: str
+    output_path: str,
+    account_title: str = "Total Portfolio" # Default if not passed
 ):
     print(f"   > Writing Excel Report to: {output_path}")
 
@@ -87,7 +88,7 @@ def write_portfolio_report(
         sheet.hide_gridlines(2) 
 
         # 1. Title
-        sheet.write('B2', "Portfolio Performance Report", fmt_title)
+        sheet.write('B2', "Portfolio Performance", fmt_title)
 
         # 2. COLUMN HEADERS
         current_row = 3
@@ -101,7 +102,7 @@ def write_portfolio_report(
         # 3. SCORECARD
         current_row+=1
         sheet.set_row(current_row, 19)
-        sheet.write(current_row, 1, "Total Portfolio", fmt_total_label)
+        sheet.write(current_row, 1, account_title, fmt_total_label)
         sheet.write(current_row, 2, total_metrics['value'], fmt_total_mv)
         sheet.write(current_row, 3, 1.0, fmt_total_alloc) # 100%
         sheet.write(current_row, 4, total_metrics['return'], fmt_total_alloc)
