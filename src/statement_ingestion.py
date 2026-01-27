@@ -12,22 +12,12 @@ SECTION_DATA = "Data"
 
 
 @dataclass(frozen=True)
-class StatementSections:
-    raw_sections: dict[str, pd.DataFrame]
-    statement_metadata: "StatementMetadata"
-    accounts: pd.DataFrame
-    positions: pd.DataFrame                 # Model (Asset Class/Bucket)
-    open_positions: pd.DataFrame            # Cost Basis & Value
-    dividends: pd.DataFrame                 
-    trades: pd.DataFrame
-    nav_summary: pd.DataFrame               # Account Total
-
-
-@dataclass(frozen=True)
-class CumulativeReturnResults:
-    positions: pd.DataFrame
-    buckets: pd.DataFrame
-    orphaned_divs: float                    # Dividends from assets not held anymore
+class PortfolioData:
+    """Strict definition of this portfolio data contract."""
+    holdings: pd.DataFrame
+    account_title: str
+    report_date: str
+    total_nav: float
 
 
 @dataclass(frozen=True)
@@ -35,18 +25,26 @@ class StatementMetadata:
     title: str | None
     period: str | None
     when_generated: str | None
+    
+    
+@dataclass(frozen=True)
+class StatementSections:
+    raw_sections: dict[str, pd.DataFrame]
+    statement_metadata: "StatementMetadata"
+    accounts: pd.DataFrame
+    positions: pd.DataFrame                 # Model (Asset Class/Bucket)
+    open_positions: pd.DataFrame            # Cost Basis & Value
+    dividends: pd.DataFrame                 
+    perf_summary: pd.DataFrame
+    nav_summary: pd.DataFrame               # Account Total
 
 
 @dataclass(frozen=True)
-class PortfolioData:
-    """Strict definition of this portfolio data contract."""
-    holdings: pd.DataFrame
-    account_title: str
-    report_date: str
-    total_nav: float
-    orphaned_divs: float
+class CumulativeReturnResults:
+    positions: pd.DataFrame
 
 
+# --- CSV PARSING ---
 def read_statement_csv(path: str | Path) -> dict[str, pd.DataFrame]:
     """Parses IBKR CSV into a dictionary of DataFrames."""
     path = Path(path)
@@ -75,6 +73,29 @@ def read_statement_csv(path: str | Path) -> dict[str, pd.DataFrame]:
     return {k: pd.DataFrame(v) for k, v in rows.items()}
 
 
+def build_statement_sections(path: str | Path) -> StatementSections:
+    raw_sections = read_statement_csv(path)
+    
+    meta = extract_statement_metadata(raw_sections.get("Statement", pd.DataFrame()))
+    account = raw_sections.get("Accounts", pd.DataFrame())
+    pos = raw_sections.get("Positions", pd.DataFrame())
+    open_pos = raw_sections.get("Open Positions", pd.DataFrame())
+    divs = raw_sections.get("Dividends", pd.DataFrame())
+    performance = raw_sections.get("Realized & Unrealized Performance Summary", pd.DataFrame())
+    nav = raw_sections.get("Net Asset Value", pd.DataFrame())
+
+    return StatementSections(
+        raw_sections=raw_sections, 
+        statement_metadata=meta, 
+        accounts=account,
+        positions=pos, 
+        open_positions=open_pos, 
+        dividends=divs, 
+        perf_summary=performance, 
+        nav_summary=nav)
+    
+   
+# --- HELPER FUNCTIONS --- 
 def extract_statement_metadata(statement: pd.DataFrame) -> StatementMetadata:
     """Extracts metadata from the 'Statement' section in IKBR CSV."""
     if statement.empty:
@@ -137,7 +158,7 @@ def extract_generated_date(sections: dict) -> str:
     except Exception:
         pass
         
-    return "2024-01-01" # Fallback
+    return "2025-07-30" # Fallback
 
 
 def extract_symbol_from_description(description: str) -> str | None:
@@ -213,90 +234,122 @@ def get_total_nav_from_file(sections: StatementSections) -> float:
     return 0.0
 
 
-def build_statement_sections(path: str | Path) -> StatementSections:
-    sections = read_statement_csv(path)
-    
-    meta = extract_statement_metadata(sections.get("Statement", pd.DataFrame()))
-    account = sections.get("Accounts", pd.DataFrame())
-    pos = sections.get("Positions", pd.DataFrame())
-    open_pos = sections.get("Open Positions", pd.DataFrame())
-    divs = sections.get("Dividends", pd.DataFrame())
-    trades = sections.get("Trades", pd.DataFrame())
-    nav = sections.get("Net Asset Value", pd.DataFrame())
-
-    return StatementSections(sections, meta, account, pos, open_pos, divs, trades, nav)
-
-
+# --- MAIN CALCULATION LOGIC ---
+# --- MAIN CALCULATION LOGIC ---
 def calculate_cumulative_returns_with_dividends(sections: StatementSections) -> CumulativeReturnResults:
-    if sections.open_positions.empty:
-        return CumulativeReturnResults(pd.DataFrame(), pd.DataFrame(), 0.0)
-        
-    df = sections.open_positions.copy()
-    df = df[df['Symbol'].str.strip() != '']
-    df['Symbol'] = df['Symbol'].str.strip().str.upper()
     
-    df['cost_basis'] = df['Cost Basis'].apply(_coerce_float)
-    df['market_value'] = df['Value'].apply(_coerce_float)
-    df['quantity'] = df['Quantity'].apply(_coerce_float)
-
-    # --- DIVIDENDS & ORPHANS ---
-    orphaned_total = 0.0
-    
-    if not sections.dividends.empty:
-        divs = sections.dividends.copy()
-        if "Symbol" not in divs.columns and "Description" in divs.columns:
-            divs['Symbol'] = divs['Description'].apply(extract_symbol_from_description)
-            
-        divs['Symbol'] = divs['Symbol'].str.strip().str.upper()
-        divs['Amount'] = divs['Amount'].apply(_coerce_float)
-        
-        # 1. Total Dividends per Ticker
-        div_summary = divs.groupby('Symbol')['Amount'].sum().rename('total_dividends')
-        
-        # 2. Identify Orphans (Dividends for tickers NOT in Open Positions)
-        held_tickers = df['Symbol'].unique()
-        all_div_tickers = div_summary.index.unique()
-        orphan_tickers = [t for t in all_div_tickers if t not in held_tickers]
-        
-        if orphan_tickers:
-            orphaned_total = div_summary.loc[orphan_tickers].sum()
-            
-        # 3. Merge Held Dividends
-        df = df.merge(div_summary, on='Symbol', how='left')
+    # A. PREPARE OPEN POSITIONS
+    if sections.positions.empty:
+        df = pd.DataFrame(columns=['Symbol', 'cost_basis', 'market_value'])
     else:
-        df['total_dividends'] = 0.0
+        df = sections.positions.copy()
         
-    df['total_dividends'] = df['total_dividends'].fillna(0.0)
-    
-    # Calculate Returns for Held Positions
-    df['total_ending_value'] = df['market_value'] + df['total_dividends']
-    
-    def calc_ret(row):
-        if row['cost_basis'] and row['cost_basis'] != 0:
-            return (row['total_ending_value'] / row['cost_basis']) - 1.0
-        return 0.0
+    if not df.empty and 'Symbol' in df.columns:
+        # 1. Clean Symbol
+        df = df[df['Symbol'].str.strip() != '']
+        df['Symbol'] = df['Symbol'].str.strip().str.upper()
+        
+        # 3. Coerce Values
+        if 'Cost Basis' in df.columns:
+            df['cost_basis'] = df['Cost Basis'].apply(_coerce_float)
+        else:
+            df['cost_basis'] = 0.0
 
-    df['cumulative_return'] = df.apply(calc_ret, axis=1)
+        if 'Value' in df.columns:
+            df['market_value'] = df['Value'].apply(_coerce_float)
+        else:
+            df['market_value'] = 0.0
+
+    # B. PROCESS REALIZED P/L
+    realized_pl_map = {}
+    if not sections.perf_summary.empty:
+        p_df = sections.perf_summary.copy()
+        
+        if 'Symbol' in p_df.columns and 'Realized Total' in p_df.columns:
+            p_df = p_df[p_df['Symbol'].str.strip() != '']
+            p_df['Symbol'] = p_df['Symbol'].str.strip().str.upper()
+            
+            p_df['Realized Total'] = p_df['Realized Total'].apply(_coerce_float)
+            realized_pl_map = p_df.groupby('Symbol')['Realized Total'].sum().to_dict()
+
+    # C. PROCESS DIVIDENDS
+    div_map = {}
+    if not sections.dividends.empty:
+        d_df = sections.dividends.copy()
+        if "Symbol" not in d_df.columns and "Description" in d_df.columns:
+            d_df['Symbol'] = d_df['Description'].apply(extract_symbol_from_description)
+            
+        if "Symbol" in d_df.columns:
+            d_df['Symbol'] = d_df['Symbol'].str.strip().str.upper()
+            d_df['Amount'] = d_df['Amount'].apply(_coerce_float)
+            div_map = d_df.groupby('Symbol')['Amount'].sum().to_dict()
+
+    # D. MERGE ALL DATA
+    all_tickers = set(df['Symbol'].unique()) | set(realized_pl_map.keys()) | set(div_map.keys())
+    all_tickers.discard(None)
+    all_tickers.discard('')
+
+    final_rows = []
     
-    return CumulativeReturnResults(positions=df, buckets=pd.DataFrame(), orphaned_divs=orphaned_total)
+    for ticker in all_tickers:
+        held_rows = df[df['Symbol'] == ticker]
+        
+        if not held_rows.empty:
+            cost = held_rows['cost_basis'].sum()
+            mv = held_rows['market_value'].sum()
+            
+            # --- THE SAFETY VALVE ---
+            # If Market Value exists but Cost Basis is 0 (common for Cash/Transfers),
+            if cost == 0.0 and mv != 0.0:
+                cost = mv
+                
+        else:
+            cost = 0.0
+            mv = 0.0
+            
+        r_pl = realized_pl_map.get(ticker, 0.0)
+        divs = div_map.get(ticker, 0.0)
+        
+        final_rows.append({
+            'ticker': ticker,
+            'avg_cost': cost,
+            'raw_value': mv,
+            'realized_pl': r_pl,
+            'total_dividends': divs
+        })
+        
+    final_df = pd.DataFrame(final_rows)
+
+    # E. FINAL METRICS
+    if not final_df.empty:
+        final_df['total_generated_value'] = final_df['raw_value'] + final_df['total_dividends'] + final_df['realized_pl']
+        
+        def calc_ret(row):
+            if row['avg_cost'] != 0:
+                return (row['total_generated_value'] / row['avg_cost']) - 1.0
+            return 0.0
+
+        final_df['cumulative_return'] = final_df.apply(calc_ret, axis=1)
+    
+    return CumulativeReturnResults(positions=final_df)
 
 
+# --- MAIN ENTRY POINT ---
 def get_portfolio_holdings(file_path, benchmark_default_date: str):
     """
-    Returns: (DataFrame, account title, report_date, total_nav_from_file, orphaned_dividends)
+    Returns: (DataFrame, account title, report_date, total_nav_from_file)
     """
     sections = build_statement_sections(file_path)
+    account_title = extract_account_name(sections.accounts)
     results = calculate_cumulative_returns_with_dividends(sections)
     
-    account_title = extract_account_name(sections.accounts)
-    
-    # Get True NAV
-    total_nav = get_total_nav_from_file(sections)
-
     # Extract Date
     meta = sections.statement_metadata
     raw_date = meta.when_generated
     report_date = raw_date.split(',')[0].strip() if raw_date else benchmark_default_date
+    
+    # Get True NAV
+    total_nav = get_total_nav_from_file(sections)
 
     if results.positions.empty:
         return pd.DataFrame(), report_date, total_nav, 0.0
@@ -307,10 +360,6 @@ def get_portfolio_holdings(file_path, benchmark_default_date: str):
         'market_value': 'raw_value',
         'cost_basis': 'avg_cost'
     })
-    
-    # NOTE: We do NOT rely on 'Model' anymore for Asset Class.
-    # We will do full Auto-Classification in main.py
-    
     cols = ['ticker', 'avg_cost', 'raw_value', 'total_dividends', 'cumulative_return']
     
     return PortfolioData(
@@ -318,46 +367,15 @@ def get_portfolio_holdings(file_path, benchmark_default_date: str):
         account_title=account_title,
         report_date=report_date,
         total_nav=total_nav,
-        orphaned_divs=results.orphaned_divs,
     )
 
 # ========================================
-#  ASSET CLASSIFICATION MECHANICISMS below
+#  ASSET CLASSIFICATION MECHANICISMS (WIP)
 # ========================================
-
-# # NO LONGER USING
-# def normalize_model_bucket(model: str) -> str:
-#     """
-#     Maps IBKR Model names to your 5 Standard Buckets.
-#     Uses keyboard matching to match assets to asset class/bucket.
-#     """
-#     if not model: return "Unclassified"
-#     cleaned = model.strip().lower()
-#     # 1. U.S. Equities
-#     if "domestic" in cleaned or "u.s" in cleaned or "us " in cleaned:
-#         return "U.S. Equities"
-#     # 2. International Equities
-#     if "international" in cleaned:
-#         return "International Equities"
-#     # 3. Fixed Income
-#     if "fixed" in cleaned or "income" in cleaned:
-#         return "Fixed Income"
-#     # 4. Alternative Assets (Real Assets)
-#     if "alternative" in cleaned:
-#         return "Alternative Assets" 
-#     # 5. Cash
-#     if "cash" in cleaned:
-#         return "Cash"   
-#     # Handle "Independent" or unknown
-#     return "Unclassified"
-
-
-# WORK IN PROGRESS - ASSET-CLASS SORTING AUTOMATION
 def auto_classify_asset(ticker: str, security_name: str) -> str:
     """
     Determines Asset Class based on Ticker and Official Name.
-    Uses 'Specific to General' logic to catch Cash Equivalents (VGSH)
-    before they get caught by Fixed Income (AGG).
+    Currently uses hard-coded asset classification and then keywords.
     """
     t = str(ticker).upper().strip()
     n = str(security_name).upper().strip()
