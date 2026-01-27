@@ -1,7 +1,7 @@
 import yfinance as yf
 import pandas as pd
 
-def fetch_benchmark_returns_yf(tickers, start_date=None):
+def fetch_benchmark_returns_yf(tickers, start_date=None, end_date=None):
     """
     Fetches Daily Total Returns (Adjusted Close % Change) from Yahoo Finance.
     Replicates the output format of the WRDS loader.
@@ -42,6 +42,10 @@ def fetch_benchmark_returns_yf(tickers, start_date=None):
         # Convert Prices -> Returns
         returns = prices.pct_change()
         
+        # Cut off data strictly at the report date
+        if end_date:
+            returns = returns.loc[:end_date]
+            
         # Yahoo often returns data slightly before start_date if using 'max', 
         # but here we are good. We just drop the first NaN row.
         return returns.dropna(how='all')

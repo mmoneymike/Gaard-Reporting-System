@@ -108,7 +108,7 @@ def run_pipeline():
     
     bench_growth = pd.DataFrame()
     try:
-        bench_returns = fetch_benchmark_returns_yf(unique_benchmarks, start_date=BENCHMARK_START_FIXED)
+        bench_returns = fetch_benchmark_returns_yf(unique_benchmarks, start_date=BENCHMARK_START_FIXED, end_date=report_date)
         if not bench_returns.empty:
             bench_growth = get_cumulative_index(bench_returns, start_value=100)
     except Exception as e:
