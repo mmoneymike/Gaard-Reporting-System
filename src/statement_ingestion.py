@@ -18,6 +18,7 @@ class PortfolioData:
     account_title: str
     report_date: str
     total_nav: float
+    settled_cash: float
 
 
 @dataclass(frozen=True)
@@ -37,6 +38,7 @@ class StatementSections:
     dividends: pd.DataFrame                 
     perf_summary: pd.DataFrame
     nav_summary: pd.DataFrame               # Account Total
+    cash_report: pd.DataFrame
 
 
 @dataclass(frozen=True)
@@ -83,6 +85,7 @@ def build_statement_sections(path: str | Path) -> StatementSections:
     divs = raw_sections.get("Dividends", pd.DataFrame())
     performance = raw_sections.get("Realized & Unrealized Performance Summary", pd.DataFrame())
     nav = raw_sections.get("Net Asset Value", pd.DataFrame())
+    cash = raw_sections.get("Cash Report", pd.DataFrame())
 
     return StatementSections(
         raw_sections=raw_sections, 
@@ -92,7 +95,8 @@ def build_statement_sections(path: str | Path) -> StatementSections:
         open_positions=open_pos, 
         dividends=divs, 
         perf_summary=performance, 
-        nav_summary=nav)
+        nav_summary=nav,
+        cash_report=cash)
     
    
 # --- HELPER FUNCTIONS --- 
@@ -118,53 +122,17 @@ def extract_statement_metadata(statement: pd.DataFrame) -> StatementMetadata:
     
     
 def extract_account_name(accounts_df: pd.DataFrame) -> str:
-    """
-    Extracts the Account Name from the 'Accounts' section of the raw dataframe.
-    Expected format: Accounts, Data, [Name], [ID], ...
-    """
-    if accounts_df.empty:
-        return "Total Portfolio"
-   
-    if "Name" not in accounts_df.columns:
-        return "Total Portfolio"
-
+    if accounts_df.empty: return "Total Portfolio"
+    if "Name" not in accounts_df.columns: return "Total Portfolio"
     try:
-        # Grab the first row's value in the "Name" column
         name_val = accounts_df["Name"].iloc[0]
         return str(name_val).strip()
     except Exception:
         return "Total Portfolio"
 
 
-def extract_generated_date(sections: dict) -> str:
-    """
-    Looks into the 'Statement' section for 'WhenGenerated'.
-    Format in CSV: "2026-01-13, 10:55:58 EST"
-    Returns: "2026-01-13"
-    """
-    df = sections.get("Statement", pd.DataFrame())
-    if df.empty: return "2024-01-01" # Fallback
-
-    # Look for the row where 'Field Name' is 'WhenGenerated'
-    # Note: Column names might vary, so we check columns 0 and 1 roughly
-    try:
-        # Usually Column 0 is 'Field Name', Column 1 is 'Field Value'
-        # But based on your CSV snippet: Field Name, Field Value
-        row = df[df['Field Name'] == 'WhenGenerated']
-        if not row.empty:
-            raw_date = row['Field Value'].iloc[0]
-            # Split "2026-01-13, 10:55..." -> "2026-01-13"
-            return raw_date.split(',')[0].strip()
-    except Exception:
-        pass
-        
-    return "2025-07-30" # Fallback
-
-
 def extract_symbol_from_description(description: str) -> str | None:
     if not description: return None
-    # --- FIXED REGEX ---
-    # Looks for characters like 'ICSH' followed immediately by a literal '('
     try:
         match = re.match(r"^([A-Z0-9.]+)\(", description.strip())
         return match.group(1) if match else None
@@ -172,15 +140,90 @@ def extract_symbol_from_description(description: str) -> str | None:
         return None
 
 
+def extract_total_nav(sections: StatementSections) -> float:
+    """
+    STRICT NAV EXTRACTION:
+    1. Section: 'Net Asset Value'
+    2. Row Identifier: 'Account' column == 'Account Total'
+    3. Target Value: 'Ending Net Asset Value' column
+    """
+    df = sections.nav_summary
+    
+    # 1. Validation: Check if section and required columns exist
+    if df is None or df.empty:
+        return 0.0
+        
+    required_cols = ['Account', 'Ending Net Asset Value']
+    if not all(col in df.columns for col in required_cols):
+        return 0.0
+
+    try:
+        # 2. Hardcode Row Selection
+        # Filter strictly for 'Account Total' in the 'Account' column
+        # .strip() handles potential whitespace like "Account Total "
+        row = df[df['Account'].astype(str).str.strip() == 'Account Total']
+        
+        if row.empty:
+            return 0.0
+
+        # 3. Extract Value
+        raw_val = row['Ending Net Asset Value'].iloc[0]
+        
+        # 4. Clean & Convert
+        return _coerce_float(raw_val)
+
+    except Exception:
+        return 0.0
+
+
+def extract_settled_cash(sections: pd.DataFrame):
+    try:
+        # 1. Hardcode Section
+        if not hasattr(sections, 'cash_report'):
+             return 0.0
+             
+        df = sections.cash_report
+        
+        if df is None or df.empty:
+            return 0.0
+
+        # 2. Hardcode Row Selection
+        if 'Account' not in df.columns:
+            return 0.0
+            
+        row = df[df['Account'].astype(str).str.strip() == 'Account Total']
+        
+        if row.empty:
+            return 0.0
+
+        # 3. Hardcode Column Selection
+        if 'Ending Cash' not in df.columns:
+            return 0.0
+            
+        raw_val = row['Ending Cash'].iloc[0]
+        
+        # 4. Clean & Convert
+        if isinstance(raw_val, str):
+            clean = raw_val.replace('$', '').replace(',', '').replace(' ', '')
+            if '(' in clean and ')' in clean:
+                clean = '-' + clean.replace('(', '').replace(')', '')
+            return float(clean)
+            
+        return float(raw_val)
+
+    except Exception as e:
+        print(f"Error extracting hardcoded cash: {e}")
+        return 0.0
+    
+
 def _coerce_float(value) -> float:
-    """Robust string-to-float converter (handles '$1,000.00' and '(500)')."""
+    """Robust string-to-float converter."""
     if value is None or value == "": return 0.0
     if isinstance(value, (int, float)): return float(value)
     
     cleaned = str(value).replace(",", "").replace("$", "").strip()
     if not cleaned: return 0.0
     
-    # Handle Accounting Negative: (100) -> -100
     if cleaned.startswith("(") and cleaned.endswith(")"):
         cleaned = "-" + cleaned[1:-1]
         
@@ -188,68 +231,29 @@ def _coerce_float(value) -> float:
         return float(cleaned)
     except ValueError:
         return 0.0
+        
+def is_valid_ticker(ticker: str) -> bool:
+    t = str(ticker).upper().strip()
+    if not t: return False
+    invalid = ['TOTAL', 'SUBTOTAL', 'STOCKS', 'EQUITY', 'BONDS', 'CASH', 'FUNDS']
+    if any(x in t for x in invalid): return False
+    return True
 
 
-def get_total_nav_from_file(sections: StatementSections) -> float:
-    """
-    Scans the 'Net Asset Value' section for the 'Account Total' row 
-    and 'Ending Net Asset Value' column.
-    """
-    df = sections.nav_summary
-    if df.empty: return 0.0
-    
-    # We look for rows where the header column (usually col 0 or 'Asset Class') says 'Total'
-    # Based on standard IBKR CSV structure for NAV section:
-    # Asset Class | ... | Ending Net Asset Value
-    
-    # Try to find the Total row
-    # Iterate loosely to find "Account Total" in the dataframe
-    
-    try:
-        # Standard IBKR CSV often has 'Asset Class' as the key column in NAV section
-        if 'Asset Class' in df.columns and 'Ending' in df.columns: # 'Ending' matches 'Ending Net Asset Value' partially?
-             # Let's look for exact column match
-             target_col = [c for c in df.columns if "Ending" in c and "Net Asset Value" in c]
-             if not target_col: return 0.0
-             target_col = target_col[0]
-             
-             # Find row where Asset Class is 'Account Total' or 'Total'
-             row = df[df['Asset Class'].str.contains('Total', case=False, na=False)]
-             if not row.empty:
-                 return _coerce_float(row[target_col].iloc[0])
-                 
-        # Fallback: Search all string columns for "Account Total"
-        # This covers if the column name changed
-        for col in df.select_dtypes(include=['object']):
-            row = df[df[col].astype(str).str.contains('Account Total', case=False, na=False)]
-            if not row.empty:
-                # Find the column with the big number (Ending NAV)
-                # Usually the last column or one named "Ending..."
-                target_col = [c for c in df.columns if "Ending" in c and "Net Asset Value" in c]
-                if target_col:
-                    return _coerce_float(row[target_col[0]].iloc[0])
-    except Exception:
-        pass
-
-    return 0.0
-
-
-# --- MAIN CALCULATION LOGIC ---
 # --- MAIN CALCULATION LOGIC ---
 def calculate_cumulative_returns_with_dividends(sections: StatementSections) -> CumulativeReturnResults:
     
     # A. PREPARE OPEN POSITIONS
-    if sections.positions.empty:
+    if sections.open_positions.empty:
         df = pd.DataFrame(columns=['Symbol', 'cost_basis', 'market_value'])
     else:
-        df = sections.positions.copy()
+        df = sections.open_positions.copy()
         
     if not df.empty and 'Symbol' in df.columns:
-        # 1. Clean Symbol
         df = df[df['Symbol'].str.strip() != '']
         df['Symbol'] = df['Symbol'].str.strip().str.upper()
+        df = df[df['Symbol'].apply(is_valid_ticker)]
         
-        # 3. Coerce Values
         if 'Cost Basis' in df.columns:
             df['cost_basis'] = df['Cost Basis'].apply(_coerce_float)
         else:
@@ -268,6 +272,7 @@ def calculate_cumulative_returns_with_dividends(sections: StatementSections) -> 
         if 'Symbol' in p_df.columns and 'Realized Total' in p_df.columns:
             p_df = p_df[p_df['Symbol'].str.strip() != '']
             p_df['Symbol'] = p_df['Symbol'].str.strip().str.upper()
+            p_df = p_df[p_df['Symbol'].apply(is_valid_ticker)]
             
             p_df['Realized Total'] = p_df['Realized Total'].apply(_coerce_float)
             realized_pl_map = p_df.groupby('Symbol')['Realized Total'].sum().to_dict()
@@ -281,6 +286,7 @@ def calculate_cumulative_returns_with_dividends(sections: StatementSections) -> 
             
         if "Symbol" in d_df.columns:
             d_df['Symbol'] = d_df['Symbol'].str.strip().str.upper()
+            d_df = d_df[d_df['Symbol'].apply(is_valid_ticker)]
             d_df['Amount'] = d_df['Amount'].apply(_coerce_float)
             div_map = d_df.groupby('Symbol')['Amount'].sum().to_dict()
 
@@ -298,11 +304,9 @@ def calculate_cumulative_returns_with_dividends(sections: StatementSections) -> 
             cost = held_rows['cost_basis'].sum()
             mv = held_rows['market_value'].sum()
             
-            # --- THE SAFETY VALVE ---
-            # If Market Value exists but Cost Basis is 0 (common for Cash/Transfers),
+            # Safety Valve: Fix infinite return on Cash-like positions
             if cost == 0.0 and mv != 0.0:
                 cost = mv
-                
         else:
             cost = 0.0
             mv = 0.0
@@ -320,7 +324,6 @@ def calculate_cumulative_returns_with_dividends(sections: StatementSections) -> 
         
     final_df = pd.DataFrame(final_rows)
 
-    # E. FINAL METRICS
     if not final_df.empty:
         final_df['total_generated_value'] = final_df['raw_value'] + final_df['total_dividends'] + final_df['realized_pl']
         
@@ -348,75 +351,34 @@ def get_portfolio_holdings(file_path, benchmark_default_date: str):
     raw_date = meta.when_generated
     report_date = raw_date.split(',')[0].strip() if raw_date else benchmark_default_date
     
-    # Get True NAV
-    total_nav = get_total_nav_from_file(sections)
+    # --- Robust NAV Extraction ---
+    # We sum the column directly instead of looking for specific "Total" rows
+    total_nav = extract_total_nav(sections)
 
-    if results.positions.empty:
-        return pd.DataFrame(), report_date, total_nav, 0.0
-
-    # Rename to Pipeline Standard
+    # --- Strict Settled Cash Extraction ---
+    settled_cash = extract_settled_cash(sections)
+                
+    # --- Ensure realized_pl is passed to main.py ---
+    # We rename columns first
     df = results.positions.rename(columns={
         'Symbol': 'ticker',
         'market_value': 'raw_value',
         'cost_basis': 'avg_cost'
     })
-    cols = ['ticker', 'avg_cost', 'raw_value', 'total_dividends', 'cumulative_return']
+    
+    # MUST include 'realized_pl' so main.py summary table works
+    cols = ['ticker', 'avg_cost', 'raw_value', 'total_dividends', 'realized_pl', 'cumulative_return']
+    
+    # Safety check if df is empty or missing columns
+    if df.empty:
+        final_df = pd.DataFrame(columns=cols)
+    else:
+        final_df = df[cols].copy()
     
     return PortfolioData(
-        holdings=df[cols], 
+        holdings=final_df, 
         account_title=account_title,
         report_date=report_date,
         total_nav=total_nav,
+        settled_cash=settled_cash
     )
-
-# ========================================
-#  ASSET CLASSIFICATION MECHANICISMS (WIP)
-# ========================================
-def auto_classify_asset(ticker: str, security_name: str) -> str:
-    """
-    Determines Asset Class based on Ticker and Official Name.
-    Currently uses hard-coded asset classification and then keywords.
-    """
-    t = str(ticker).upper().strip()
-    n = str(security_name).upper().strip()
-    
-    # --- 1. HARDCODED ASSET LIST ---
-    cash_tickers = [
-        'ICSH'                     
-    ]
-    if t in cash_tickers: return 'Cash'
-
-    intl_tickers = [
-        'VEA', 'VWO', 'IMTM'
-    ]
-    if t in intl_tickers: return 'International Equities'
-    
-    fi_tickers = [
-        'BND', 'VGSH', 'VGIT'
-    ]
-    if t in fi_tickers: return 'Fixed Income'
-    
-    alt_tickers = [
-        'VNQ', 'BCI'
-    ]
-    if t in alt_tickers: return 'Alternative Assets'
-    
-    # --- 2. SMART KEYWORD LOGIC ---
-    # INTERNATIONAL EQUITIES
-    intl_keywords = ['INTL', 'INTERNATIONAL', 'EMERGING', 'EUROPE', 'PACIFIC', 'ASIA', 'CHINA', 'JAPAN', 'EX-US', 'DEVELOPED MKT', 'VXUS', 'VEA', 'VWO']
-    if any(k in n for k in intl_keywords):
-        return 'International Equities'
-        
-    # FIXED INCOME
-    fi_keywords = ['BOND', 'TREASURY', 'AGGREGATE', 'FIXED INC', 'MUNICIPAL', 'AGNCY', 'CORP BD', 'AGG', 'LQD']
-    if any(k in n for k in fi_keywords):
-        return 'Fixed Income'
-        
-    # ALTERNATIVE ASSETS (Real Assets)
-    alt_keywords = ['REIT', 'REAL ESTATE', 'GOLD', 'SILVER', 'COMMODITY', 'CRYPTO', 'BITCOIN', 'OIL', 'GLD', 'IAU', 'SLV', 'VNQ']
-    if any(k in n for k in alt_keywords):
-        return 'Alternative Assets'
-
-    # --- 3. DEFAULT ---
-    # If it's in the database but matches none of the above, it's likely a standard US Stock
-    return 'U.S. Equities'

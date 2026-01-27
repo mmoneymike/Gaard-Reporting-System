@@ -3,10 +3,10 @@ import os
 import datetime
 
 # --- IMPORTS ---
-from statement_ingestion import get_portfolio_holdings, auto_classify_asset
+from statement_ingestion import get_portfolio_holdings
 from yf_loader import fetch_benchmark_returns_yf, fetch_security_names_yf
 from report_metrics import get_cumulative_return, get_cumulative_index
-from excel_writer import write_portfolio_report
+from excel_writer import write_portfolio_report 
 
 # ==========================================
 # CONFIGURATION
@@ -17,10 +17,8 @@ BENCHMARK_CONFIG = {
     'Fixed Income':         ['AGG', 'BND'],
     'Alternative Assets':   ['VNQ', 'GLD'],
     'Cash':                 ['BIL'],
-    'Unclassified':         []
 }
 
-# Map Tickers to Friendly Names
 BENCHMARK_NAMES = {
     'SPY': 'S&P 500', 'IWV': 'Russell 3000',
     'ACWI': 'MSCI ACWI', 'VXUS': 'Total Int\'l Stock',
@@ -29,6 +27,28 @@ BENCHMARK_NAMES = {
     'BIL': '1-3 Month T-Bills'
 }
 
+# --- LOCAL AUTO-CLASSIFY ---
+def auto_classify_asset(ticker: str, security_name: str) -> str:
+    t = str(ticker).upper().strip()
+    n = str(security_name).upper().strip()
+    
+    # 1. Hardcoded
+    if t in ['ICSH']: return 'Cash'
+    if t in ['VEA', 'VWO', 'IMTM', 'VXUS']: return 'International Equities'
+    if t in ['BND', 'VGSH', 'VGIT']: return 'Fixed Income'
+    if t in ['VNQ', 'BCI']: return 'Alternative Assets'
+    if t == 'CASH_BAL': return 'Cash'
+    
+    # 2. Keywords
+    if any(k in n for k in ['INTL', 'EMERGING', 'EUROPE', 'ASIA', 'DEVELOPED']): return 'International Equities'
+    if any(k in n for k in ['BOND', 'TREASURY', 'FIXED INC', 'AGGREGATE']): return 'Fixed Income'
+    if any(k in n for k in ['REIT', 'REAL ESTATE', 'GOLD', 'COMMODITY', 'BITCOIN']): return 'Alternative Assets'
+
+    return 'U.S. Equities'
+
+# ==========================================
+# MAIN PIPELINE
+# ==========================================
 def run_pipeline():
     # --- PATH SETUP ---
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -37,10 +57,8 @@ def run_pipeline():
     
     IBKR_FILE = os.path.join(project_root, "data", "U21244041_20250730_20260112.csv")
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
-    
     EXCEL_FILE = os.path.join(output_dir, f"Portfolio_Report_{timestamp}.xlsx")
-    
-    BENCHMARK_START_FIXED = "2025-07-30" # CURRENTLY STATIC 
+    BENCHMARK_START_FIXED = "2025-07-30" # CURRENTLY STATIC
 
     print(f"--- 1. Ingesting Portfolio (Internal) ---")
     if not os.path.exists(IBKR_FILE):
@@ -54,8 +72,8 @@ def run_pipeline():
         account_title = portfolio_data.account_title
         report_date = portfolio_data.report_date
         total_nav = portfolio_data.total_nav
+        settled_cash = portfolio_data.settled_cash
 
-        
         # 2. Auto-Classify
         print("   > Running Auto-Classification...")
         all_tickers = holdings['ticker'].unique().tolist()
@@ -67,41 +85,59 @@ def run_pipeline():
             axis=1
         )
 
-        # 3. Cash Plug
-        positions_val = holdings['raw_value'].sum()
-        cash_plug_val = total_nav - positions_val if total_nav > 0 else 0.0
+        # 3. Cash Logic
+        # Clean up: Remove generic/duplicate cash rows from the raw CSV
+        cash_tickers = ['USD', 'CASH', 'TOTAL CASH']
+        holdings = holdings[~holdings['ticker'].str.upper().isin(cash_tickers)].copy()
         
-        if abs(cash_plug_val) > 1.0: 
+        # Insert the Settled Cash Row (Strictly using the extracted number)
+        if settled_cash > 1.0:
             cash_row = {
                 'ticker': 'CASH_BAL',
-                'official_name': 'Cash & Sweeps (Reconciled)',
+                'official_name': 'Settled Cash',
                 'asset_class': 'Cash',
-                'avg_cost': cash_plug_val,
-                'raw_value': cash_plug_val,
+                'avg_cost': settled_cash,   
+                'raw_value': settled_cash,
                 'realized_pl': 0.0,
-                'total_dividends': 0.0,
+                'total_dividends': 0.0, 
                 'cumulative_return': 0.0
             }
             holdings = pd.concat([holdings, pd.DataFrame([cash_row])], ignore_index=True)
 
-        # Recalculate weights
-        total_mv = holdings['raw_value'].sum()
-        holdings['weight'] = holdings['raw_value'] / total_mv if total_mv else 0
+        # Reconcile to Official NAV
+        # We calculate: (Official NAV) - (Stocks + Settled Cash) = Accruals/Rounding
+        current_total = holdings['raw_value'].sum()
+        discrepancy = total_nav - current_total
 
-        # Recalculate Cash Return
-        cash_mask = holdings['ticker'] == 'CASH_BAL'
-        if cash_mask.any():
-            c_cost = holdings.loc[cash_mask, 'avg_cost'].iloc[0]
-            c_val = holdings.loc[cash_mask, 'raw_value'].iloc[0]
-            c_div = holdings.loc[cash_mask, 'total_dividends'].iloc[0]
-            if c_cost != 0:
-                holdings.loc[cash_mask, 'cumulative_return'] = (c_val + c_div) / c_cost - 1.0
-
+        if abs(discrepancy) > 1.0:
+            adj_row = {
+                'ticker': 'ACCRUALS',
+                'official_name': 'Portfolio Accruals/Other',
+                'asset_class': 'Other',
+                'avg_cost': discrepancy,
+                'raw_value': discrepancy,
+                'realized_pl': 0.0,
+                'total_dividends': 0.0,
+                'cumulative_return': 0.0
+            }
+            holdings = pd.concat([holdings, pd.DataFrame([adj_row])], ignore_index=True)
+            
+        # 4. Calculate Weights
+        total_value = holdings['raw_value'].sum()
+        
+        if total_value != 0:
+            holdings['weight'] = holdings['raw_value'] / total_value
+        else:
+            holdings['weight'] = 0.0
+            
+        holdings['weight'] = holdings['weight'].fillna(0.0)
+        holdings['cumulative_return'] = holdings['cumulative_return'].fillna(0.0)
+            
     except ValueError as e:
         print(f"Error unpacking data: {e}")
         return
 
-    # 4. Market Data
+    # 5. Market Data
     print("\n--- 2. Fetching Benchmark Data (Yahoo) ---")
     all_benchmarks = [t for sublist in BENCHMARK_CONFIG.values() for t in sublist]
     unique_benchmarks = list(set(all_benchmarks))
@@ -114,10 +150,10 @@ def run_pipeline():
     except Exception as e:
         print(f"Yahoo Connection Error: {e}")
 
-    # --- 5. PREPARE DATA FOR EXCEL ---
+    # --- 6. PREPARE DATA FOR EXCEL ---
     print("\n--- 3. Generating Excel Report ---")
     
-    # A. Total Metrics
+    # Total Metrics
     grand_cost = holdings['avg_cost'].sum()
     grand_val = holdings['raw_value'].sum()
     grand_divs = holdings['total_dividends'].sum()
@@ -131,7 +167,6 @@ def run_pipeline():
         'value': grand_val
     }
     
-    # B. Summary DataFrame
     summary_rows = []
     my_buckets = holdings['asset_class'].unique()
     
@@ -180,7 +215,7 @@ def run_pipeline():
 
     summary_df = pd.DataFrame(summary_rows)
 
-    # --- 6. WRITE TO EXCEL ---
+    # --- 7. WRITE TO EXCEL ---
     try:
         write_portfolio_report(
             account_title=account_title,
