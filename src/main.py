@@ -54,7 +54,6 @@ def run_pipeline():
         account_title = portfolio_data.account_title
         report_date = portfolio_data.report_date
         total_nav = portfolio_data.total_nav
-        orphaned_divs = portfolio_data.orphaned_divs
 
         
         # 2. Auto-Classify
@@ -79,7 +78,8 @@ def run_pipeline():
                 'asset_class': 'Cash',
                 'avg_cost': cash_plug_val,
                 'raw_value': cash_plug_val,
-                'total_dividends': orphaned_divs,
+                'realized_pl': 0.0,
+                'total_dividends': 0.0,
                 'cumulative_return': 0.0
             }
             holdings = pd.concat([holdings, pd.DataFrame([cash_row])], ignore_index=True)
