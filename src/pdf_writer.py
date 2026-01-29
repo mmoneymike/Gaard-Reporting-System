@@ -69,7 +69,6 @@ def generate_donut_chart(summary_df):
     )
     
     chart = (pie + text).properties(
-        title=alt.TitleParams("Asset Allocation", fontSize=14, color='#404040'),
         width=300,  # Adjusted width for side-by-side
         height=200
     )
@@ -82,7 +81,8 @@ def generate_donut_chart(summary_df):
 # ==========================================
 #  OVERALL PORTFOLIO REPORT
 # ==========================================
-def write_portfolio_report(summary_df, holdings_df, total_metrics, report_date, output_path, account_title="Total Portfolio"):
+def write_portfolio_report(summary_df, holdings_df, total_metrics, risk_metrics, report_date, output_path, account_title="Total Portfolio",
+                           risk_benchmark_tckr="SPY", risk_time_horizon=1):
     print(f"   > Generating PDF Report: {output_path}")
     
     # 1. LANDSCAPE SETUP
@@ -123,13 +123,13 @@ def write_portfolio_report(summary_df, holdings_df, total_metrics, report_date, 
         row.cell(ret_str, style=FontFace(size_pt=14, emphasis="BOLD", color=(50, 150, 50)))
 
     pdf.ln(5)
-
+     
     # 2. SUMMARY TABLE (Left Aligned)
     pdf.set_font('Helvetica', 'B', 11)
     pdf.set_text_color(0, 0, 0)
-    pdf.cell(0, 8, "Asset Allocation", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 8, "Allocation Summary", new_x="LMARGIN", new_y="NEXT")
     
-    # Widths sum to ~130mm (approx half page)
+    # Widths sum to 140mm
     with pdf.table(col_widths=(50, 35, 25, 20), text_align=("LEFT", "RIGHT", "RIGHT", "RIGHT"), 
                    borders_layout="HORIZONTAL_LINES", align="LEFT", width=130) as table:
         header = table.row()
@@ -164,10 +164,60 @@ def write_portfolio_report(summary_df, holdings_df, total_metrics, report_date, 
     try:
         chart_img = generate_donut_chart(summary_df)
         if chart_img:      
-            y_offset = 81                    # Adjust for Vertical Alignment
-            pdf.set_y(start_y + y_offset) 
-            pdf.set_x(170)                    # Adjust for Horizontal Alignment
-            pdf.image(chart_img, w=110) 
+            chart_y_offset = 54                     # Adjust for Vertical Alignment
+            pdf.set_y(start_y + chart_y_offset) 
+            pdf.set_x(155)                          # Adjust for Horizontal Alignment
+            pdf.set_font('Helvetica', 'B', 11)
+            pdf.set_text_color(0, 0, 0)
+            pdf.cell(0, 8, "Asset Allocation", new_x="LMARGIN", new_y="NEXT")
+            
+            pdf.set_y(start_y + chart_y_offset + 8)
+            pdf.set_x(160)
+            pdf.image(chart_img, w=110)
+            
+        # --- RISK METRICS TABLE ---
+        risk_y_offset = chart_y_offset + 75
+        risk_y_pos = start_y + risk_y_offset
+        if risk_metrics:
+            pdf.set_y(risk_y_pos)
+            pdf.set_x(155)
+            
+            # Risk Header
+            pdf.set_font('Helvetica', 'B', 11)
+            pdf.set_text_color(0, 0, 0)
+            header_text = f"Risk Profile: {risk_time_horizon} vs {risk_benchmark_tckr}"
+            pdf.cell(0, 8, header_text, new_x="LMARGIN", new_y="NEXT")
+            pdf.set_x(165)
+            
+            # Format values
+            beta_str = f"{risk_metrics.get('Beta', 0):.2f}"
+            stdev_str = f"{risk_metrics.get('Daily Standard Deviation', 0):.2%}" 
+            annual_vol = f"{risk_metrics.get('Annual Volatility', 0):.2%}"
+            sharpe_str = f"{risk_metrics.get('Sharpe Ratio', 0):.2f}"
+            r2_str = f"{risk_metrics.get('R2', 0):.2f}"
+
+            # 1-Row Table with 8 Columns (Label, Val, Label, Val...)
+            # Widths: (Beta:12+12) + (Sharpe:15+12) + (Stdev:22+15) + (R2:18+12) = ~120mm
+            col_widths = (10, 14, 13, 14, 20, 17, 16, 14)
+            
+            with pdf.table(col_widths=col_widths, borders_layout="NONE", align="LEFT", width=125) as table:
+                row = table.row()
+                
+                # Beta
+                row.cell("Beta", style=FontFace(size_pt=8, color=C_BLUE_PRIMARY))
+                row.cell(beta_str, style=FontFace(size_pt=9, emphasis="BOLD"))
+                
+                # Sharpe
+                row.cell("Sharpe", style=FontFace(size_pt=8, color=C_BLUE_PRIMARY))
+                row.cell(sharpe_str, style=FontFace(size_pt=9, emphasis="BOLD"))
+                
+                # Stdev
+                row.cell("Std Dev (Day)", style=FontFace(size_pt=8, color=C_BLUE_PRIMARY))
+                row.cell(stdev_str, style=FontFace(size_pt=9, emphasis="BOLD"))
+                
+                # R2
+                row.cell("R-Square", style=FontFace(size_pt=8, color=C_BLUE_PRIMARY))
+                row.cell(r2_str, style=FontFace(size_pt=9, emphasis="BOLD"))   
     except Exception as e:
         print(f"Chart Error: {e}")
 

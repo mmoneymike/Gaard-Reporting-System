@@ -8,6 +8,7 @@ from yf_loader import fetch_benchmark_returns_yf, fetch_security_names_yf
 from report_metrics import get_cumulative_return, get_cumulative_index
 from pdf_writer import write_portfolio_report
 from excel_writer import write_portfolio_report_xlsx
+from risk_analytics import calculate_portfolio_risk
 
 
 # ==========================================
@@ -28,6 +29,21 @@ BENCHMARK_NAMES = {
     'VNQ': 'Real Estate (REITs)', 'GLD': 'Gold',
     'BIL': '1-3 Month T-Bills'
 }
+
+# 1. Exact Matches: Tickers to remove if they match exactly (Case Insensitive)
+IGNORE_EXACT = [
+    'USD', 
+    'CASH', 
+    'TOTAL CASH',
+]
+
+# 2. Starts With: Useful for weird bonds, expired options, or specific series.
+IGNORE_STARTSWITH = [
+    '912797PN1',  # Treasury Bond Series
+]
+
+RISK_BENCHMARK_TCKR = 'AGG'
+RISK_TIME_HORIZON = 1
 
 # --- LOCAL AUTO-CLASSIFY ---
 def auto_classify_asset(ticker: str, security_name: str) -> str:
@@ -67,7 +83,7 @@ def run_pipeline():
         return
 
     try:
-        # 1. Load Data
+        # === 1. Load Data ===
         portfolio_data = get_portfolio_holdings(IBKR_FILE, BENCHMARK_START_FIXED)
         holdings = portfolio_data.holdings
         account_title = portfolio_data.account_title
@@ -80,7 +96,16 @@ def run_pipeline():
         PDF_FILE = os.path.join(output_dir, f"{account_title}_Portfolio_Report_{timestamp}.pdf")
         EXCEL_FILE = os.path.join(output_dir, f"{account_title}_Portfolio_Report_{timestamp}.xlsx")
         
-        # 2. Auto-Classify
+        print("   > Cleaning up Tickers...")
+        # A. Apply Exact Match Filter
+        holdings = holdings[~holdings['ticker'].astype(str).str.upper().isin(IGNORE_EXACT)].copy()
+        # B. Apply "Starts With" Filter (Loop through the config list)
+        for prefix in IGNORE_STARTSWITH:
+            holdings = holdings[~holdings['ticker'].astype(str).str.startswith(prefix)].copy()
+        # C. Remove Zero Value rows
+        holdings = holdings[holdings['raw_value'].abs() > 0.01].copy()
+        
+        # === 2. Auto-Classify ===
         print("   > Running Auto-Classification...")
         all_tickers = holdings['ticker'].unique().tolist()
         name_map = fetch_security_names_yf(all_tickers)
@@ -91,13 +116,7 @@ def run_pipeline():
             axis=1
         )
 
-        # 3. Cash Logic
-        # Clean up: Remove undesired / duplicate rows
-        exact_ignore = ['USD', 'CASH', 'TOTAL CASH']                                                # Remove generic cash rows
-        holdings = holdings[~holdings['ticker'].str.upper().isin(exact_ignore)].copy()
-        holdings = holdings[~holdings['ticker'].astype(str).str.startswith('912797PN1')].copy()     # For the Treasury Bond or similar patterns: This removes ANY ticker that starts with '912797PN1'
-        holdings = holdings[holdings['raw_value'].abs() > 0.01].copy()                              # Zero Value Removal: Removes anything with $0.00 value
-        
+        # === 3. Cash Logic ===
         # Insert the Settled Cash Row (Strictly using the extracted number)
         if settled_cash > 1.0:
             cash_row = {
@@ -130,7 +149,7 @@ def run_pipeline():
             }
             holdings = pd.concat([holdings, pd.DataFrame([adj_row])], ignore_index=True)
             
-        # 4. Calculate Weights
+        # === 4. Calculate Weights ===
         total_value = holdings['raw_value'].sum()
         
         if total_value != 0:
@@ -145,7 +164,8 @@ def run_pipeline():
         print(f"Error unpacking data: {e}")
         return
 
-    # 5. Market Data
+    # === 5. Market Data ===
+    # --- 5a. Calculate Benchmark Returns
     print("\n--- 2. Fetching Benchmark Data (Yahoo) ---")
     all_benchmarks = [t for sublist in BENCHMARK_CONFIG.values() for t in sublist]
     unique_benchmarks = list(set(all_benchmarks))
@@ -158,7 +178,17 @@ def run_pipeline():
     except Exception as e:
         print(f"Yahoo Connection Error: {e}")
 
-    # --- 6. PREPARE DATA FOR EXCEL ---
+    # --- 5b. Calculate Risk Metrics ---
+    print("\n--- 2b. Calculating Risk Profile ---")
+    risk_metrics = {}
+    try:
+        risk_metrics = calculate_portfolio_risk(holdings, benchmark_ticker=RISK_BENCHMARK_TCKR, lookback_years= RISK_TIME_HORIZON)
+        print("   > Risk Metrics Calculated:", risk_metrics)
+    except Exception as e:
+        print(f"Risk Calc Error: {e}")
+        risk_metrics = {'Beta': 0, 'R2': 0, 'Volatility': 0, 'Sharpe': 0}
+
+    # === 6. PREPARE DATA FOR PDF / EXCEL ===
     print("\n--- 3. Generating Excel Report ---")
     
     # Total Metrics
@@ -223,15 +253,19 @@ def run_pipeline():
 
     summary_df = pd.DataFrame(summary_rows)
 
-    # --- 7. WRITE TO EXCEL / PDF ---
+    # === 7. WRITE TO PDF / EXCEL ===
     try:
         write_portfolio_report(
             account_title=account_title,
             summary_df=summary_df,
             holdings_df=holdings,
             total_metrics=metrics,
+            risk_metrics=risk_metrics,
             report_date=report_date,
-            output_path=PDF_FILE
+            output_path=PDF_FILE,
+            
+            risk_benchmark_tckr=RISK_BENCHMARK_TCKR,
+            risk_time_horizon=RISK_TIME_HORIZON
         )
         print(f"DONE! Report Generatated: {os.path.basename(PDF_FILE)}")
     # try:
