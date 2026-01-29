@@ -1,3 +1,7 @@
 pandas
 yfinance
 XlsxWriter
+altair
+fpdf
+fpdf2
+scipy
