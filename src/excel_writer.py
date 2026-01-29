@@ -2,7 +2,7 @@ import pandas as pd
 import datetime
 import xlsxwriter
 
-def write_portfolio_report(
+def write_portfolio_report_xlsx(
     summary_df: pd.DataFrame, 
     holdings_df: pd.DataFrame, 
     total_metrics: dict, 
@@ -35,7 +35,7 @@ def write_portfolio_report(
         fmt_header_mv = workbook.add_format({'bold':False, 'text_wrap': True, 'valign':'vcenter', 'align':'right', 'indent':1, 'fg_color':c_header_bg, 'right':1, 'right_color': '#FFFFFF'})
         fmt_header_rest = workbook.add_format({'bold':False, 'text_wrap': True, 'valign':'vcenter', 'align':'right', 'indent':1, 'fg_color':c_header_bg, 'right':1, 'right_color': '#000000'})
 
-        # General TextsS
+        # General Texts
         fmt_bold_text = workbook.add_format({'bold':True, 'border':1})
         
         # --- SCORECARD (TOTAL ROW) STYLES ---
@@ -81,6 +81,9 @@ def write_portfolio_report(
         fmt_h_center = workbook.add_format({'align':'center'})
         fmt_h_right = workbook.add_format({'align':'right'})
 
+        # --- PIE CHART STYLES
+        chart_colors = ['#5978F7', '#0070C0', '#7F7F7F', '#BDD7EE', '#2F5597', '#D9D9D9']
+        
         # ==========================================
         # SHEET 1: DASHBOARD
         # ==========================================
@@ -155,6 +158,71 @@ def write_portfolio_report(
         sheet.set_column('D:D', 12)
         sheet.set_column('E:E', 12)
 
+        # =========================
+        # PIE CHART GENERATION
+        # =========================       
+        # A. Filter Data: Buckets only, EXCLUDING 'Other' (Accruals)
+        # We use strict filtering to ensure the chart is clean
+        buckets_only = summary_df[
+            (summary_df['Type'] == 'Bucket') & 
+            (summary_df['Name'] != 'Other')
+        ].copy()
+        
+        # Optional: Sort largest to smallest for a better looking Pie Chart
+        buckets_only = buckets_only.sort_values(by='MarketValue', ascending=False)
+        
+        # SAFETY: Only create chart if data exists
+        if not buckets_only.empty:
+            
+            # Force strict Python Types (str, float) to prevent Excel Errors
+            chart_names = [str(x) for x in buckets_only['Name'].tolist()]
+            chart_values = [float(x) for x in buckets_only['MarketValue'].fillna(0.0).tolist()]
+            
+            end_row = len(chart_names)
+
+            # B. Write Clean Data to Hidden Sheet
+            # Using a hidden sheet is much more stable than embedding data directly
+            chart_sheet = workbook.add_worksheet('_ChartData')
+            chart_sheet.hide()
+            
+            chart_sheet.write_column('A1', chart_names)
+            chart_sheet.write_column('B1', chart_values)
+            
+            # C. Create Chart (Changed to 'pie')
+            pie_chart = workbook.add_chart({'type': 'donut'})
+            
+            points_list = []
+            for i in range(end_row):
+                color = chart_colors[i % len(chart_colors)] 
+                points_list.append({'fill': {'color': color}})
+
+            # D. Configure Series
+            pie_chart.add_series({
+                'name':       'Asset Allocation',
+                'categories': ['_ChartData', 0, 0, end_row - 1, 0], # A1:A_N
+                'values':     ['_ChartData', 0, 1, end_row - 1, 1], # B1:B_N
+                'data_labels': {
+                    'percentage': True, 
+                    'position': 'center', # 'center' or 'inside_end' works best for Pie
+                    'font': {'bold': True, 'color': '#FFFFFF'}
+                },
+                'points': points_list, 
+            })
+            
+            # E. Style & Insert
+            pie_chart.set_title({
+                'name': 'Asset Allocation', 
+                'name_font': {'size': 14, 'bold': True, 'color': '#404040'}
+            })
+            
+            # Note: set_hole_size is removed because it's a Pie chart now
+            pie_chart.set_style(10) 
+            pie_chart.set_size({'width': 350, 'height': 250})
+            pie_chart.set_hole_size(50)
+            
+            # Insert the chart into the main sheet
+            sheet.insert_chart('G3', pie_chart)
+        
         # ==========================================
         # SHEET 2: DETAILED HOLDINGS
         # ==========================================

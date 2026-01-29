@@ -6,7 +6,9 @@ import datetime
 from statement_ingestion import get_portfolio_holdings
 from yf_loader import fetch_benchmark_returns_yf, fetch_security_names_yf
 from report_metrics import get_cumulative_return, get_cumulative_index
-from excel_writer import write_portfolio_report 
+from pdf_writer import write_portfolio_report
+from excel_writer import write_portfolio_report_xlsx
+
 
 # ==========================================
 # CONFIGURATION
@@ -56,8 +58,7 @@ def run_pipeline():
     output_dir = os.path.join(project_root,"output")
     
     IBKR_FILE = os.path.join(project_root, "data", "U21244041_20250730_20260112.csv")
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
-    EXCEL_FILE = os.path.join(output_dir, f"Portfolio_Report_{timestamp}.xlsx")
+
     BENCHMARK_START_FIXED = "2025-07-30" # CURRENTLY STATIC
 
     print(f"--- 1. Ingesting Portfolio (Internal) ---")
@@ -74,6 +75,11 @@ def run_pipeline():
         total_nav = portfolio_data.total_nav
         settled_cash = portfolio_data.settled_cash
 
+        # OUTPUT FILE NAMES
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
+        PDF_FILE = os.path.join(output_dir, f"{account_title}_Portfolio_Report_{timestamp}.pdf")
+        EXCEL_FILE = os.path.join(output_dir, f"{account_title}_Portfolio_Report_{timestamp}.xlsx")
+        
         # 2. Auto-Classify
         print("   > Running Auto-Classification...")
         all_tickers = holdings['ticker'].unique().tolist()
@@ -86,9 +92,11 @@ def run_pipeline():
         )
 
         # 3. Cash Logic
-        # Clean up: Remove generic/duplicate cash rows from the raw CSV
-        cash_tickers = ['USD', 'CASH', 'TOTAL CASH']
-        holdings = holdings[~holdings['ticker'].str.upper().isin(cash_tickers)].copy()
+        # Clean up: Remove undesired / duplicate rows
+        exact_ignore = ['USD', 'CASH', 'TOTAL CASH']                                                # Remove generic cash rows
+        holdings = holdings[~holdings['ticker'].str.upper().isin(exact_ignore)].copy()
+        holdings = holdings[~holdings['ticker'].astype(str).str.startswith('912797PN1')].copy()     # For the Treasury Bond or similar patterns: This removes ANY ticker that starts with '912797PN1'
+        holdings = holdings[holdings['raw_value'].abs() > 0.01].copy()                              # Zero Value Removal: Removes anything with $0.00 value
         
         # Insert the Settled Cash Row (Strictly using the extracted number)
         if settled_cash > 1.0:
@@ -215,7 +223,7 @@ def run_pipeline():
 
     summary_df = pd.DataFrame(summary_rows)
 
-    # --- 7. WRITE TO EXCEL ---
+    # --- 7. WRITE TO EXCEL / PDF ---
     try:
         write_portfolio_report(
             account_title=account_title,
@@ -223,11 +231,21 @@ def run_pipeline():
             holdings_df=holdings,
             total_metrics=metrics,
             report_date=report_date,
-            output_path=EXCEL_FILE
+            output_path=PDF_FILE
         )
-        print(f"DONE! Report generated: {os.path.basename(EXCEL_FILE)}")
+        print(f"DONE! Report Generatated: {os.path.basename(PDF_FILE)}")
+    # try:
+    #     write_portfolio_report_xlsx(
+    #         account_title=account_title,
+    #         summary_df=summary_df,
+    #         holdings_df=holdings,
+    #         total_metrics=metrics,
+    #         report_date=report_date,
+    #         output_path=EXCEL_FILE
+    #     )
+    #     print(f"DONE! Report generated: {os.path.basename(EXCEL_FILE)}")
     except Exception as e:
-        print(f"Failed to write Excel: {e}")
+        print(f"Failed to write PDF: {e}")
         import traceback
         traceback.print_exc()
 
