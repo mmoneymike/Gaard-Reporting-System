@@ -68,7 +68,7 @@ def auto_classify_asset(ticker: str, security_name: str) -> str:
 # MAIN PIPELINE
 # ==========================================
 def run_pipeline():
-    # --- PATH SETUP ---
+    # --- PATHS SETUP ---
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(script_dir)
     output_dir = os.path.join(project_root,"output")
@@ -77,6 +77,26 @@ def run_pipeline():
 
     BENCHMARK_START_FIXED = "2025-07-30" # CURRENTLY STATIC
 
+    INFO_FILE = os.path.join(project_root, "data", "info_for_pdf.xlsx")
+    pdf_info = {}
+    if os.path.exists(INFO_FILE):
+        print("   > Loading PDF Info Sheet...")
+        try:
+            info_df = pd.read_excel(INFO_FILE, header=2)
+            info_df.columns = [c.strip() if isinstance(c, str) else c for c in info_df.columns]
+            
+            if 'key' in info_df.columns and 'value' in info_df.columns:
+                info_df = info_df.dropna(subset=['key'])
+                pdf_info = dict(zip(info_df['key'], info_df['value']))
+            else:
+                print(f"Warning: Exprected columns 'key' and 'value' not found. Found: {info_df.columns.to_list()}")
+        except Exception as e:
+            print(f"Warning: Could not load info file: {e}")
+    else:
+        print(f"Warning: Info file not found at {INFO_FILE}")
+    
+    LOGO_FILE = os.path.join(project_root, "data", "gaard_logo.png")
+    
     print(f"--- 1. Ingesting Portfolio (Internal) ---")
     if not os.path.exists(IBKR_FILE):
         print(f"CRITICAL ERROR: Could not find file at: {IBKR_FILE}")
@@ -265,7 +285,9 @@ def run_pipeline():
             output_path=PDF_FILE,
             
             risk_benchmark_tckr=RISK_BENCHMARK_TCKR,
-            risk_time_horizon=RISK_TIME_HORIZON
+            risk_time_horizon=RISK_TIME_HORIZON,
+            pdf_info=pdf_info,
+            logo_path=LOGO_FILE
         )
         print(f"DONE! Report Generatated: {os.path.basename(PDF_FILE)}")
     # try:
