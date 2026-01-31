@@ -19,6 +19,7 @@ class PortfolioData:
     report_date: str
     total_nav: float
     settled_cash: float
+    nav_performance: dict
 
 
 @dataclass(frozen=True)
@@ -39,14 +40,14 @@ class StatementSections:
     perf_summary: pd.DataFrame
     nav_summary: pd.DataFrame               # Account Total
     cash_report: pd.DataFrame
+    change_in_nav: pd.DataFrame
 
 
 @dataclass(frozen=True)
 class CumulativeReturnResults:
     positions: pd.DataFrame
-
-
-# --- CSV PARSING ---
+    
+# === CSV PARSING ===
 def read_statement_csv(path: str | Path) -> dict[str, pd.DataFrame]:
     """Parses IBKR CSV into a dictionary of DataFrames."""
     path = Path(path)
@@ -75,6 +76,7 @@ def read_statement_csv(path: str | Path) -> dict[str, pd.DataFrame]:
     return {k: pd.DataFrame(v) for k, v in rows.items()}
 
 
+# === PULL & BUILD SECTIONS FROM CSV ===
 def build_statement_sections(path: str | Path) -> StatementSections:
     raw_sections = read_statement_csv(path)
     
@@ -86,6 +88,7 @@ def build_statement_sections(path: str | Path) -> StatementSections:
     performance = raw_sections.get("Realized & Unrealized Performance Summary", pd.DataFrame())
     nav = raw_sections.get("Net Asset Value", pd.DataFrame())
     cash = raw_sections.get("Cash Report", pd.DataFrame())
+    change_nav = raw_sections.get("Change in NAV", pd.DataFrame())
 
     return StatementSections(
         raw_sections=raw_sections, 
@@ -96,10 +99,11 @@ def build_statement_sections(path: str | Path) -> StatementSections:
         dividends=divs, 
         perf_summary=performance, 
         nav_summary=nav,
-        cash_report=cash)
+        cash_report=cash,
+        change_in_nav=change_nav)
     
    
-# --- HELPER FUNCTIONS --- 
+# === HELPER FUNCTIONS === 
 def extract_statement_metadata(statement: pd.DataFrame) -> StatementMetadata:
     """Extracts metadata from the 'Statement' section in IKBR CSV."""
     if statement.empty:
@@ -342,6 +346,8 @@ def get_portfolio_holdings(file_path, benchmark_default_date: str):
     """
     Returns: (DataFrame, account title, report_date, total_nav_from_file)
     """
+    from report_metrics import calculate_nav_performance # Import here to avoid circular dep if needed
+    
     sections = build_statement_sections(file_path)
     account_title = extract_account_name(sections.accounts)
     results = calculate_cumulative_returns_with_dividends(sections)
@@ -352,7 +358,6 @@ def get_portfolio_holdings(file_path, benchmark_default_date: str):
     report_date = raw_date.split(',')[0].strip() if raw_date else benchmark_default_date
     
     # --- Robust NAV Extraction ---
-    # We sum the column directly instead of looking for specific "Total" rows
     total_nav = extract_total_nav(sections)
 
     # --- Strict Settled Cash Extraction ---
@@ -368,17 +373,19 @@ def get_portfolio_holdings(file_path, benchmark_default_date: str):
     
     # MUST include 'realized_pl' so main.py summary table works
     cols = ['ticker', 'avg_cost', 'raw_value', 'total_dividends', 'realized_pl', 'cumulative_return']
-    
-    # Safety check if df is empty or missing columns
     if df.empty:
         final_df = pd.DataFrame(columns=cols)
     else:
         final_df = df[cols].copy()
     
+    # Calculate NAV Performance
+    nav_perf = calculate_nav_performance(sections.change_in_nav) 
+    
     return PortfolioData(
         holdings=final_df, 
         account_title=account_title,
         report_date=report_date,
+        nav_performance=nav_perf,
         total_nav=total_nav,
         settled_cash=settled_cash
     )

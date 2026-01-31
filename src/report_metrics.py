@@ -77,3 +77,69 @@ def get_cumulative_return(series: pd.Series, window: str) -> float:
         start_price = float(series.iloc[0])
         
     return (end_price / start_price) - 1.0
+
+
+def calculate_nav_performance(change_in_nav_df: pd.DataFrame) -> dict:
+    """
+    Calculates the Official NAV Return based on the 'Change in NAV' section.
+    Formula: (Ending - (Start + Flows)) / (Start + Flows)
+    """
+    default_res = {'NAV': 0.0, 'Return': 0.0, 'Breakdown': {}}
+    
+    if change_in_nav_df is None or change_in_nav_df.empty:
+        return default_res
+
+    # Helper for local float coercion
+    def parse_val(field_name):
+        try:
+            row = change_in_nav_df[change_in_nav_df['Field Name'].astype(str).str.strip() == field_name]
+            if row.empty: return 0.0
+            val_str = row['Field Value'].iloc[0]
+            # Simple clean
+            clean = str(val_str).replace(',', '').replace('$', '').strip()
+            if clean.startswith('(') and clean.endswith(')'):
+                clean = '-' + clean[1:-1]
+            return float(clean)
+        except Exception:
+            return 0.0
+
+    # 1. Calculate Return Metrics
+    start_val = parse_val("Starting Value")
+    end_val   = parse_val("Ending Value")
+    flows     = parse_val("Deposits & Withdrawals")
+    comms     = parse_val("Commissions")                # Negative Value
+    
+    basis = start_val + flows
+    gross_profit = end_val - basis
+    
+    # NET NAV AFTER COMMISIONS
+    net_comms_profit = gross_profit + comms
+    net_end_val      = end_val + comms
+    
+    # Cumulative Return %
+    if basis != 0:
+        ret_pct = net_comms_profit / basis
+    else:
+        ret_pct = 0.0
+
+    # 2. Extract Detailed Breakdown
+    target_fields = [
+        "Starting Value", 
+        "Mark-to-Market", 
+        "Deposits & Withdrawals", 
+        "Dividends", 
+        "Interest", 
+        "Change in Interest Accruals", 
+        "Commissions", 
+        "Ending Value"
+    ]
+    
+    breakdown = {}
+    for field in target_fields:
+        breakdown[field] = parse_val(field)
+        
+    return {
+        'NAV': net_end_val,
+        'Return': ret_pct,
+        'Breakdown': breakdown
+    }

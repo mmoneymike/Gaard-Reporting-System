@@ -110,19 +110,22 @@ def run_pipeline():
         report_date = portfolio_data.report_date
         total_nav = portfolio_data.total_nav
         settled_cash = portfolio_data.settled_cash
+        nav_performance = portfolio_data.nav_performance
+        print(f"   > Parsed NAV Performance: {nav_performance}")
 
-        # OUTPUT FILE NAMES
+        # --- 1a. OUTPUT FILE NAMES ---
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
         PDF_FILE = os.path.join(output_dir, f"{account_title}_Portfolio_Report_{timestamp}.pdf")
         EXCEL_FILE = os.path.join(output_dir, f"{account_title}_Portfolio_Report_{timestamp}.xlsx")
         
+        # --- 1b. CLEAN TICKERS ---
         print("   > Cleaning up Tickers...")
-        # A. Apply Exact Match Filter
+        # 1Apply Exact Match Filter
         holdings = holdings[~holdings['ticker'].astype(str).str.upper().isin(IGNORE_EXACT)].copy()
-        # B. Apply "Starts With" Filter (Loop through the config list)
+        # Apply "Starts With" Filter (Loop through the config list)
         for prefix in IGNORE_STARTSWITH:
             holdings = holdings[~holdings['ticker'].astype(str).str.startswith(prefix)].copy()
-        # C. Remove Zero Value rows
+        # Remove Zero Value rows
         holdings = holdings[holdings['raw_value'].abs() > 0.01].copy()
         
         # === 2. Auto-Classify ===
@@ -277,19 +280,21 @@ def run_pipeline():
     try:
         write_portfolio_report(
             account_title=account_title,
+            report_date=report_date,
             summary_df=summary_df,
+            nav_performance=nav_performance,
             holdings_df=holdings,
             total_metrics=metrics,
-            risk_metrics=risk_metrics,
-            report_date=report_date,
-            output_path=PDF_FILE,
             
+            risk_metrics=risk_metrics,
             risk_benchmark_tckr=RISK_BENCHMARK_TCKR,
             risk_time_horizon=RISK_TIME_HORIZON,
+            
             pdf_info=pdf_info,
-            logo_path=LOGO_FILE
+            logo_path=LOGO_FILE,
+            output_path=PDF_FILE,
         )
-        print(f"DONE! Report Generatated: {os.path.basename(PDF_FILE)}")
+        print(f"DONE! Report Generated: {os.path.basename(PDF_FILE)}")
     # try:
     #     write_portfolio_report_xlsx(
     #         account_title=account_title,
