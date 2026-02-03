@@ -110,15 +110,11 @@ def calculate_nav_performance(change_in_nav_df: pd.DataFrame) -> dict:
     comms     = parse_val("Commissions")                # Negative Value
     
     basis = start_val + flows
-    gross_profit = end_val - basis
-    
-    # NET NAV AFTER COMMISIONS
-    net_comms_profit = gross_profit + comms
-    net_end_val      = end_val + comms
+    profit = end_val - basis
     
     # Cumulative Return %
     if basis != 0:
-        ret_pct = net_comms_profit / basis
+        ret_pct = profit / basis
     else:
         ret_pct = 0.0
 
@@ -139,7 +135,7 @@ def calculate_nav_performance(change_in_nav_df: pd.DataFrame) -> dict:
         breakdown[field] = parse_val(field)
         
     return {
-        'NAV': net_end_val,
+        'NAV': end_val,
         'Return': ret_pct,
         'Breakdown': breakdown
     }
