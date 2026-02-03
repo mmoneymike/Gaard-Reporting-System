@@ -11,23 +11,23 @@ from excel_writer import write_portfolio_report_xlsx
 from risk_analytics import calculate_portfolio_risk
 
 
-# ==========================================
-# CONFIGURATION
-# ==========================================
+#  ==========================================
+#   CONFIGURATION
+#  ==========================================
 BENCHMARK_CONFIG = {
-    'U.S. Equities':        ['SPY', 'IWV'],  
-    'International Equities': ['ACWI', 'VXUS'], 
-    'Fixed Income':         ['AGG', 'BND'],
-    'Alternative Assets':   ['VNQ', 'GLD'],
+    'U.S. Equities':        ['SPY'],  
+    'International Equities': ['ACWI'], 
+    'Fixed Income':         ['AGG'],
+    'Alternative Assets':   ['QAI'],
     'Cash':                 ['BIL'],
 }
 
 BENCHMARK_NAMES = {
-    'SPY': 'S&P 500', 'IWV': 'Russell 3000',
-    'ACWI': 'MSCI ACWI', 'VXUS': 'Total Int\'l Stock',
-    'AGG': 'US Aggregate Bond', 'BND': 'Total Bond Market',
-    'VNQ': 'Real Estate (REITs)', 'GLD': 'Gold',
-    'BIL': '1-3 Month T-Bills'
+    'SPY': 'S&P 500',
+    'ACWI': 'MSCI ACWI',
+    'AGG': 'US Aggregate Bond',
+    'QAI': 'NYLI Hedge Multi-Strategy',
+    'BIL': '1-3 Month T-Bills',
 }
 
 # 1. Exact Matches: Tickers to remove if they match exactly (Case Insensitive)
@@ -64,9 +64,9 @@ def auto_classify_asset(ticker: str, security_name: str) -> str:
 
     return 'U.S. Equities'
 
-# ==========================================
-# MAIN PIPELINE
-# ==========================================
+#  ==========================================
+#   MAIN PIPELINE
+#  ==========================================
 def run_pipeline():
     # --- PATHS SETUP ---
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -95,6 +95,7 @@ def run_pipeline():
     else:
         print(f"Warning: Info file not found at {INFO_FILE}")
     
+    TEXT_LOGO_FILE = os.path.join(project_root, "data", "gaard_text_logo.png")
     LOGO_FILE = os.path.join(project_root, "data", "gaard_logo.png")
     
     print(f"--- 1. Ingesting Portfolio (Internal) ---")
@@ -120,7 +121,7 @@ def run_pipeline():
         
         # --- 1b. CLEAN TICKERS ---
         print("   > Cleaning up Tickers...")
-        # 1Apply Exact Match Filter
+        # Apply Exact Match Filter
         holdings = holdings[~holdings['ticker'].astype(str).str.upper().isin(IGNORE_EXACT)].copy()
         # Apply "Starts With" Filter (Loop through the config list)
         for prefix in IGNORE_STARTSWITH:
@@ -291,6 +292,7 @@ def run_pipeline():
             risk_time_horizon=RISK_TIME_HORIZON,
             
             pdf_info=pdf_info,
+            text_logo_path=TEXT_LOGO_FILE,
             logo_path=LOGO_FILE,
             output_path=PDF_FILE,
         )
