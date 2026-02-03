@@ -33,18 +33,24 @@ class PortfolioPDF(FPDF):
             print(f"   > Warning: Could not load Calibri/Carlito fonts ({e}). Using Helvetica.")
 
     def header(self):
-        # Only show the standard "PORTFOLIO STATEMENT" header if flag is True
         if self.show_standard_header:
-            # 1. Clean Top Bar
-            self.set_fill_color(*C_BLUE_LOGO)
-            self.rect(0, 0, self.w, 4, 'F') 
-            
-            # 2. Title
+            # 1. Title Text
             self.set_y(10)
             self.set_font('Carlito', 'B', 16)
             self.set_text_color(*C_BLUE_LOGO)
             self.cell(0, 10, self.header_text, new_x="LMARGIN", new_y="NEXT", align='L')
-            self.ln(2)
+            
+            # 2. Thin Line Underneath
+            self.set_draw_color(*C_BLUE_LOGO) 
+            self.set_line_width(0.3)
+            
+            # Draw line at current Y position (immediately below text)
+            # Matches the width/margins of your footer line (10mm to Width-10mm)
+            line_y = self.get_y()
+            self.line(10, line_y, self.w - 12, line_y)
+            
+            # 3. Spacing after the line
+            self.ln(5)
 
     def footer(self):
         # Hide page # on fist and last page
@@ -52,26 +58,31 @@ class PortfolioPDF(FPDF):
             return
         
         self.set_y(-15)
+        base_y = self.get_y()
         
         # --- THIN LINE ---
-        self.set_draw_color(180, 180, 180) 
-        self.set_line_width(0.1)            
-        self.line(15, self.get_y(), self.w - 15, self.get_y())
+        self.set_draw_color(*C_BLUE_LOGO) 
+        self.set_line_width(0.3)            
+        line_y = base_y - 2
+        self.line(10, line_y, self.w-12, line_y)
 
         # --- LOGO (RIGHT SIDE) ---
         if self.text_logo_path and os.path.exists(self.text_logo_path):
             # Calculate positions
-            img_h = 8  # Height of logo in footer (mm)
-            self.image(self.text_logo_path, x=self.w - 30, y=self.get_y() + 2, h=img_h)
+            content_y = base_y + 2
+            self.image(self.text_logo_path, x=self.w - 38, y=content_y, h=8)
 
         # --- PAGE NUMBER (LEFT SIDE) ---
-        # We move page number to the Left to balance the Logo on the Right
+        self.set_font(self.main_font, 'I', 8)
+        self.set_text_color(150, 150, 150)
+        self.set_y(self.get_y() + 2)
+        display_num = self.page_no() - 1
+        self.cell(0, 5, f'Page {display_num}', align='L')
+        
+        self.set_y(content_y) # Move cursor to content area
         self.set_font(self.main_font, 'I', 8)
         self.set_text_color(150, 150, 150)
         
-        display_num = self.page_no() - 1
-        self.cell(0, 10, f'Page {display_num}', align='L')
-
 
 #  === IPS TABLE DATA ===
 def get_ips_table_data(pdf_info, summary_df):
@@ -298,7 +309,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     
     # 1. SETUP
     pdf = PortfolioPDF(orientation='L', unit='mm', format='A4')
-    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.set_auto_page_break(auto=True, margin=20)
     pdf.text_logo_path = text_logo_path
     pdf.logo_path = logo_path
     
@@ -321,28 +332,35 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     # --- Cover Config ---
     left_margin_x = 20
     logo_x_pos = 190
-    content_start_y = 85
+    content_start_y = 75
     
     # --- LEFT SIDE: TEXT BLOCK ---
     pdf.set_y(content_start_y)
     
     # 1. FIRM NAME (Top)
     pdf.set_x(left_margin_x)
-    pdf.set_font('Carlito', 'B', 36)
+    pdf.set_font('Carlito', 'B', 56)
     pdf.set_text_color(*C_BLUE_LOGO)
-    pdf.cell(0, 15, firm_name, new_x="LMARGIN", new_y="NEXT", align='L')
+    pdf.cell(0, 15, 'Gaard', new_x="LMARGIN", new_y="NEXT", align='L')
+    pdf.ln(5)
     
-    # 2. REPORT TITLE (Underneath)
+    pdf.set_x(left_margin_x)
+    pdf.set_font('Carlito', 'B', 56)
+    pdf.set_text_color(*C_BLUE_LOGO)
+    pdf.cell(0, 15, 'Capital LLC', new_x="LMARGIN", new_y="NEXT", align='L')
+    pdf.ln(5)
+    
+    # 2. ACCOUNT NAME (Underneath)
+    pdf.set_x(left_margin_x)
+    pdf.set_font('Carlito', 'B', 18)
+    pdf.set_text_color(0,0,0)
+    pdf.cell(0, 12, acct_name, new_x="LMARGIN", new_y="NEXT", align='L')
+    
+    # 3. REPORT TITLE (Underneath)
     pdf.set_x(left_margin_x)
     pdf.set_font('Carlito', 'B', 18)
     pdf.set_text_color(40, 40, 40) # Dark Grey
     pdf.cell(0, 12, rpt_title, new_x="LMARGIN", new_y="NEXT", align='L')
-    
-    # 3. ACCOUNT NAME (Underneath)
-    pdf.set_x(left_margin_x)
-    pdf.set_font('Carlito', 'B', 18)
-    pdf.set_text_color(*C_BLUE_LOGO)
-    pdf.cell(0, 12, acct_name, new_x="LMARGIN", new_y="NEXT", align='L')
     
     # 4. REPORT DATE (Underneath)
     pdf.set_x(left_margin_x)
@@ -354,7 +372,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     if logo_path and os.path.exists(logo_path):
         try:
             # Place logo at specific X/Y to sit to the right of the text
-            pdf.image(logo_path, x=logo_x_pos-20, y=content_start_y+6, w=110)
+            pdf.image(logo_path, x=logo_x_pos-10, y=content_start_y-25, w=90)
         except Exception as e: 
             print(f"Warning: Could not load logo: {e}")
             

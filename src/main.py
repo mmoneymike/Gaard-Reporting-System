@@ -293,7 +293,7 @@ def run_pipeline():
             
             pdf_info=pdf_info,
             text_logo_path=TEXT_LOGO_FILE,
-            logo_path=LOGO_FILE,
+            logo_path=LOGO_FILE, 
             output_path=PDF_FILE,
         )
         print(f"DONE! Report Generated: {os.path.basename(PDF_FILE)}")
