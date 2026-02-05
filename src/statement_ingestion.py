@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pandas as pd
-
+from return_metrics import calculate_nav_performance
 
 SECTION_HEADER = "Header"
 SECTION_DATA = "Data"
@@ -20,7 +20,7 @@ class PortfolioData:
     total_nav: float
     settled_cash: float
     nav_performance: dict
-
+    daily_history: pd.DataFrame
 
 @dataclass(frozen=True)
 class StatementMetadata:
@@ -346,7 +346,6 @@ def get_portfolio_holdings(file_path, benchmark_default_date: str):
     """
     Returns: (DataFrame, account title, report_date, total_nav_from_file)
     """
-    from src.return_metrics import calculate_nav_performance # Import here to avoid circular dep if needed
     
     sections = build_statement_sections(file_path)
     account_title = extract_account_name(sections.accounts)
@@ -387,5 +386,58 @@ def get_portfolio_holdings(file_path, benchmark_default_date: str):
         report_date=report_date,
         nav_performance=nav_perf,
         total_nav=total_nav,
-        settled_cash=settled_cash
+        settled_cash=settled_cash,
+        daily_history=pd.DataFrame()    # Placeholder
     )
+    
+    
+#  ==========================================
+#    PERFORMANCE CSV INGESTION
+#  ==========================================
+def parse_performance_csv(filepath: str) -> pd.DataFrame:
+    """Parses the PortfolioAnalyst CSV for 'Allocation by Asset Class'."""
+    if not filepath or not Path(filepath).exists():
+        return pd.DataFrame(columns=['date', 'nav'])
+
+    rows = []
+    headers = None
+    TARGET_SECTION = "Allocation by Asset Class"
+
+    try:
+        with open(filepath, 'r', encoding='utf-8-sig') as f:
+            reader = csv.reader(f)
+            for line in reader:
+                if not line or len(line) < 3: continue
+                
+                section = line[0].strip()
+                record_type = line[1].strip()
+                
+                if section == TARGET_SECTION:
+                    if record_type == "Header":
+                        headers = [x.strip() for x in line[2:]]
+                    elif record_type == "Data" and headers:
+                        values = [x.strip() for x in line[2:]]
+                        # Zip ensures we don't crash on mismatched lengths
+                        rows.append(dict(zip(headers, values)))
+                        
+        if not rows: return pd.DataFrame(columns=['date', 'nav'])
+
+        df = pd.DataFrame(rows)
+        
+        # Clean Data
+        if 'Date' in df.columns:
+            df['date'] = pd.to_datetime(df['Date'], format='%Y%m%d', errors='coerce')
+        
+        # Helper to clean currency strings
+        def clean_float(x):
+            try: return float(str(x).replace(',', '').replace('$', ''))
+            except: return 0.0
+
+        if 'NAV' in df.columns:
+            df['nav'] = df['NAV'].apply(clean_float)
+            
+        return df.dropna(subset=['date', 'nav']).sort_values('date')[['date', 'nav']]
+
+    except Exception as e:
+        print(f"Error parsing performance CSV: {e}")
+        return pd.DataFrame(columns=['date', 'nav'])

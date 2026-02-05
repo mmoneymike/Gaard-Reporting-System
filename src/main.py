@@ -3,9 +3,9 @@ import os
 import datetime
 
 # --- IMPORTS ---
-from statement_ingestion import get_portfolio_holdings
+from statement_ingestion import get_portfolio_holdings, parse_performance_csv
 from yf_loader import fetch_benchmark_returns_yf, fetch_security_names_yf
-from src.return_metrics import get_cumulative_return, get_cumulative_index
+from return_metrics import*
 from pdf_writer import write_portfolio_report
 from excel_writer import write_portfolio_report_xlsx
 from risk_analytics import calculate_portfolio_risk
@@ -74,13 +74,15 @@ def run_pipeline():
     output_dir = os.path.join(project_root,"output")
     
     IBKR_FILE = os.path.join(project_root, "data", "U21244041_20250730_20260112.csv")
+    PERF_FILE = os.path.join(project_root, "data", "Gaard_Capital_LLC_July_30_2025_January_12_2026.csv")
+
 
     BENCHMARK_START_FIXED = "2025-07-30" # CURRENTLY STATIC
 
     INFO_FILE = os.path.join(project_root, "data", "info_for_pdf.xlsx")
     pdf_info = {}
     if os.path.exists(INFO_FILE):
-        print("   > Loading PDF Info Sheet...")
+        print("   > SETUP: Loading PDF Info Sheet...")
         try:
             info_df = pd.read_excel(INFO_FILE, header=2)
             info_df.columns = [c.strip() if isinstance(c, str) else c for c in info_df.columns]
@@ -112,15 +114,22 @@ def run_pipeline():
         total_nav = portfolio_data.total_nav
         settled_cash = portfolio_data.settled_cash
         nav_performance = portfolio_data.nav_performance
-        print(f"   > Parsed NAV Performance: {nav_performance}")
+        print(f"   > 1a: Parsed NAV Performance: {nav_performance}")
 
+        # 2. PERFORMANCE HISTORY
+        daily_history = parse_performance_csv(PERF_FILE)
+    
+        # 3. CALCULATE METRICS
+        window_returns, period_label = calculate_period_returns(daily_history, report_date)
+        chart_data = prepare_chart_data(daily_history, benchmark_ticker='SPY')
+        
         # --- 1a. OUTPUT FILE NAMES ---
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
         PDF_FILE = os.path.join(output_dir, f"{account_title}_Portfolio_Report_{timestamp}.pdf")
         EXCEL_FILE = os.path.join(output_dir, f"{account_title}_Portfolio_Report_{timestamp}.xlsx")
         
         # --- 1b. CLEAN TICKERS ---
-        print("   > Cleaning up Tickers...")
+        print("   > 1b: Cleaning up Tickers...")
         # Apply Exact Match Filter
         holdings = holdings[~holdings['ticker'].astype(str).str.upper().isin(IGNORE_EXACT)].copy()
         # Apply "Starts With" Filter (Loop through the config list)
@@ -130,7 +139,7 @@ def run_pipeline():
         holdings = holdings[holdings['raw_value'].abs() > 0.01].copy()
         
         # === 2. Auto-Classify ===
-        print("   > Running Auto-Classification...")
+        print("   > 1c: Running Auto-Classification...")
         all_tickers = holdings['ticker'].unique().tolist()
         name_map = fetch_security_names_yf(all_tickers)
         
@@ -189,8 +198,8 @@ def run_pipeline():
         return
 
     # === 5. Market Data ===
-    # --- 5a. Calculate Benchmark Returns
-    print("\n--- 2. Fetching Benchmark Data (Yahoo) ---")
+    # --- 5a. Calculate Benchmark Returns ---
+    print("\n--- 2a. Fetching Benchmark Data (Yahoo) ---")
     all_benchmarks = [t for sublist in BENCHMARK_CONFIG.values() for t in sublist]
     unique_benchmarks = list(set(all_benchmarks))
     
@@ -286,6 +295,10 @@ def run_pipeline():
             nav_performance=nav_performance,
             holdings_df=holdings,
             total_metrics=metrics,
+            
+            performance_windows=window_returns,
+            performance_chart_data=chart_data,
+            period_label=period_label,
             
             risk_metrics=risk_metrics,
             risk_benchmark_tckr=RISK_BENCHMARK_TCKR,

@@ -1,4 +1,5 @@
 import pandas as pd
+import datetime
 
 def get_cumulative_index(returns_df: pd.DataFrame, start_value: float = 100.0) -> pd.DataFrame:
     """
@@ -139,3 +140,82 @@ def calculate_nav_performance(change_in_nav_df: pd.DataFrame) -> dict:
         'Return': ret_pct,
         'Breakdown': breakdown
     }
+    
+
+def calculate_period_returns(daily_nav_df, report_date_str):
+    """
+    Calculates returns and returns a tuple: (results_dict, period_label_str)
+    """
+    results = {'1M': None, '3M': None, '6M': None, 'YTD': None, 'Period': None}
+    period_label = "Period" # Default fallback
+    
+    if daily_nav_df.empty: 
+        return results, period_label
+    
+    df = daily_nav_df.copy()
+    df['date'] = pd.to_datetime(df['date'])
+    df = df.sort_values('date')
+    
+    current_date = pd.to_datetime(report_date_str)
+    
+    # Filter
+    df = df[df['date'] <= current_date]
+    if df.empty: return results, period_label
+
+    end_val = df.iloc[-1]['nav']
+    start_file_val = df.iloc[0]['nav']
+    
+    # --- CREATE DYNAMIC LABEL ---
+    start_d = df.iloc[0]['date']
+    end_d = df.iloc[-1]['date']
+    # Format: "07/30/2025 - 01/12/2026"
+    period_label = f"{start_d.strftime('%m/%d/%Y')} - {end_d.strftime('%m/%d/%Y')}"
+
+    # Helper
+    def get_nav_at(target_date):
+        subset = df[df['date'] <= target_date]
+        if subset.empty: return None
+        return subset.iloc[-1]['nav']
+
+    d_1m = current_date - pd.DateOffset(months=1)
+    d_3m = current_date - pd.DateOffset(months=3)
+    d_6m = current_date - pd.DateOffset(months=6)
+    d_ytd = datetime.datetime(current_date.year, 1, 1)
+
+    def calc(start, end):
+        if start and start != 0: return (end / start) - 1.0
+        return None
+
+    results['1M'] = calc(get_nav_at(d_1m), end_val)
+    results['3M'] = calc(get_nav_at(d_3m), end_val)
+    results['6M'] = calc(get_nav_at(d_6m), end_val)
+    results['YTD'] = calc(get_nav_at(d_ytd), end_val)
+    results['Period'] = calc(start_file_val, end_val)
+    
+    return results, period_label
+
+
+def prepare_chart_data(daily_nav_df, benchmark_ticker='SPY'):
+    """Aligns Portfolio NAV with Benchmark for plotting."""
+    if daily_nav_df.empty: return pd.DataFrame()
+    
+    df = daily_nav_df.copy()
+    df['date'] = pd.to_datetime(df['date'])
+    df = df.sort_values('date')
+    
+    df['pct'] = df['nav'].pct_change().fillna(0)
+    df['Portfolio'] = (1 + df['pct']).cumprod() - 1
+    
+    from yf_loader import fetch_benchmark_returns_yf
+    start_d = df['date'].iloc[0].strftime('%Y-%m-%d')
+    end_d = df['date'].iloc[-1].strftime('%Y-%m-%d')
+    
+    bench = fetch_benchmark_returns_yf([benchmark_ticker], start_date=start_d, end_date=end_d)
+    
+    if not bench.empty:
+        merged = pd.merge(df, bench[benchmark_ticker], left_on='date', right_index=True, how='left')
+        merged['b_pct'] = merged[benchmark_ticker].fillna(0)
+        merged['S&P 500'] = (1 + merged['b_pct']).cumprod() - 1
+        return merged[['date', 'Portfolio', 'S&P 500']]
+        
+    return df[['date', 'Portfolio']]
