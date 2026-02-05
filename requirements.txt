@@ -1,4 +1,5 @@
 pandas
+datetime
 yfinance
 XlsxWriter
 altair
