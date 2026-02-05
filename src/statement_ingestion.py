@@ -346,7 +346,7 @@ def get_portfolio_holdings(file_path, benchmark_default_date: str):
     """
     Returns: (DataFrame, account title, report_date, total_nav_from_file)
     """
-    from report_metrics import calculate_nav_performance # Import here to avoid circular dep if needed
+    from src.return_metrics import calculate_nav_performance # Import here to avoid circular dep if needed
     
     sections = build_statement_sections(file_path)
     account_title = extract_account_name(sections.accounts)

@@ -5,7 +5,7 @@ import datetime
 # --- IMPORTS ---
 from statement_ingestion import get_portfolio_holdings
 from yf_loader import fetch_benchmark_returns_yf, fetch_security_names_yf
-from report_metrics import get_cumulative_return, get_cumulative_index
+from src.return_metrics import get_cumulative_return, get_cumulative_index
 from pdf_writer import write_portfolio_report
 from excel_writer import write_portfolio_report_xlsx
 from risk_analytics import calculate_portfolio_risk
