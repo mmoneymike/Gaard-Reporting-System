@@ -220,25 +220,45 @@ def generate_line_chart(comparison_df):
     """Line Chart: Portfolio vs Benchmark."""
     if comparison_df is None or comparison_df.empty: return None
     
+    # Melt Data for Altair
     source = comparison_df.melt('date', var_name='Series', value_name='Cumulative Return')
+    
+    # Define Colors
     domain = ['Portfolio', 'S&P 500']
     range_colors = ['#5978F7', '#7F7F7F'] # Blue vs Grey
     
-    line = alt.Chart(source).mark_line(strokeWidth=3).encode(
-        x=alt.X('date', title=None, axis=alt.Axis(format='%b %Y', labelAngle=-45)),
-        y=alt.Y('Cumulative Return', axis=alt.Axis(format='%')),
-        color=alt.Color('Series', scale=alt.Scale(domain=domain, range=range_colors), legend=alt.Legend(title=None, orient='top-left'))
+    # Create Chart with Explicit Data Types (:T for Time, :Q for Quant, :N for Nominal)
+    chart = alt.Chart(source).mark_line(strokeWidth=3).encode(
+        x=alt.X('date:T',  # <--- :T is crucial for Dates
+                title=None, 
+                axis=alt.Axis(format='%b %Y', labelAngle=-45, tickCount=5)), 
+                
+        y=alt.Y('Cumulative Return:Q', # <--- :Q is crucial for Numbers
+                title=None, 
+                axis=alt.Axis(format='%')), 
+                
+        color=alt.Color('Series:N', 
+                        scale=alt.Scale(domain=domain, range=range_colors), 
+                        legend=alt.Legend(title=None,
+                            orient='none', legendX=115, legendY=260, direction='horizontal', # Centering Logic
+                            labelColor='black', symbolType='stroke'  # Styling
+                        ))
     ).properties(
-        width=350,  # Adjusted to fit left column
+        width=350,  
         height=200
     ).configure_axis(
-        labelFont='Carlito', titleFont='Carlito', labelFontSize=10
+        labelFont='Calibri', 
+        titleFont='Calibri', 
+        labelFontSize=12,
+        grid=True # Add gridlines for readability
     ).configure_legend(
-        labelFont='Carlito', titleFont='Carlito', labelFontSize=10
+        labelFont='Calibri', 
+        titleFont='Calibri', 
+        labelFontSize=12
     )
     
     chart_path = "temp_line_chart.png"
-    line.save(chart_path, scale_factor=3.0)
+    chart.save(chart_path, scale_factor=3.0)
     return chart_path
 
     
@@ -286,7 +306,7 @@ def generate_donut_chart(summary_df):
 #   OVERALL PORTFOLIO REPORT
 #  ==========================================
 def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metrics, risk_metrics, report_date, output_path, account_title="Total Portfolio",
-                           performance_windows=None, performance_chart_data=None, period_label="Period", risk_benchmark_tckr="SPY", risk_time_horizon=1, pdf_info=None, text_logo_path=None, logo_path=None):
+                           performance_windows=None, performance_chart_data=None, period_label="Period", main_benchmark_tckr="SPY", risk_time_horizon=1, pdf_info=None, text_logo_path=None, logo_path=None):
     
     print(f"   > Generating PDF Report: {output_path}")
     if pdf_info is None: pdf_info = {}
@@ -590,37 +610,53 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     start_y = pdf.get_y()
     
     # --- LEFT COLUMN: DATA ---
-    # 1. NAV PERFORMANCE TABLE
+    # -- 1. PERFORMANCE RETURN LINE CHART ---
+    if performance_chart_data is not None and not performance_chart_data.empty:
+        try:
+            line_chart_img = generate_line_chart(performance_chart_data)
+            if line_chart_img:
+                pdf.set_font('Carlito', 'B', 12)
+                pdf.set_text_color(0, 0, 0)
+                pdf.cell(0, 8, f"Period Performance vs. {main_benchmark_tckr}", new_x="LMARGIN", new_y="NEXT")
+                
+                # Image is placed at current X/Y
+                pdf.image(line_chart_img, w=130)
+                
+                if os.path.exists(line_chart_img): os.remove(line_chart_img)
+        except Exception as e:
+            print(f"Line chart error: {e}")
+            
+    pdf.ln(8)
+    
+    # --- 2. NAV PERFORMANCE TABLE ---
     pdf.set_font('Carlito', 'B', 12)
     pdf.set_text_color(0,0,0)
     pdf.cell(0, 8, "Performance History", new_x="LMARGIN", new_y="NEXT")
     
-    # 1. Define Headers
+    # Define Headers
     cols = ["Account", period_label, "1M", "3M", "6M", "YTD"]
     
-    # 2. Define Keys for the data loop (skipping Account/Period which are handled manually)
+    # Define Keys for the data loop (skipping Account/Period which are handled manually)
     keys = ["Period", "1M", "3M", "6M", "YTD"]
     
-    # 3. Configure Widths (Total Width ~125mm)
-    with pdf.table(col_widths=(41, 37, 14, 14, 14, 14), 
+    pdf.set_font('Carlito', '', 12)
+    with pdf.table(col_widths=(60, 60, 20, 20, 20, 20), 
                    text_align="CENTER", 
                    borders_layout="HORIZONTAL_LINES", 
                    align="LEFT", 
-                   width=135) as table:
+                   width=200) as table:
         
-        # --- Header Row ---
+        # Header Row
         header = table.row()
         for i, c in enumerate(cols):
             align = "LEFT" if i < 1 else "RIGHT" # Account: left, Returns: right
-            
-            # Use smaller font (9pt) to fit the long Date Range header
             header.cell(c, style=FontFace(emphasis="BOLD", color=C_BLUE_LOGO, size_pt=12), align=align)
             
-        # --- Data Row ---
+        # Data Row
         row = table.row()
         
         # Cell 1: Account Name
-        acct_str = account_title[:18] + "..." if len(account_title) > 20 else account_title
+        acct_str = account_title[:38] + "..." if len(account_title) > 40 else account_title
         row.cell(acct_str, style=FontFace(size_pt=12, emphasis=None), align="LEFT")
         
         # Cell 2: Period Return (The value associated with the date range)
@@ -633,24 +669,6 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
             val = performance_windows.get(k) if performance_windows else None
             txt = f"{val:.2%}" if val is not None else "-"
             row.cell(txt, style=FontFace(size_pt=12, emphasis=None), align="RIGHT")
-
-    pdf.ln(10)
-
-    # 2. PERFORMANCE RETURN LINE CHART
-    if performance_chart_data is not None and not performance_chart_data.empty:
-        try:
-            line_chart_img = generate_line_chart(performance_chart_data)
-            if line_chart_img:
-                pdf.set_font('Carlito', 'B', 12)
-                pdf.set_text_color(0, 0, 0)
-                pdf.cell(0, 8, "Growth of $1 (vs S&P 500)", new_x="LMARGIN", new_y="NEXT")
-                
-                # Image is placed at current X/Y
-                pdf.image(line_chart_img, w=130)
-                
-                if os.path.exists(line_chart_img): os.remove(line_chart_img)
-        except Exception as e:
-            print(f"Line chart error: {e}")
      
     # --- RIGHT COLUMN: ALLOCATION CHART---
     # --- ASSET ALLOCATION CHART ---

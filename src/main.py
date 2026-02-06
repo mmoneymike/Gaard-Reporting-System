@@ -42,7 +42,7 @@ IGNORE_STARTSWITH = [
     '912797PN1',  # Treasury Bond Series
 ]
 
-RISK_BENCHMARK_TCKR = 'AGG'
+MAIN_BENCHMARK_TCKR = 'SPY'
 RISK_TIME_HORIZON = 1
 
 # --- LOCAL AUTO-CLASSIFY ---
@@ -100,7 +100,7 @@ def run_pipeline():
     TEXT_LOGO_FILE = os.path.join(project_root, "data", "gaard_text_logo.png")
     LOGO_FILE = os.path.join(project_root, "data", "gaard_logo.png")
     
-    print(f"--- 1. Ingesting Portfolio (Internal) ---")
+    print(f"=== 1. Ingesting Portfolio (Internal) ===")
     if not os.path.exists(IBKR_FILE):
         print(f"CRITICAL ERROR: Could not find file at: {IBKR_FILE}")
         return
@@ -215,14 +215,14 @@ def run_pipeline():
     print("\n--- 2b. Calculating Risk Profile ---")
     risk_metrics = {}
     try:
-        risk_metrics = calculate_portfolio_risk(holdings, benchmark_ticker=RISK_BENCHMARK_TCKR, lookback_years= RISK_TIME_HORIZON)
+        risk_metrics = calculate_portfolio_risk(holdings, benchmark_ticker=MAIN_BENCHMARK_TCKR, lookback_years= RISK_TIME_HORIZON)
         print("   > Risk Metrics Calculated:", risk_metrics)
     except Exception as e:
         print(f"Risk Calc Error: {e}")
         risk_metrics = {'Beta': 0, 'R2': 0, 'Volatility': 0, 'Sharpe': 0}
 
     # === 6. PREPARE DATA FOR PDF / EXCEL ===
-    print("\n--- 3. Generating Excel Report ---")
+    print("\n=== 3. Generating PDF Report ===")
     
     # Total Metrics
     grand_cost = holdings['avg_cost'].sum()
@@ -295,13 +295,13 @@ def run_pipeline():
             nav_performance=nav_performance,
             holdings_df=holdings,
             total_metrics=metrics,
+            main_benchmark_tckr=MAIN_BENCHMARK_TCKR,
             
             performance_windows=window_returns,
             performance_chart_data=chart_data,
             period_label=period_label,
             
             risk_metrics=risk_metrics,
-            risk_benchmark_tckr=RISK_BENCHMARK_TCKR,
             risk_time_horizon=RISK_TIME_HORIZON,
             
             pdf_info=pdf_info,
@@ -309,7 +309,7 @@ def run_pipeline():
             logo_path=LOGO_FILE, 
             output_path=PDF_FILE,
         )
-        print(f"DONE! Report Generated: {os.path.basename(PDF_FILE)}")
+        print(f"* DONE! Report Generated: {os.path.basename(PDF_FILE)} *")
     # try:
     #     write_portfolio_report_xlsx(
     #         account_title=account_title,
