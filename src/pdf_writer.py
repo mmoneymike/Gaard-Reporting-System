@@ -495,9 +495,9 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
             
             # Compliance Check
             if v_min <= v_cur <= v_max:
-                r.cell("Compliant", style=FontFace(size_pt=12, emphasis="BOLD", color=(0, 0, 0)))
+                r.cell("Compliant", style=FontFace(size_pt=12, color=(0, 0, 0)))
             else:
-                r.cell("Non-Compliant", style=FontFace(size_pt=12, emphasis="BOLD", color=(0, 0, 0)))
+                r.cell("Non-Compliant", style=FontFace(size_pt=12, color=(0, 0, 0)))
 
     pdf.ln(22)
     
@@ -590,7 +590,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
        
        
     #  ==========================================
-    #   PAGE 5: PORTFOLIO PERFORMANCE
+    #   PAGE 5: PORTFOLIO OVERVIEW
     #  ==========================================
     pdf.show_standard_header = True
     pdf.header_text = "Portfolio Performance"
@@ -631,7 +631,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     # --- 2. NAV PERFORMANCE TABLE ---
     pdf.set_font('Carlito', 'B', 12)
     pdf.set_text_color(0,0,0)
-    pdf.cell(0, 8, "Performance History", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 8, "Performance Overview", new_x="LMARGIN", new_y="NEXT")
     
     # Define Headers
     cols = ["Account", period_label, "1M", "3M", "6M", "YTD"]
@@ -719,10 +719,10 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
         print(f"Chart Error: {e}")
 
     #  ==========================================
-    #   PAGE 6: CATEGORY ALLOCATION & PERFORMANCE
+    #   PAGE 6: INVESTMENT PERFORMANCE BY ALLOCATION
     #  ==========================================
     pdf.show_standard_header = True
-    pdf.header_text = "Category Allocation and Performance by Model"
+    pdf.header_text = "Investment Performance by Allocation"
     pdf.add_page()
     
     pdf.set_font('Carlito', '', 8)
@@ -762,9 +762,9 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
                 r.cell(f"{row['Return']:.2%}", style=FontFace(emphasis="ITALICS", size_pt=12, color=C_TEXT_GREY))
 
     #  ==========================================
-    #   PAGE 7+: EXPANDED CATEGORY HOLDINGS & PERFORMANCE
+    #   PAGE 7+: EXPANDED INVESTMENT PERFORMANCE BY ALLOCATION
     #  ==========================================
-    pdf.header_text = "Expanded Category Holdings and Performance"
+    pdf.header_text = "Expanded Investment Performance by Allocation"
     pdf.add_page()
     pdf.set_font('Carlito', 'B', 14)
     pdf.set_text_color(0, 0, 0)
