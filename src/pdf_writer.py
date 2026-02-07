@@ -9,7 +9,9 @@ import datetime
 C_BLUE_PRIMARY = (89, 120, 247)   # #5978F7
 C_BLUE_LOGO    = (73, 106, 154)    # #496A94
 C_GREY_LIGHT   = (245, 247, 255)  
-C_TEXT_GREY    = (100, 100, 100)  
+C_GREY_BORDER  = (200, 200, 200)
+C_TEXT_GREY    = (100, 100, 100)
+C_WHITE        = (255, 255, 255)  
 
 class PortfolioPDF(FPDF):
     def __init__(self, orientation='P', unit='mm', format='A4'):
@@ -43,13 +45,9 @@ class PortfolioPDF(FPDF):
             # 2. Thin Line Underneath
             self.set_draw_color(*C_BLUE_LOGO) 
             self.set_line_width(0.3)
-            
-            # Draw line at current Y position (immediately below text)
-            # Matches the width/margins of your footer line (10mm to Width-10mm)
             line_y = self.get_y()
             self.line(10, line_y, self.w - 12, line_y)
-            
-            # 3. Spacing after the line
+        
             self.ln(5)
 
     def footer(self):
@@ -60,7 +58,7 @@ class PortfolioPDF(FPDF):
         self.set_y(-15)
         base_y = self.get_y()
         
-        # --- THIN LINE ---
+        # 1. Thin Line
         self.set_draw_color(*C_BLUE_LOGO) 
         self.set_line_width(0.3)            
         line_y = base_y - 2
@@ -354,14 +352,15 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
             return str(date_str) # Fallback if parsing fails
     # --------------------------------------------------------------------------------------
     
-    # 1. SETUP
+    # 1. *** SETUP ***
     pdf = PortfolioPDF(orientation='L', unit='mm', format='A4')
     pdf.set_auto_page_break(auto=True, margin=20)
     pdf.text_logo_path = text_logo_path
     pdf.logo_path = logo_path
+    data_rep_date = format_nice_date(report_date) # Format WHEN GENERATED Report Date
     
-    # Format WHEN GENERATED Report Date
-    data_rep_date = format_nice_date(report_date)
+    # --- COMMON STYLES ---
+    header_style = FontFace(size_pt=12, emphasis="BOLD", color=C_WHITE, fill_color=C_BLUE_LOGO)
     
     #  ==========================================
     #   COVER PAGE
@@ -469,222 +468,127 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     
     pdf.ln(10)
     
+    reg_name_style = FontFace(size_pt=12, emphasis=None, color=(0,0,0), fill_color=C_WHITE)
+    reg_data_style = FontFace(size_pt=12, emphasis=None, color=(0,0,0), fill_color=C_WHITE)
+    
     # ---IPS COMPLIANCE TABLE ---    
-    with pdf.table(col_widths=(65, 35, 35, 35, 35, 60), 
-                   text_align=("LEFT", "RIGHT", "RIGHT", "RIGHT", "RIGHT", "RIGHT"),
-                   borders_layout="HORIZONTAL_LINES", 
+    with pdf.table(col_widths=(65, 35, 35, 35, 35, 65), 
+                   text_align=("LEFT", "RIGHT", "RIGHT", "RIGHT", "RIGHT", "RIGHT"), 
+                   borders_layout="NONE", # No horizontal lines
                    align="LEFT", 
-                   width=270,  
+                   width=275, 
                    line_height=8) as table:
         
+        # Header
         h = table.row()
-        h.cell("Category", style=FontFace(emphasis="BOLD", color=C_BLUE_LOGO, size_pt=12))
-        h.cell("Min", style=FontFace(emphasis="BOLD", color=C_BLUE_LOGO, size_pt=12))
-        h.cell("Max", style=FontFace(emphasis="BOLD", color=C_BLUE_LOGO, size_pt=12))
-        h.cell("Target", style=FontFace(emphasis="BOLD", color=C_BLUE_LOGO, size_pt=12)) 
-        h.cell("Actual", style=FontFace(emphasis="BOLD", color=C_BLUE_LOGO, size_pt=12))
-        h.cell("Compliance Status", style=FontFace(emphasis="BOLD", color=C_BLUE_LOGO, size_pt=12))
-        
+        h.cell("Category", style=header_style)
+        for t in ["Min", "Max", "Target", "Actual", "Compliance Status"]: 
+            h.cell(t, style=header_style)
+            
+        # Data
+        pdf.set_draw_color(*C_GREY_BORDER) # Light grey for vertical lines
         for cat, v_min, v_max, v_tgt, v_cur in ips_rows:
             r = table.row()
-            r.cell(cat,            style=FontFace(size_pt=12))
-            r.cell(f"{v_min:.1%}", style=FontFace(size_pt=12))
-            r.cell(f"{v_max:.1%}", style=FontFace(size_pt=12))
-            r.cell(f"{v_tgt:.1%}", style=FontFace(size_pt=12))
-            r.cell(f"{v_cur:.1%}", style=FontFace(size_pt=12))
+            r.cell(cat, style=reg_name_style)
             
-            # Compliance Check
-            if v_min <= v_cur <= v_max:
-                r.cell("Compliant", style=FontFace(size_pt=12, color=(0, 0, 0)))
-            else:
-                r.cell("Non-Compliant", style=FontFace(size_pt=12, color=(0, 0, 0)))
-
+            # Numeric columns with Right Borders
+            r.cell(f"{v_min:.1%}", style=reg_data_style, border="RIGHT")
+            r.cell(f"{v_max:.1%}", style=reg_data_style, border="RIGHT")
+            r.cell(f"{v_tgt:.1%}", style=reg_data_style, border="RIGHT")
+            r.cell(f"{v_cur:.1%}", style=reg_data_style, border="RIGHT")
+            
+            # Status
+            status = "Compliant" if v_min <= v_cur <= v_max else "Non-Compliant"
+            status_style = FontFace(size_pt=12, emphasis=None, color=(0,0,0), fill_color=C_WHITE)
+            r.cell(status, style=status_style)
+            
     pdf.ln(22)
     
     # --- IPS BOX & WHISKERS CHART ---
-    # pdf.set_font('Carlito', 'B', 11)
-    # pdf.set_text_color(0, 0, 0)
-    # pdf.cell(0, 8, "IPS Ranges" , new_x="LMARGIN", new_y="NEXT")
-    
     try:
         ips_chart_img = generate_ips_chart(ips_rows)
-        if ips_chart_img:
-            # Place image at current X (left margin), width=265mm
-            pdf.image(ips_chart_img, x=pdf.get_x(), w=265)
-            
-            if os.path.exists("temp_ips_chart.png"): 
-                os.remove("temp_ips_chart.png")
+        if ips_chart_img: pdf.image(ips_chart_img, x=pdf.get_x(), w=265); os.remove("temp_ips_chart.png")
     except Exception as e:
         print(f"IPS Chart Error: {e}")
         
-         
+        
     #  ==========================================
     #   PAGE 4: CHANGE IN NET ASSET VALUE
     #  ==========================================
-    pdf.show_standard_header = True
-    pdf.header_text = "Change in Portfolio"
-    pdf.add_page()
-
-    # --- HEADER: ACCOUNT INFO ---
-    pdf.set_font('Carlito', 'B', 16)
-    pdf.set_text_color(0, 0, 0)
-    pdf.cell(0, 8, account_title, new_x="LMARGIN", new_y="NEXT")
-    
-    pdf.set_font('Carlito', '', 8)
-    pdf.set_text_color(*C_TEXT_GREY)
-    pdf.cell(0, 6, f"Reportings as of {data_rep_date}", new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(4)
-    
-    # === CHANGE IN NAV TABLE ===
+    pdf.header_text = "Change in Portfolio"; pdf.add_page()
+    pdf.set_font('Carlito', 'B', 16); pdf.set_text_color(0, 0, 0); pdf.cell(0, 8, account_title, new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font('Carlito', '', 8); pdf.set_text_color(*C_TEXT_GREY); pdf.cell(0, 6, f"Reportings as of {data_rep_date}", new_x="LMARGIN", new_y="NEXT"); pdf.ln(4)
     breakdown = nav_performance.get('Breakdown', {}) if nav_performance else {}
-    
     if breakdown:
-        pdf.set_font('Carlito', 'B', 12)
-        pdf.set_text_color(0, 0, 0)
-        pdf.cell(0, 10, "Net Asset Value", new_x="LMARGIN", new_y="NEXT")
+        pdf.set_font('Carlito', 'B', 12); pdf.set_text_color(0, 0, 0); pdf.cell(0, 10, "Net Asset Value", new_x="LMARGIN", new_y="NEXT")
         
-        # Table Config: 2 Columns
         with pdf.table(col_widths=(100, 60), 
                        text_align=("LEFT", "RIGHT"), 
-                       borders_layout="HORIZONTAL_LINES", 
+                       borders_layout="NONE",
                        align="LEFT", 
                        width=160, 
                        line_height=8) as table:
             
-            # 1. Header Row
+            # Header
             header = table.row()
-            header.cell("Field Name", style=FontFace(emphasis="BOLD", color=C_BLUE_LOGO, size_pt=12))
-            header.cell("Field Value", style=FontFace(emphasis="BOLD", color=C_BLUE_LOGO, size_pt=12))
+            header.cell("Field Name", style=header_style)
+            header.cell("Field Value", style=header_style)
             
-            # 2. Data Rows
-            row_order = [
-                "Starting Value", 
-                "Mark-to-Market", 
-                "Deposits & Withdrawals", 
-                "Dividends", 
-                "Interest", 
-                "Change in Interest Accruals", 
-                "Commissions", 
-                "Ending Value"
-            ]
-            
+            # Data
+            row_order = ["Starting Value", "Mark-to-Market", "Deposits & Withdrawals", "Dividends", "Interest", "Change in Interest Accruals", "Commissions", "Ending Value"]
             for key in row_order:
-                val = breakdown.get(key, 0.0)
+                val = breakdown.get(key, 0.0); is_bold = key in ["Starting Value", "Ending Value"]; display_name = key if is_bold else f"      {key}"
                 
-                # Formatting Logic
-                is_bold = key in ["Starting Value", "Ending Value"]
-                should_indent = not is_bold 
+                # Use White background for all
+                style_row = FontFace(emphasis="BOLD" if is_bold else "", size_pt=12, fill_color=C_WHITE)
                 
-                # Indentation
-                display_name = key
-                if should_indent:
-                    display_name = f"      {key}" 
-                
-                # Font Style
-                weight = "BOLD" if is_bold else ""
-                
-                # Render Row
                 r = table.row()
-                r.cell(display_name, style=FontFace(emphasis=weight, size_pt=12))
-                r.cell(f"${val:,.2f}", style=FontFace(emphasis=weight, size_pt=12))
+                r.cell(display_name, style=style_row)
+                r.cell(f"${val:,.2f}", style=style_row)
        
        
     #  ==========================================
     #   PAGE 5: PORTFOLIO OVERVIEW
     #  ==========================================
-    pdf.show_standard_header = True
-    pdf.header_text = "Portfolio Performance"
-    pdf.add_page()
-
-    # --- HEADER INFO ---
-    # pdf.set_font('Carlito', 'B', 16)
-    # pdf.set_text_color(0, 0, 0)
-    # pdf.cell(0, 8, account_title, new_x="LMARGIN", new_y="NEXT")
-    
-    pdf.set_font('Carlito', '', 8)
-    pdf.set_text_color(*C_TEXT_GREY)
-    pdf.cell(0, 6, f"Reportings as of {data_rep_date}", new_x="LMARGIN", new_y="NEXT")
+    # --- 2. NAV PERFORMANCE TABLE ---
+    pdf.header_text = "Portfolio Performance"; pdf.add_page(); pdf.set_font('Carlito', '', 8); pdf.set_text_color(*C_TEXT_GREY); pdf.cell(0, 6, f"Reportings as of {data_rep_date}", new_x="LMARGIN", new_y="NEXT"); pdf.ln(10); start_y = pdf.get_y()
+            
     pdf.ln(10)
-
-    # === TWO-COLUMN LAYOUT START ===
-    start_y = pdf.get_y()
-    
-    # --- LEFT COLUMN: DATA ---
-    # -- 1. PERFORMANCE RETURN LINE CHART ---
-    if performance_chart_data is not None and not performance_chart_data.empty:
+    if performance_chart_data is not None:
         try:
             line_chart_img = generate_line_chart(performance_chart_data)
-            if line_chart_img:
-                pdf.set_font('Carlito', 'B', 12)
-                pdf.set_text_color(0, 0, 0)
-                pdf.cell(0, 8, f"Period Performance vs. {main_benchmark_tckr}", new_x="LMARGIN", new_y="NEXT")
-                
-                # Image is placed at current X/Y
-                pdf.image(line_chart_img, w=130)
-                
-                if os.path.exists(line_chart_img): os.remove(line_chart_img)
+            if line_chart_img: pdf.set_font('Carlito', 'B', 12); pdf.set_text_color(0, 0, 0); pdf.cell(0, 8, f"Period Performance vs {main_benchmark_tckr}", new_x="LMARGIN", new_y="NEXT"); pdf.image(line_chart_img, w=130); os.remove(line_chart_img)
         except Exception as e:
-            print(f"Line chart error: {e}")
-            
-    pdf.ln(8)
-    
-    # --- 2. NAV PERFORMANCE TABLE ---
-    pdf.set_font('Carlito', 'B', 12)
-    pdf.set_text_color(0,0,0)
-    pdf.cell(0, 8, "Performance Overview", new_x="LMARGIN", new_y="NEXT")
-    
-    # Define Headers
-    cols = ["Account", period_label, "1M", "3M", "6M", "YTD"]
-    
-    # Define Keys for the data loop (skipping Account/Period which are handled manually)
-    keys = ["Period", "1M", "3M", "6M", "YTD"]
-    
-    pdf.set_font('Carlito', '', 12)
-    with pdf.table(col_widths=(60, 60, 20, 20, 20, 20), 
-                   text_align="CENTER", 
-                   borders_layout="HORIZONTAL_LINES", 
-                   align="LEFT", 
-                   width=200) as table:
-        
-        # Header Row
-        header = table.row()
-        for i, c in enumerate(cols):
-            align = "LEFT" if i < 1 else "RIGHT" # Account: left, Returns: right
-            header.cell(c, style=FontFace(emphasis="BOLD", color=C_BLUE_LOGO, size_pt=12), align=align)
-            
-        # Data Row
-        row = table.row()
-        
-        # Cell 1: Account Name
-        acct_str = account_title[:38] + "..." if len(account_title) > 40 else account_title
-        row.cell(acct_str, style=FontFace(size_pt=12, emphasis=None), align="LEFT")
-        
-        # Cell 2: Period Return (The value associated with the date range)
-        per_val = performance_windows.get("Period") if performance_windows else None
-        per_txt = f"{per_val:.2%}" if per_val is not None else "-"
-        row.cell(per_txt, style=FontFace(size_pt=12, emphasis=None), align="RIGHT")
-
-        # Cells 3-6: The other returns (1M, 3M, 6M, YTD)
-        for k in keys[1:]:
-            val = performance_windows.get(k) if performance_windows else None
-            txt = f"{val:.2%}" if val is not None else "-"
-            row.cell(txt, style=FontFace(size_pt=12, emphasis=None), align="RIGHT")
-     
-    # --- RIGHT COLUMN: ALLOCATION CHART---
-    # --- ASSET ALLOCATION CHART ---
+            print(f"Performance Chart Error: {e}")
     try:
-        chart_img = generate_donut_chart(summary_df)
-        if chart_img:      
-            chart_y_offset = 0
-            pdf.set_y(start_y + chart_y_offset) 
-            pdf.set_x(155) 
-            pdf.set_font('Carlito', 'B', 12)
-            pdf.set_text_color(0, 0, 0)
-            pdf.cell(0, 8, "Asset Allocation", new_x="LMARGIN", new_y="NEXT")
+        chart_img = generate_donut_chart(summary_df); 
+        if chart_img: pdf.set_y(start_y); pdf.set_x(155); pdf.set_font('Carlito', 'B', 12); pdf.set_text_color(0, 0, 0); pdf.cell(0, 8, "Asset Allocation", new_x="LMARGIN", new_y="NEXT"); pdf.set_y(start_y + 8); pdf.set_x(170); pdf.image(chart_img, w=110); os.remove(chart_img)
+    except Exception as e:
+        print(f"Asset Allocation Chart Error: {e}")
+        
+    pdf.set_font('Carlito', 'B', 12); pdf.set_text_color(0,0,0); pdf.cell(0, 8, "Performance History", new_x="LMARGIN", new_y="NEXT")
+    cols = ["Account", period_label, "1 Month", "3 Month", "6 Month", "YTD"]; keys = ["Period", "1M", "3M", "6M", "YTD"]     
+    with pdf.table(col_widths=(60, 30, 20, 20, 20, 20), 
+                   text_align="CENTER", 
+                   borders_layout="NONE", 
+                   align="LEFT", 
+                   width=160) as table:
+        header = table.row()
+        for i, c in enumerate(cols): 
+            align="LEFT" if i<1 else "RIGHT"
+            header.cell(c, style=header_style, align=align)
             
-            pdf.set_y(start_y + chart_y_offset + 8)
-            pdf.set_x(170)
-            pdf.image(chart_img, w=110)
+        row = table.row()
+        acct_str = account_title[:38]+"..." if len(account_title)>40 else account_title
+        
+        p5_style = FontFace(size_pt=12, fill_color=C_WHITE)
+        
+        row.cell(acct_str, style=p5_style, align="LEFT")
+        period_date = performance_windows.get("Period") if performance_windows else None
+        row.cell(f"{period_date:.2%}" if period_date is not None else "-", style=p5_style, align="RIGHT", border="RIGHT")
+        for k in keys[1:]: 
+            val = performance_windows.get(k) if performance_windows else None
+            row.cell(f"{val:.2%}" if val is not None else "-", style=p5_style, align="RIGHT", border="RIGHT")
             
         # # --- RISK METRICS TABLE ---
         # risk_y_offset = chart_y_offset + 75
@@ -715,51 +619,43 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
         #         row.cell(stdev_str, style=FontFace(size_pt=9, emphasis="BOLD"))
         #         row.cell("R-Square", style=FontFace(size_pt=8, color=C_BLUE_PRIMARY))
         #         row.cell(r2_str, style=FontFace(size_pt=9, emphasis="BOLD"))   
-    except Exception as e:
-        print(f"Chart Error: {e}")
 
     #  ==========================================
     #   PAGE 6: INVESTMENT PERFORMANCE BY ALLOCATION
     #  ==========================================
-    pdf.show_standard_header = True
-    pdf.header_text = "Investment Performance by Allocation"
-    pdf.add_page()
+    pdf.header_text = "Category Allocation and Performance by Model"; pdf.add_page(); pdf.set_font('Carlito', '', 8); pdf.set_text_color(*C_TEXT_GREY); pdf.cell(0, 6, f"Reportings as of {data_rep_date}", new_x="LMARGIN", new_y="NEXT"); pdf.ln(4)
+    pdf.set_font('Carlito', 'B', 12); pdf.set_text_color(0, 0, 0); pdf.cell(0, 8, "Allocation Summary", new_x="LMARGIN", new_y="NEXT")
     
-    pdf.set_font('Carlito', '', 8)
-    pdf.set_text_color(*C_TEXT_GREY)
-    pdf.cell(0, 6, f"Reportings as of {data_rep_date}", new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(4)
+    # Styles for Summary
+    bucket_style = FontFace(size_pt=12, emphasis="BOLD", color=(0,0,0), fill_color=C_GREY_LIGHT)
+    bench_style = FontFace(size_pt=12, emphasis="ITALICS", color=C_TEXT_GREY, fill_color=C_WHITE)
     
-    # --- SUMMARY TABLE ---
-    pdf.set_font('Carlito', 'B', 12)
-    pdf.set_text_color(0, 0, 0)
-    pdf.cell(0, 8, "Allocation Summary", new_x="LMARGIN", new_y="NEXT")
-    
-    with pdf.table(col_widths=(60, 45, 45, 40), text_align=("LEFT", "RIGHT", "RIGHT", "RIGHT"), 
-                   borders_layout="HORIZONTAL_LINES", align="LEFT", width=190, line_height=8) as table:
+    with pdf.table(col_widths=(60, 45, 45, 40), 
+                   text_align=("LEFT", "RIGHT", "RIGHT", "RIGHT"), 
+                   borders_layout="NONE", 
+                   align="LEFT", 
+                   width=190, 
+                   line_height=8) as table:
+        
+        # Header
         header = table.row()
-        for col in ["Asset Class", "Allocation", "Market Value", "Return"]:
-            header.cell(col, style=FontFace(emphasis="BOLD", color=C_BLUE_LOGO, size_pt=12))
+        for col in ["Asset Class", "Allocation", "Market Value", "Return"]: 
+            header.cell(col, style=header_style)
             
+        pdf.set_draw_color(*C_GREY_BORDER)
         for _, row in summary_df.iterrows():
-            row_type = row['Type']
-            name = row['Name']
-            
-            if row_type == 'Bucket':
+            if row['Type'] == 'Bucket':
                 r = table.row()
-                r.cell(name, style=FontFace(emphasis="BOLD", size_pt=12))
-                r.cell(f"{row['Allocation']:.2%}", style=FontFace(size_pt=12))
-                r.cell(f"${row['MarketValue']:,.2f}", style=FontFace(size_pt=12))
-                if row.get('IsCash', False):
-                    r.cell("---", style=FontFace(size_pt=9, color=C_TEXT_GREY))
-                else:
-                    r.cell(f"{row['Return']:.2%}", style=FontFace(size_pt=12))
-            elif row_type == 'Benchmark':
+                r.cell(row['Name'], style=bucket_style)
+                r.cell(f"{row['Allocation']:.2%}", style=bucket_style, border="RIGHT")
+                r.cell(f"${row['MarketValue']:,.2f}", style=bucket_style, border="RIGHT")
+                r.cell("---" if row.get('IsCash') else f"{row['Return']:.2%}", style=bucket_style)
+            elif row['Type'] == 'Benchmark':
                 r = table.row()
-                r.cell(f"      {name}", style=FontFace(emphasis="ITALICS", size_pt=12, color=C_TEXT_GREY))
-                r.cell("") 
-                r.cell("") 
-                r.cell(f"{row['Return']:.2%}", style=FontFace(emphasis="ITALICS", size_pt=12, color=C_TEXT_GREY))
+                r.cell(f"      {row['Name']}", style=bench_style)
+                r.cell("", style=bench_style, border="RIGHT") 
+                r.cell("", style=bench_style, border="RIGHT") 
+                r.cell(f"{row['Return']:.2%}", style=bench_style)
 
     #  ==========================================
     #   PAGE 7+: EXPANDED INVESTMENT PERFORMANCE BY ALLOCATION
@@ -770,42 +666,105 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     pdf.set_text_color(0, 0, 0)
     pdf.ln(2)
 
+    # 1. Prepare Sorting
     bucket_order = summary_df[summary_df['Type'] == 'Bucket']['Name'].unique().tolist()
     sorter_map = {name: i for i, name in enumerate(bucket_order)}
     holdings_df['sort_key'] = holdings_df['asset_class'].map(sorter_map).fillna(999)
     sorted_holdings = holdings_df.sort_values(['sort_key', 'weight'], ascending=[True, False])
-
     unique_buckets = sorted_holdings['asset_class'].unique()
 
-    for bucket in unique_buckets:
-        pdf.set_font('Carlito', 'B', 12)
-        pdf.cell(0, 10, bucket.upper(), new_x="LMARGIN", new_y="NEXT")
+    # 2. Map Benchmarks
+    bucket_bench_map = {}
+    current_bucket = None
+    for _, row in summary_df.iterrows():
+        if row['Type'] == 'Bucket': current_bucket = row['Name']
+        elif row['Type'] == 'Benchmark' and current_bucket: bucket_bench_map[current_bucket] = (row['Name'], row['Return'])
+
+    # 3. CONSTRUCT TABLE
+    col_widths = (25, 130, 25, 35, 35, 25)
+    
+    # Styles
+    header_style = FontFace(size_pt=12, emphasis="BOLD", color=C_WHITE, fill_color=C_BLUE_LOGO)
+    
+    # Asset Class Row: Name(White), Data(Grey)
+    bucket_name_style = FontFace(size_pt=12, emphasis="BOLD", color=(0,0,0), fill_color=C_GREY_LIGHT)
+    bucket_data_style = FontFace(size_pt=12, emphasis="BOLD", color=(0,0,0), fill_color=C_GREY_LIGHT)
+    
+    # Benchmark Row: Name(White), Return(Grey)
+    bench_name_style  = FontFace(size_pt=12, emphasis="ITALICS", color=C_TEXT_GREY, fill_color=C_WHITE)
+    bench_data_style  = FontFace(size_pt=12, emphasis="ITALICS", color=C_TEXT_GREY, fill_color=C_WHITE)
+
+    # Holdings Row: Name(White), Data(Grey)
+    reg_name_style = FontFace(size_pt=12, emphasis=None, color=(0,0,0), fill_color=C_WHITE)
+    reg_data_style = FontFace(size_pt=12, emphasis=None, color=(0,0,0), fill_color=C_WHITE)
+
+    pdf.set_font('Carlito', '', 12)
+    
+    with pdf.table(col_widths=col_widths, 
+                   text_align=("LEFT", "LEFT", "RIGHT", "RIGHT", "RIGHT", "RIGHT"),
+                   borders_layout="NONE", 
+                   align="LEFT",
+                   width=275) as table:
         
-        pdf.set_font('Carlito', '', 12)
-        with pdf.table(col_widths=(25, 110, 25, 35, 25, 25), 
-                       text_align=("LEFT", "LEFT", "RIGHT", "RIGHT", "RIGHT", "RIGHT"),
-                       borders_layout="HORIZONTAL_LINES", align="LEFT") as table:
-            h_row = table.row()
-            headers = ["Ticker", "Name", "Allocation", "Cost Basis", "Value", "Return"]
-            for h in headers:
-                h_row.cell(h, style=FontFace(size_pt=12, emphasis="BOLD", color=C_BLUE_LOGO))
+        # --- HEADER ---
+        h_row = table.row()
+        headers = ["Ticker", "Name", "Allocation", "Cost Basis", "Value", "Return"]
+        for h in headers: h_row.cell(h, style=header_style)
             
+        for bucket in unique_buckets:
+            # 1. CALCULATE BUCKET TOTALS
             subset = sorted_holdings[sorted_holdings['asset_class'] == bucket]
+            sum_cost = subset['avg_cost'].sum()
+            sum_value = subset['raw_value'].sum()
+            sum_alloc = subset['weight'].sum()
+            
+            # Get return from summary_df to match Page 6
+            bk_row = summary_df[(summary_df['Type']=='Bucket') & (summary_df['Name']==bucket)]
+            sum_ret = bk_row['Return'].iloc[0] if not bk_row.empty else 0.0
+
+            # 2. ASSET CLASS ROW (SUMMARY)
+            # Row spans Ticker+Name for the Label
+            s_row = table.row()
+            s_row.cell(bucket.upper(), colspan=2, style=bucket_name_style, align="LEFT")
+            
+            # Data Columns with Vertical Lines
+            pdf.set_draw_color(*C_GREY_BORDER)
+            s_row.cell(f"{sum_alloc:.2%}", style=bucket_data_style, border="RIGHT")
+            s_row.cell(f"${sum_cost:,.2f}", style=bucket_data_style, border="RIGHT")
+            s_row.cell(f"${sum_value:,.2f}", style=bucket_data_style, border="RIGHT")
+            s_row.cell(f"{sum_ret:.2%}", style=bucket_data_style) # No border on last col
+
+            # 3. BENCHMARK ROW (If exists)
+            bench_info = bucket_bench_map.get(bucket)
+            if bench_info:
+                b_name, b_ret = bench_info
+                b_row = table.row()
+                b_row.cell(f"Benchmark: {b_name}", colspan=2, style=bench_name_style, align="LEFT")
+                
+                # Empty cells for Alloc, Cost, Value (with borders to maintain structure)
+                b_row.cell("", style=bench_data_style, border="RIGHT")
+                b_row.cell("", style=bench_data_style, border="RIGHT")
+                b_row.cell("", style=bench_data_style, border="RIGHT")
+                
+                # Return
+                b_row.cell(f"{b_ret:.2%}", style=bench_data_style)
+
+            # 4. HOLDINGS ROWS
             for _, pos in subset.iterrows():
                 r = table.row()
                 ret_str = "---" if pos['ticker'] == 'CASH_BAL' else f"{pos['cumulative_return']:.2%}"
                 name_str = str(pos.get('official_name', ''))
-                if len(name_str) > 80: name_str = name_str[:78] + "..."
+                if len(name_str) > 60: name_str = name_str[:58] + "..."
                 
-                reg_style = FontFace(color=(0,0,0), emphasis=None, size_pt=12)
-                r.cell(str(pos['ticker']), style=reg_style)
-                r.cell(name_str, style=reg_style)
-                r.cell(f"{pos['weight']:.2%}", style=reg_style)
-                r.cell(f"${pos['avg_cost']:,.2f}", style=reg_style)
-                r.cell(f"${pos['raw_value']:,.2f}", style=reg_style)
-                r.cell(ret_str, style=reg_style)
+                # Name Cols
+                r.cell(str(pos['ticker']), style=reg_name_style)
+                r.cell(name_str, style=reg_name_style)
                 
-        pdf.ln(5)
+                # Data Cols
+                r.cell(f"{pos['weight']:.2%}", style=reg_data_style, border="RIGHT")
+                r.cell(f"${pos['avg_cost']:,.2f}", style=reg_data_style, border="RIGHT")
+                r.cell(f"${pos['raw_value']:,.2f}", style=reg_data_style, border="RIGHT")
+                r.cell(ret_str, style=reg_data_style)
 
     
     #  ==========================================
