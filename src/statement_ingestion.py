@@ -17,6 +17,7 @@ class PortfolioData:
     holdings: pd.DataFrame
     account_title: str
     report_date: str
+    legal_notes: pd.DataFrame
     total_nav: float
     settled_cash: float
     nav_performance: dict
@@ -34,6 +35,7 @@ class StatementSections:
     raw_sections: dict[str, pd.DataFrame]
     statement_metadata: "StatementMetadata"
     accounts: pd.DataFrame
+    legal_notes: pd.DataFrame
     positions: pd.DataFrame                 # Model (Asset Class/Bucket)
     open_positions: pd.DataFrame            # Cost Basis & Value
     dividends: pd.DataFrame                 
@@ -82,6 +84,7 @@ def build_statement_sections(path: str | Path) -> StatementSections:
     
     meta = extract_statement_metadata(raw_sections.get("Statement", pd.DataFrame()))
     account = raw_sections.get("Accounts", pd.DataFrame())
+    notes = raw_sections.get("Notes/Legal Notes", pd.DataFrame())
     pos = raw_sections.get("Positions", pd.DataFrame())
     open_pos = raw_sections.get("Open Positions", pd.DataFrame())
     divs = raw_sections.get("Dividends", pd.DataFrame())
@@ -94,13 +97,15 @@ def build_statement_sections(path: str | Path) -> StatementSections:
         raw_sections=raw_sections, 
         statement_metadata=meta, 
         accounts=account,
+        legal_notes=notes,
         positions=pos, 
         open_positions=open_pos, 
         dividends=divs, 
         perf_summary=performance, 
         nav_summary=nav,
         cash_report=cash,
-        change_in_nav=change_nav)
+        change_in_nav=change_nav
+    )
     
    
 # === HELPER FUNCTIONS === 
@@ -384,6 +389,7 @@ def get_portfolio_holdings(file_path, benchmark_default_date: str):
         holdings=final_df, 
         account_title=account_title,
         report_date=report_date,
+        legal_notes=sections.legal_notes,
         nav_performance=nav_perf,
         total_nav=total_nav,
         settled_cash=settled_cash,

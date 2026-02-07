@@ -111,6 +111,7 @@ def run_pipeline():
         holdings = portfolio_data.holdings
         account_title = portfolio_data.account_title
         report_date = portfolio_data.report_date
+        legal_notes = portfolio_data.legal_notes
         total_nav = portfolio_data.total_nav
         settled_cash = portfolio_data.settled_cash
         nav_performance = portfolio_data.nav_performance
@@ -304,6 +305,7 @@ def run_pipeline():
             risk_metrics=risk_metrics,
             risk_time_horizon=RISK_TIME_HORIZON,
             
+            legal_notes=legal_notes,
             pdf_info=pdf_info,
             text_logo_path=TEXT_LOGO_FILE,
             logo_path=LOGO_FILE, 
