@@ -124,12 +124,12 @@ def get_ips_table_data(pdf_info, summary_df):
     intl_cur = get_current('International Equities')
     rows.append(('International Equities', intl_min, intl_max, intl_tgt, intl_cur))
 
-    # 3. Total Equities
-    total_eq_min = us_min + intl_min
-    total_eq_max = us_max + intl_max
-    total_eq_tgt = us_tgt + intl_tgt
-    total_eq_cur = us_cur + intl_cur
-    rows.append(('Total Equities', total_eq_min, total_eq_max, total_eq_tgt, total_eq_cur))
+    # # 3. Total Equities
+    # total_eq_min = us_min + intl_min
+    # total_eq_max = us_max + intl_max
+    # total_eq_tgt = us_tgt + intl_tgt
+    # total_eq_cur = us_cur + intl_cur
+    # rows.append(('Total Equities', total_eq_min, total_eq_max, total_eq_tgt, total_eq_cur))
 
     # 4. Fixed Income (US + Global)
     us_fi_min = get_val('page_4_ips_us_fixed_income_range_min')
@@ -205,9 +205,9 @@ def generate_ips_chart(ips_rows):
     chart = (ranges + targets + currents).properties(
         width=800, height=200
     ).configure_axis(
-        labelFont='Calibri', titleFont='Calibri', titleFontSize=12, labelFontSize=12
+        labelFont='Calibri', titleFont='Calibri', titleFontSize=15, labelFontSize=15
     ).configure_legend(
-        labelFont='Calibri', titleFont='Calibri', titleFontSize=12, labelFontSize=12
+        labelFont='Calibri', titleFont='Calibri', titleFontSize=15, labelFontSize=15
     ).configure_text(
         font='Calibri', fontSize=12
     )
@@ -381,68 +381,74 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     # COMMON STYLES
     header_style = FontFace(size_pt=12, emphasis="BOLD", color=C_WHITE, fill_color=C_BLUE_LOGO)
     
+    
     #  ==========================================
     #   COVER PAGE
     #  ==========================================
-    pdf.show_standard_header = False; pdf.add_page()
+    pdf.show_standard_header = False
+    pdf.add_page()
     
     # --- DATA EXTRACTION ---
-    # 1. Account Name
     acct_name = clean_text(pdf_info.get('page_1_account_name', account_title))
     
-    # 2. Report Title Logic
     quarter_val = clean_text(pdf_info.get('quarter', ''))
     if quarter_val:
         rpt_title = f"{quarter_val} Portfolio Report"
     else:
-        # Fallback to standard title key or default
         rpt_title = clean_text(pdf_info.get('page_1_report_title', 'Quarterly Portfolio Report'))
 
-    # 3. Report Date
     title_date_input = pdf_info.get('page_1_report_date', report_date)
     title_rep_date = format_nice_date(title_date_input)
     
     # --- LAYOUT CONFIGURATION ---
-    mid_x = pdf.w / 2
-    gap = 10  # Gap from the center line for both elements
-    content_start_y = 65
+    block_shift = 15  # <--- Adjust this to move the whole group Left/Right
     
-    # --- LEFT SIDE: TEXT BLOCK (Right Aligned to Center) ---
+    # 2. Calculate the "Visual Center" axis
+    visual_center_x = (pdf.w / 2) + block_shift
+    gap = 8  # Space between text and logo
+    content_start_y = 70
+    
+    # --- LEFT SIDE: TEXT BLOCK (Right Aligned to Visual Center) ---
     pdf.set_y(content_start_y)
-    text_width_area = mid_x - gap - 10 # 10 is arbitrary left padding
+    
+    # Text box starts at left margin (10) and ends at (visual_center_x - gap)
+    # align='R' pushes the text against the invisible visual_center line
+    text_area_width = (visual_center_x - gap) - 10 
     
     # 1. FIRM NAME
     pdf.set_x(10)
     pdf.set_font('Carlito', 'B', 38)
     pdf.set_text_color(*C_BLUE_LOGO)
-    pdf.cell(text_width_area, 20, 'Gaard Capital LLC', new_x="LMARGIN", new_y="NEXT", align='R')
+    pdf.cell(text_area_width, 20, 'Gaard Capital LLC', new_x="LMARGIN", new_y="NEXT", align='R')
     
     # 2. ACCOUNT NAME
     pdf.set_x(10)
     pdf.set_font('Carlito', 'B', 18)
     pdf.set_text_color(0,0,0)
-    pdf.cell(text_width_area, 12, acct_name, new_x="LMARGIN", new_y="NEXT", align='R')
+    pdf.cell(text_area_width, 12, acct_name, new_x="LMARGIN", new_y="NEXT", align='R')
     
-    # 3. REPORT TITLE (Updated with Quarter Logic)
+    # 3. REPORT TITLE
     pdf.set_x(10)
     pdf.set_font('Carlito', 'B', 18)
     pdf.set_text_color(40, 40, 40)
-    pdf.cell(text_width_area, 12, rpt_title, new_x="LMARGIN", new_y="NEXT", align='R')
+    pdf.cell(text_area_width, 12, rpt_title, new_x="LMARGIN", new_y="NEXT", align='R')
     
     # 4. REPORT DATE
     pdf.set_x(10)
     pdf.set_font('Carlito', '', 12)
     pdf.set_text_color(100, 100, 100)
-    pdf.cell(text_width_area, 10, f"{title_rep_date}", new_x="LMARGIN", new_y="NEXT", align='R')
+    pdf.cell(text_area_width, 10, f"{title_rep_date}", new_x="LMARGIN", new_y="NEXT", align='R')
 
-    # --- RIGHT SIDE: LOGO (Left Aligned from Center) ---
+    # --- RIGHT SIDE: LOGO (Left Aligned to Visual Center) ---
     if logo_path and os.path.exists(logo_path):
         try:
-            # Position X at Middle + Gap
-            # Position Y aligned roughly with the top of the Firm Name
-            pdf.image(logo_path, x=mid_x + gap, y=content_start_y + 2, w=60)
+            # Logo starts exactly on the other side of the gap
+            logo_x = visual_center_x + gap
+            
+            pdf.image(logo_path, x=logo_x, y=content_start_y + 4, w=40)
         except Exception as e: 
             print(f"Warning: Could not load logo: {e}")
+    
     
     #  ==========================================
     #   PAGE 2: ENDOWMENT GOALS & OBJECTIVES
@@ -455,7 +461,24 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     
     pdf.set_font('Carlito', '', 12)
     pdf.set_text_color(0, 0, 0)
-    pdf.multi_cell(0, 6, ips_text)
+    side_margin = 55
+    text_block_width = pdf.w - (side_margin *2)
+    line_height = 6
+    
+    # Calculate Block Height (Simulate Writing)
+    lines = pdf.multi_cell(text_block_width, line_height, ips_text, dry_run=True, output="LINES")
+    num_lines = len(lines)
+    block_height = num_lines * line_height
+    
+    start_y = (pdf.h - block_height) / 2    # vertical center
+    
+    # Safety Check: Header Overlap
+    if start_y < 35: 
+        start_y = 35
+        
+    pdf.set_y(start_y)
+    pdf.set_x(side_margin)
+    pdf.multi_cell(text_block_width, line_height, ips_text)
     
     #  ==========================================
     #   PAGE 3: ENDOWMENT TARGET ALLOCATIONS
@@ -467,17 +490,17 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     reg_data_style = FontFace(size_pt=12, emphasis=None, color=(0,0,0), fill_color=C_WHITE)
     
     # ---IPS COMPLIANCE TABLE ---    
-    with pdf.table(col_widths=(65, 35, 35, 35, 35, 65), 
+    with pdf.table(col_widths=(55, 20, 20, 20, 20, 55), 
                    text_align=("LEFT", "RIGHT", "RIGHT", "RIGHT", "RIGHT", "RIGHT"), 
                    borders_layout="NONE", # No horizontal lines
-                   align="LEFT", 
-                   width=275, 
+                   align="CENTER", 
+                   width=190, 
                    line_height=8) as table:
         
         # Header
         h = table.row()
         h.cell("Category", style=header_style)
-        for t in ["Min", "Max", "Target", "Actual", "Compliance Status"]: 
+        for t in ["Min", "Max", "Target", "Current", "Compliance Status"]: 
             h.cell(t, style=header_style)
             
         # Data
@@ -501,7 +524,63 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     # --- IPS BOX & WHISKERS CHART ---
     try:
         ips_chart_img = generate_ips_chart(ips_rows)
-        if ips_chart_img: pdf.image(ips_chart_img, x=pdf.get_x(), w=265); os.remove("temp_ips_chart.png")
+        if ips_chart_img:
+            # 1. Setup Dimensions
+            img_w = 265
+            img_h = img_w * 0.25 
+            
+            # Calculate Left Edge of the Graph
+            x_start = (pdf.w - img_w) / 2
+            
+            # Capture starting Y for the Legend
+            legend_y = pdf.get_y()
+            
+            # 2. Draw Custom Legend (TOP - Left Aligned to Graph)
+            pdf.set_font('Carlito', '', 12)
+            pdf.set_text_color(0, 0, 0) 
+            
+            # --- ITEM 1: RANGE (Starts exactly at x_start) ---
+            key1_x = x_start
+            
+            pdf.set_draw_color(211, 211, 211) 
+            pdf.set_line_width(3)             
+            pdf.line(key1_x, legend_y+2, key1_x+10, legend_y+2) 
+            # Label
+            pdf.set_xy(key1_x + 12, legend_y)
+            pdf.cell(30, 4, "Allowed Range", align='L')
+            
+            # --- ITEM 2: TARGET (Offset by 50mm) ---
+            key2_x = x_start + 50
+            
+            pdf.set_draw_color(0, 0, 0)
+            pdf.set_line_width(1)
+            pdf.line(key2_x, legend_y, key2_x, legend_y+4) 
+            # Label
+            pdf.set_xy(key2_x + 3, legend_y)
+            pdf.cell(20, 4, "Target", align='L')
+            
+            # --- ITEM 3: CURRENT (Offset by 90mm) ---
+            key3_x = x_start + 90
+            
+            pdf.set_fill_color(*C_BLUE_LOGO)
+            pdf.set_draw_color(*C_BLUE_LOGO)
+            pdf.circle(key3_x, legend_y+2, 1.5, style="FD") 
+            # Label
+            pdf.set_xy(key3_x + 4, legend_y)
+            pdf.cell(30, 4, "Current", align='L')
+            
+            # 3. Place Image (BELOW LEGEND)
+            pdf.set_line_width(0.2) # Reset line width
+            
+            # Move Y down to make room for image (Legend Height ~6mm + Gap 2mm)
+            image_y = legend_y + 8 
+            
+            pdf.image(ips_chart_img, x=x_start, y=image_y, w=img_w)
+            os.remove(ips_chart_img) 
+            
+            # Move cursor past the image for next content
+            pdf.set_y(image_y + img_h + 5)
+            
     except Exception as e:
         print(f"IPS Chart Error: {e}")
         
@@ -510,17 +589,52 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     #   PAGE 4: CHANGE IN PORTFOLIO VALUE
     #  ==========================================
     pdf.show_standard_header = True; pdf.header_text = "Change in Portfolio Value"; pdf.add_page()
-    pdf.set_font('Carlito', 'B', 16); pdf.set_text_color(0, 0, 0); pdf.cell(0, 6, account_title, new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font('Carlito', '', 10); pdf.set_text_color(*C_TEXT_GREY); pdf.cell(0, 6, f"Reportings as of {data_rep_date}", new_x="LMARGIN", new_y="NEXT"); pdf.ln(2)
     breakdown = nav_performance.get('Breakdown', {}) if nav_performance else {}
+    
     if breakdown:
-        pdf.set_font('Carlito', 'B', 12); pdf.set_text_color(0, 0, 0); pdf.cell(0, 10, "Quarterly Change in Net Asset Value", new_x="LMARGIN", new_y="NEXT")
+        table_width = 100 # ensure any change here is accounted for in column widths below
+        table_start_x = (pdf.w - table_width) / 2
+        table_height = 9 * 8 
+        table_start_y = (pdf.h - table_height) / 2
+        text_block_height = 24 # 6 + 6 + 2 +10
+        text_start_y = table_start_y - text_block_height
         
-        with pdf.table(col_widths=(100, 60), 
+        # Safety Check: Don't let text hit the header (Top Margin ~35mm)
+        if text_start_y < 35:
+            text_start_y = 35
+            table_start_y = text_start_y + text_block_height
+
+        # --- TABLE TITLE TEXT (Left Aligned to Table) ---
+        pdf.set_y(text_start_y)
+        
+        # Account Title
+        pdf.set_x(table_start_x) # Start at table's left edge
+        pdf.set_font('Carlito', 'B', 16)
+        pdf.set_text_color(0, 0, 0)
+        pdf.cell(0, 6, account_title, new_x="LMARGIN", new_y="NEXT", align='L')
+        
+        # Date
+        pdf.set_x(table_start_x)
+        pdf.set_font('Carlito', '', 10)
+        pdf.set_text_color(*C_TEXT_GREY)
+        pdf.cell(0, 6, f"Reportings as of {data_rep_date}", new_x="LMARGIN", new_y="NEXT", align='L')
+        
+        pdf.ln(2)
+        
+        # Change in NAV Table Title
+        pdf.set_x(table_start_x)
+        pdf.set_font('Carlito', 'B', 12)
+        pdf.set_text_color(0, 0, 0)
+        pdf.cell(0, 10, "Quarterly Change in Net Asset Value", new_x="LMARGIN", new_y="NEXT", align='L')
+
+        # --- TABLE ---
+        pdf.set_y(table_start_y)
+        
+        with pdf.table(col_widths=(70, 30),     # Sum up to table width
                        text_align=("LEFT", "RIGHT"), 
                        borders_layout="NONE",
-                       align="LEFT", 
-                       width=160, 
+                       align="CENTER", 
+                       width=table_width, 
                        line_height=8) as table:
             
             # Header
@@ -535,7 +649,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
                 is_bold = key in ["Starting Value", "Ending Value"]
                 display_name = key if is_bold else f"      {key}"
                 
-                # LOGIC CHANGE: Use Grey for bold rows, White for others
+                # Logic: Grey for bold rows, White for others
                 bg_color = C_GREY_LIGHT if is_bold else C_WHITE
                 
                 style_row = FontFace(emphasis="BOLD" if is_bold else "", size_pt=12, fill_color=bg_color)
@@ -587,7 +701,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
         # --- HEADER ROW 1: Period Names ---
         row1 = table.row()
         
-        # CHANGE 1: Blank Style (White Background) for the empty top-left cell
+        # CHANGE 1: Blank Style for the empty top-left cell
         blank_style = FontFace(fill_color=C_WHITE)
         row1.cell("", style=blank_style) 
         
