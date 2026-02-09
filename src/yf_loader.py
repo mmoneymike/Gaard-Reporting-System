@@ -40,7 +40,7 @@ def fetch_benchmark_returns_yf(tickers, start_date=None, end_date=None):
                 return pd.DataFrame()
 
         # Convert Prices -> Returns
-        returns = prices.pct_change()
+        returns = prices.pct_change(fill_method=None)
         
         # Cut off data strictly at the report date
         if end_date:
