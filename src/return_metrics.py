@@ -71,14 +71,14 @@ def calculate_nav_performance(change_in_nav_df: pd.DataFrame) -> dict:
     
 def calculate_period_returns(daily_nav_df, report_date_str):
     """
-    Calculates returns for: Period (Quarter), 1M, 3M, 6M, YTD, 1Y, 3Y, Inception.
+    Calculates returns for: Period (File Range), 1M, 3M, 6M, YTD, 1Y, 3Y, Inception.
     Returns: (results_dict, period_label_str)
     """
     results = {
         'Period': None, '1M': None, '3M': None, '6M': None, 
         'YTD': None, '1Y': None, '3Y': None, 'Inception': None
     }
-    period_label = "Quarter"
+    period_label = "Period"
     
     if daily_nav_df.empty: return results, period_label
     
@@ -93,11 +93,16 @@ def calculate_period_returns(daily_nav_df, report_date_str):
     if df.empty: return results, period_label
 
     end_val = df.iloc[-1]['nav']
+    start_file_val = df.iloc[0]['nav']
     
+    # --- 1. RESTORED: Dynamic "Q{num} {Year}" Label ---
+    # We calculate which quarter the report_date falls into
+    q_num = ((current_date.month - 1) // 3) + 1
+    period_label = f"Q{q_num} {current_date.year}"
+
     # --- Helper Calculation ---
     def get_nav_at(target_date):
-        # Finds NAV on or immediately before target_date
-        if target_date < df.iloc[0]['date']: return df.iloc[0]['nav'] # Use inception if target is earlier
+        if target_date < df.iloc[0]['date']: return df.iloc[0]['nav']
         subset = df[df['date'] <= target_date]
         if subset.empty: return None
         return subset.iloc[-1]['nav']
@@ -106,7 +111,7 @@ def calculate_period_returns(daily_nav_df, report_date_str):
         if start and start != 0: return (end / start) - 1.0
         return None
 
-    # --- 1. Define Dates ---
+    # Define Dates
     d_1m = current_date - pd.DateOffset(months=1)
     d_3m = current_date - pd.DateOffset(months=3)
     d_6m = current_date - pd.DateOffset(months=6)
@@ -114,13 +119,11 @@ def calculate_period_returns(daily_nav_df, report_date_str):
     d_1y  = current_date - pd.DateOffset(years=1)
     d_3y  = current_date - pd.DateOffset(years=3)
 
-    # Calculate Quarter Start (Jan 1, Apr 1, Jul 1, Oct 1)
-    q_month = ((current_date.month - 1) // 3) * 3 + 1
-    d_quarter = pd.Timestamp(year=current_date.year, month=q_month, day=1)
-
-    # --- 2. Calculate Returns ---
-    # 'Period' is now the Quarter Return
-    results['Period']    = calc(get_nav_at(d_quarter), end_val)
+    # --- Calculate Returns ---
+    # Period = Full range of the provided CSV (Matches "Change in NAV" timeline)
+    # But displayed as "Q{x} {Year}"
+    results['Period']    = calc(start_file_val, end_val)
+    
     results['1M']        = calc(get_nav_at(d_1m), end_val)
     results['3M']        = calc(get_nav_at(d_3m), end_val)
     results['6M']        = calc(get_nav_at(d_6m), end_val)
@@ -128,10 +131,6 @@ def calculate_period_returns(daily_nav_df, report_date_str):
     results['1Y']        = calc(get_nav_at(d_1y), end_val)
     results['3Y']        = calc(get_nav_at(d_3y), end_val)
     results['Inception'] = calc(df.iloc[0]['nav'], end_val)
-    
-    # --- 3. Generate Label ---
-    q_num = ((current_date.month - 1) // 3) + 1
-    period_label = f"Q{q_num} {current_date.year}"
     
     return results, period_label
 

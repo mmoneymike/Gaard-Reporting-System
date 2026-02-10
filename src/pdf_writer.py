@@ -445,7 +445,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
             # Logo starts exactly on the other side of the gap
             logo_x = visual_center_x + gap
             
-            pdf.image(logo_path, x=logo_x, y=content_start_y + 4, w=42)
+            pdf.image(logo_path, x=logo_x, y=content_start_y + 4, w=41)
         except Exception as e: 
             print(f"Warning: Could not load logo: {e}")
     
@@ -652,7 +652,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     pdf.set_font('Carlito', '', 10); pdf.set_text_color(*C_TEXT_GREY); pdf.cell(0, 1, f"Reportings as of {data_rep_date}", new_x="LMARGIN", new_y="NEXT"); 
     pdf.ln(3); start_y = pdf.get_y()       
 
-    # --- 1. Performance and Asset Allocation Charts ---
+    # --- 1. PERFORMANCE AND ALLOCATION CHARTS ---
     if performance_chart_data is not None:
         try:
             line_chart_img = generate_line_chart(performance_chart_data)
@@ -710,7 +710,6 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
         # --- DATA ROW ---
         row = table.row()
         acct_str = account_title[:38] + "..." if len(account_title) > 40 else account_title
-        
         p5_style = FontFace(size_pt=12, fill_color=C_GREY_LIGHT)
         
         # 1. Account Name
