@@ -259,7 +259,7 @@ def generate_line_chart(comparison_df):
     
 #  === ASSET ALLOCATION CHART CREATION ===
 def generate_donut_chart(summary_df):
-    """Generates a High-Res Altair chart with Legend using Calibri."""
+    """Generates a Donut chart with ~300 width, max 500 height, and large Legend labels."""
     source = summary_df[
         (summary_df['Type'] == 'Bucket') & 
         (summary_df['Name'] != 'Other')
@@ -267,48 +267,50 @@ def generate_donut_chart(summary_df):
     
     if source.empty: return None
 
+    # PREPARE LEGEND LABELS
+    # Combine Name + Allocation % for the Legend
+    source['LegendLabel'] = source.apply(
+        lambda row: f"{row['Name']}: {row['Allocation']:.1%}", axis=1
+    )
+    
+    # Sort Descending
+    source = source.sort_values('MarketValue', ascending=False)
+    
     # Colors
-    domain = source['Name'].tolist()
-    range_colors = ['#0070C0', '#2F5597', '#5978F7', '#BDD7EE', '#7F7F7F', '#D9D9D9']
+    domain = source['LegendLabel'].tolist()
+    range_colors = ['#5978F7', '#0070C0', '#2F5597', '#BDD7EE', '#7F7F7F', '#D9D9D9']
     
     base = alt.Chart(source).encode(theta=alt.Theta("MarketValue", stack=True))
 
-    # 1. PIE & LEGEND
-    pie = base.mark_arc(innerRadius=80, outerRadius=130).encode(
+    # PIE CHART (No Labels on Chart)
+    pie = base.mark_arc(innerRadius=65, outerRadius=110).encode(
         color=alt.Color(
-            "Name", 
+            "LegendLabel", 
             scale=alt.Scale(domain=domain, range=range_colors),
             legend=alt.Legend(
                 title="Asset Class", 
                 orient="bottom", 
-                columns=3,          # <--- Forces 3 columns
-                labelLimit=0,       # Prevents cutting off long names
-                columnPadding=15    # Adds space between columns
+                columns=2,          
+                labelLimit=0,       
+                columnPadding=10,
+                
+                # --- FONT CONFIGURATION ---
+                labelFont='Calibri',
+                titleFont='Calibri',
+                titleFontSize=12,   
+                labelFontSize=12,   
+                symbolSize=200,     
+                rowPadding=10
             ) 
         ),
-        order=alt.Order('MarketValue', sort="descending")
-    )
-    
-    # 2. LABELS
-    text = base.mark_text(radius=168, size=20, font='Calibri', fontWeight='bold').encode(
-        text=alt.Text('Allocation', format=".2%"), 
         order=alt.Order('MarketValue', sort="descending"),
-        color=alt.value("black")
+        tooltip=["Name", "MarketValue", alt.Tooltip("Allocation", format=".2%")]
     )
     
-    # 3. COMBINE & CONFIGURE FONTS
-    chart = (pie + text).properties(
-        width=300, 
-        height=375
-    ).configure_legend(
-        # Set Legend Fonts
-        labelFont='Calibri',
-        titleFont='Calibri',
-        titleFontSize=20,
-        labelFontSize=20
-    ).configure_text(
-        # Set Global Text Fonts (Backup)
-        font='Calibri', fontSize=20
+    # CONFIGURE
+    chart = pie.properties(
+        width=320,   
+        height=180   
     ).configure_view(
         strokeWidth=0
     )
@@ -578,11 +580,11 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     breakdown = nav_performance.get('Breakdown', {}) if nav_performance else {}
     
     if breakdown:
-        table_width = 110 # ensure any change here is accounted for in column widths below
+        table_width = 105 # ensure any change here is accounted for in column widths below
         table_start_x = (pdf.w - table_width) / 2
         table_height = 9 * 8 
         table_start_y = (pdf.h - table_height) / 2
-        text_block_height = 18 # 6 + 2 + 10
+        text_block_height = 19 # Height Calculation: AccountTitle(6) + Gap(2) + TableTitle(9)
         text_start_y = table_start_y - text_block_height
         
         # Safety Check: Don't let text hit the header (Top Margin ~35mm)
@@ -605,12 +607,12 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
         pdf.set_x(table_start_x)
         pdf.set_font('Carlito', 'B', 12)
         pdf.set_text_color(0, 0, 0)
-        pdf.cell(0, 10, "Quarterly Change in Net Asset Value", new_x="LMARGIN", new_y="NEXT", align='L')
+        pdf.cell(0, 9, "Quarterly Change in Net Asset Value", new_x="LMARGIN", new_y="NEXT", align='L')
         
         # --- TABLE ---
         pdf.set_y(table_start_y)
         pdf.set_text_color(0, 0, 0)
-        with pdf.table(col_widths=(80, 30),     # Sum up to table_width above
+        with pdf.table(col_widths=(75, 30),     # Sum up to table_width above
                        text_align=("LEFT", "RIGHT"), 
                        borders_layout="NONE",
                        align="CENTER", 
@@ -657,28 +659,33 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
         try:
             line_chart_img = generate_line_chart(performance_chart_data)
             if line_chart_img: 
-                pdf.set_font('Carlito', 'B', 12); pdf.set_text_color(0, 0, 0); pdf.cell(0, 8, f"Endowment Performance vs S&P 500", new_x="LMARGIN", new_y="NEXT")
+                pdf.set_font('Carlito', 'B', 12); pdf.set_text_color(0, 0, 0); pdf.cell(0, 9, f"Endowment Performance vs S&P 500", new_x="LMARGIN", new_y="NEXT")
                 pdf.set_y(start_y+12); pdf.image(line_chart_img, w=165); os.remove(line_chart_img)
         except Exception as e:
             print(f"Performance Chart Error: {e}")
     try:
         chart_img = generate_donut_chart(summary_df); 
         if chart_img: 
-            pdf.set_y(start_y); pdf.set_x(180); pdf.set_font('Carlito', 'B', 12); pdf.set_text_color(0, 0, 0); pdf.cell(0, 8, "Current Asset Allocation", new_x="LMARGIN", new_y="NEXT")
-            pdf.set_y(start_y+8); pdf.set_x(190); pdf.image(chart_img, w=95); os.remove(chart_img)
+            pdf.set_y(start_y); pdf.set_x(185); pdf.set_font('Carlito', 'B', 12); pdf.set_text_color(0, 0, 0); pdf.cell(0, 9, "Current Asset Allocation", new_x="LMARGIN", new_y="NEXT")
+            pdf.set_y(start_y+10); pdf.set_x(190); pdf.image(chart_img, w=95); os.remove(chart_img)
     except Exception as e:
         print(f"Asset Allocation Chart Error: {e}")
     
     # --- 2. NAV PERFORMANCE TABLE ---
+    # Horizontally Center Page Placement
+    table_width = 180
+    table_start_x = (pdf.w - table_width) / 2
+    
+    # 3. Table Title
     pdf.set_y(start_y + 120)
+    pdf.set_x(table_start_x)  # <--- Moves title to start of table
     pdf.set_font('Carlito', 'B', 12)
     pdf.set_text_color(0,0,0)
-    pdf.cell(0, 8, "Performance Overview", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 9, "Performance Overview", new_x="LMARGIN", new_y="NEXT", align='L')
     
-    # All available keys: Period (Quarter), 1M, 3M, 6M, YTD, 1Y, 3Y, Inception
+    # Setup Data
     keys = ["Period", "YTD", "1Y", "3Y", "Inception"]
     
-    # Header Labels mapping
     headers_map = {
         "Period": period_label,
         "YTD": "YTD",
@@ -690,19 +697,17 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     col_widths = (60, 24, 24, 24, 24, 24)
     alignments = ("LEFT", "RIGHT", "RIGHT", "RIGHT", "RIGHT", "RIGHT")
 
+    # Render Table
     with pdf.table(col_widths=col_widths, 
                    text_align=alignments, 
                    borders_layout="NONE", 
-                   align="LEFT", 
-                   width=180) as table:
+                   align="CENTER",
+                   width=table_width) as table:
         
-        # --- HEADER ROW (Single Row) ---
+        # --- HEADER ROW ---
         row1 = table.row()
-        
-        # 1. Account Column
         row1.cell("Account", style=header_style, align="LEFT")
         
-        # 2. Data Columns
         for k in keys:
             label = headers_map.get(k, k)
             row1.cell(label, style=header_style, align="RIGHT")
@@ -712,16 +717,11 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
         acct_str = account_title[:38] + "..." if len(account_title) > 40 else account_title
         p5_style = FontFace(size_pt=12, fill_color=C_GREY_LIGHT)
         
-        # 1. Account Name
         row.cell(acct_str, style=p5_style, align="LEFT")
         
-        # 2. Data Values
         for i, k in enumerate(keys): 
             val = performance_windows.get(k) if performance_windows else None
-            
-            # Formatting: Last column (Inception) has no border, others have Right border
             b_style = "RIGHT" if k != "Inception" else "NONE"
-            
             row.cell(f"{val:.2%}" if val is not None else "-", style=p5_style, align="RIGHT", border=b_style)
 
 
@@ -744,8 +744,8 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     table_start_y = (pdf.h - table_height) / 2
     
     # Calculate Y where the Text Block starts (hanging above the table)
-    # Heights: Subtitle(6) + Gap(3) + Title(8) + Gap(2) = 19mm total offset
-    text_block_height = 19
+    # Heights: Title(9)
+    text_block_height = 9
     text_start_y = table_start_y - text_block_height
     
     # Safety Check: Don't let text hit the header (Top Margin ~35mm)
@@ -760,17 +760,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     pdf.set_x(table_start_x) # Start at table's left edge
     pdf.set_font('Carlito', 'B', 12)
     pdf.set_text_color(0, 0, 0)
-    pdf.cell(0, 8, "Allocation Summary", new_x="LMARGIN", new_y="NEXT", align='L')
-    
-    pdf.ln(2) # Gap
-    
-    # Subtitle
-    pdf.set_x(table_start_x) # Start at table's left edge
-    pdf.set_font('Carlito', '', 10)
-    pdf.set_text_color(*C_TEXT_GREY)
-    pdf.cell(0, 6, f"Reportings as of {data_rep_date}", new_x="LMARGIN", new_y="NEXT", align='L')
-    
-    pdf.ln(2) # Gap before table
+    pdf.cell(0, 9, "Allocation Summary", new_x="LMARGIN", new_y="NEXT", align='L')
     
     # --- 3. RENDER TABLE (Centered) ---
     # We ensure the cursor is exactly at the calculated table start
@@ -813,7 +803,12 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
                 r.cell("", style=bench_style, border="RIGHT") 
                 r.cell(f"{row['Return']:.2%}", style=bench_style)
 
-
+    # Reporting Date
+    pdf.set_x(table_start_x)
+    pdf.set_font('Carlito', '', 10)
+    pdf.set_text_color(*C_TEXT_GREY)
+    pdf.cell(0, 5, f"Reportings as of {data_rep_date}", new_x="LMARGIN", new_y="NEXT", align='L')
+        
     #  ==========================================
     #   PAGE 7+: EXPANDED INVESTMENT PERFORMANCE BY ALLOCATION
     #  ==========================================
@@ -1043,10 +1038,10 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
                 
                 
     #  ==========================================
-    #   PAGE 13: STATMENT & DEFINITIONS
+    #   PAGE 13: STATMENT NOTES & DEFINITIONS
     #  ==========================================
     pdf.show_standard_header = True; pdf.header_text = "Statement Notes"; pdf.add_page()
-    pdf.set_y(15)
+    pdf.ln(2) 
     
     # -- LEGAL NOTES TABLE --
     if legal_notes is not None and not legal_notes.empty:
