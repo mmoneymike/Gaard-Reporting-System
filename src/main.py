@@ -14,6 +14,9 @@ from risk_analytics import calculate_portfolio_risk
 #  ==========================================
 #   CONFIGURATION
 #  ==========================================
+MAIN_BENCHMARK_TCKR = 'SPY'
+RISK_TIME_HORIZON = 1
+
 BENCHMARK_CONFIG = {
     'U.S. Equities':        ['SPY'],  
     'International Equities': ['ACWI'], 
@@ -41,9 +44,6 @@ IGNORE_EXACT = [
 IGNORE_STARTSWITH = [
     '912797PN1',  # Treasury Bond Series
 ]
-
-MAIN_BENCHMARK_TCKR = 'SPY'
-RISK_TIME_HORIZON = 1
 
 # --- LOCAL AUTO-CLASSIFY ---
 def auto_classify_asset(ticker: str, security_name: str) -> str:
@@ -73,13 +73,16 @@ def run_pipeline():
     project_root = os.path.dirname(script_dir)
     output_dir = os.path.join(project_root,"output")
     
-    IBKR_FILE = os.path.join(project_root, "data", "U21244041_20250730_20260112.csv")
-    PERF_FILE = os.path.join(project_root, "data", "Gaard_Capital_LLC_July_30_2025_January_12_2026.csv")
-
-
+    # **************************************************************************************************************************************** #
+    IBKR_FILE = os.path.join(project_root, "data", "U21244041_20250730_20260112.csv")                       # GENERAL INTERACTIVE BROKERS FILE
+    PERF_FILE = os.path.join(project_root, "data", "Gaard_Capital_LLC_July_30_2025_January_12_2026.csv")    # DAILY NAV FILE
+    INFO_FILE = os.path.join(project_root, "data", "info_for_pdf.xlsx")                                      # INFO NECESSARY FOR PDF STYLING
+    
+    LOGO_FILE = os.path.join(project_root, "data", "gaard_logo.png")
+    TEXT_LOGO_FILE = os.path.join(project_root, "data", "gaard_text_logo.png")
+    # **************************************************************************************************************************************** #
     BENCHMARK_START_FIXED = "2025-07-30" # CURRENTLY STATIC
-
-    INFO_FILE = os.path.join(project_root, "data", "info_for_pdf.xlsx")
+    
     pdf_info = {}
     if os.path.exists(INFO_FILE):
         print("   > SETUP: Loading PDF Info Sheet...")
@@ -96,9 +99,6 @@ def run_pipeline():
             print(f"Warning: Could not load info file: {e}")
     else:
         print(f"Warning: Info file not found at {INFO_FILE}")
-    
-    TEXT_LOGO_FILE = os.path.join(project_root, "data", "gaard_text_logo.png")
-    LOGO_FILE = os.path.join(project_root, "data", "gaard_logo.png")
     
     print(f"=== 1. Ingesting Portfolio (Internal) ===")
     if not os.path.exists(IBKR_FILE):
@@ -127,7 +127,6 @@ def run_pipeline():
         # --- 1a. OUTPUT FILE NAMES ---
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
         PDF_FILE = os.path.join(output_dir, f"{account_title}_Portfolio_Report_{timestamp}.pdf")
-        EXCEL_FILE = os.path.join(output_dir, f"{account_title}_Portfolio_Report_{timestamp}.xlsx")
         
         # --- 1b. CLEAN TICKERS ---
         print("   > 1b: Cleaning up Tickers...")
@@ -222,7 +221,7 @@ def run_pipeline():
         print(f"Risk Calc Error: {e}")
         risk_metrics = {'Beta': 0, 'R2': 0, 'Volatility': 0, 'Sharpe': 0}
 
-    # === 6. PREPARE DATA FOR PDF / EXCEL ===
+    # === 6. PREPARE DATA FOR PDF ===
     print("\n=== 3. Generating PDF Report ===")
     
     # Total Metrics
@@ -287,7 +286,7 @@ def run_pipeline():
 
     summary_df = pd.DataFrame(summary_rows)
 
-    # === 7. WRITE TO PDF / EXCEL ===
+    # === 7. WRITE TO PDF ===
     try:
         write_portfolio_report(
             account_title=account_title,
@@ -312,16 +311,7 @@ def run_pipeline():
             output_path=PDF_FILE,
         )
         print(f"* DONE! Report Generated: {os.path.basename(PDF_FILE)} *")
-    # try:
-    #     write_portfolio_report_xlsx(
-    #         account_title=account_title,
-    #         summary_df=summary_df,
-    #         holdings_df=holdings,
-    #         total_metrics=metrics,
-    #         report_date=report_date,
-    #         output_path=EXCEL_FILE
-    #     )
-    #     print(f"DONE! Report generated: {os.path.basename(EXCEL_FILE)}")
+
     except Exception as e:
         print(f"Failed to write PDF: {e}")
         import traceback

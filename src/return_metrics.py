@@ -2,39 +2,17 @@ import pandas as pd
 import datetime
 
 def get_cumulative_index(returns_df: pd.DataFrame, start_value: float = 100.0) -> pd.DataFrame:
-    """
-    Converts a Series/DataFrame of Percentage Returns into a Price Index.
-    
-    Formula: Start_Value * Cumulative Product of (1 + Return)
-    Example: [0.01, 0.02] -> [101.0, 103.02]
-    """
-    if returns_df.empty:
-        return pd.DataFrame()
-        
-    # 1. Fill NaNs with 0 (assume flat performance for missing days)
+    """Converts a Series/DataFrame of Percentage Returns into a Price Index."""
+    if returns_df.empty: return pd.DataFrame()
     clean_returns = returns_df.fillna(0.0)
-    
-    # 2. Calculate Growth Path
-    # (1+r1) * (1+r2) * ...
     growth_factors = (1 + clean_returns).cumprod()
-    
-    # 3. Scale to Start Value
-    price_index = start_value * growth_factors
-    return price_index
-
+    return start_value * growth_factors
 
 def get_cumulative_return(series: pd.Series, window: str) -> float:
-    """
-    Calculates the total return over a specific window (e.g., '1Y', 'YTD', 'INCEPTION').
-    Input: A Price Index Series (e.g. 100, 105, 110)
-    """
-    if series is None or series.empty: 
-        return 0.0
-    
-    # Ensure Datetime Index
+    """Calculates the total return over a specific window."""
+    if series is None or series.empty: return 0.0
     series = series.dropna().sort_index()
-    if not isinstance(series.index, pd.DatetimeIndex):
-        return 0.0
+    if not isinstance(series.index, pd.DatetimeIndex): return 0.0
         
     end_price = float(series.iloc[-1])
     end_date = series.index[-1]
@@ -42,115 +20,67 @@ def get_cumulative_return(series: pd.Series, window: str) -> float:
     start_date = None
     window = window.upper()
     
-    # --- WINDOW PARSING LOGIC ---
     if window == "INCEPTION":
         start_price = float(series.iloc[0])
         return (end_price / start_price) - 1.0
-
     elif window == "YTD":
-        # Jan 1st of current year
         start_date = pd.Timestamp(year=end_date.year, month=1, day=1)
-
     elif window.endswith('Y') and window[:-1].isdigit():
-        # "1Y" -> Subtract Calendar Year
         years = int(window[:-1])
         start_date = end_date - pd.DateOffset(years=years)
-        
     elif window.endswith('M') and window[:-1].isdigit():
-        # "1M" -> Subtract Calendar Month
         months = int(window[:-1])
         start_date = end_date - pd.DateOffset(months=months)
-        
     else:
-        # Default fallback
         start_price = float(series.iloc[0])
         return (end_price / start_price) - 1.0
 
-    # --- PRICE LOOKUP ---
-    # Handle "Start Date Before Inception"
-    if start_date < series.index[0]:
-        start_date = series.index[0]
-
-    # Find price on that date (or closest previous date)
+    if start_date < series.index[0]: start_date = series.index[0]
     start_price = series.asof(start_date)
     
-    if pd.isna(start_price) or start_price == 0:
-        start_price = float(series.iloc[0])
-        
+    if pd.isna(start_price) or start_price == 0: start_price = float(series.iloc[0])
     return (end_price / start_price) - 1.0
 
-
 def calculate_nav_performance(change_in_nav_df: pd.DataFrame) -> dict:
-    """
-    Calculates the Official NAV Return based on the 'Change in NAV' section.
-    Formula: (Ending - (Start + Flows)) / (Start + Flows)
-    """
+    """Calculates the Official NAV Return based on the 'Change in NAV' section."""
     default_res = {'NAV': 0.0, 'Return': 0.0, 'Breakdown': {}}
-    
-    if change_in_nav_df is None or change_in_nav_df.empty:
-        return default_res
+    if change_in_nav_df is None or change_in_nav_df.empty: return default_res
 
-    # Helper for local float coercion
     def parse_val(field_name):
         try:
             row = change_in_nav_df[change_in_nav_df['Field Name'].astype(str).str.strip() == field_name]
             if row.empty: return 0.0
             val_str = row['Field Value'].iloc[0]
-            # Simple clean
             clean = str(val_str).replace(',', '').replace('$', '').strip()
-            if clean.startswith('(') and clean.endswith(')'):
-                clean = '-' + clean[1:-1]
+            if clean.startswith('(') and clean.endswith(')'): clean = '-' + clean[1:-1]
             return float(clean)
-        except Exception:
-            return 0.0
+        except: return 0.0
 
-    # 1. Calculate Return Metrics
     start_val = parse_val("Starting Value")
     end_val   = parse_val("Ending Value")
     flows     = parse_val("Deposits & Withdrawals")
-    comms     = parse_val("Commissions")                # Negative Value
     
     basis = start_val + flows
     profit = end_val - basis
-    
-    # Cumulative Return %
-    if basis != 0:
-        ret_pct = profit / basis
-    else:
-        ret_pct = 0.0
+    ret_pct = profit / basis if basis != 0 else 0.0
 
-    # 2. Extract Detailed Breakdown
-    target_fields = [
-        "Starting Value", 
-        "Mark-to-Market", 
-        "Deposits & Withdrawals", 
-        "Dividends", 
-        "Interest", 
-        "Change in Interest Accruals", 
-        "Commissions", 
-        "Ending Value"
-    ]
-    
-    breakdown = {}
-    for field in target_fields:
-        breakdown[field] = parse_val(field)
+    target_fields = ["Starting Value", "Mark-to-Market", "Deposits & Withdrawals", "Dividends", "Interest", "Change in Interest Accruals", "Commissions", "Ending Value"]
+    breakdown = {field: parse_val(field) for field in target_fields}
         
-    return {
-        'NAV': end_val,
-        'Return': ret_pct,
-        'Breakdown': breakdown
-    }
+    return {'NAV': end_val, 'Return': ret_pct, 'Breakdown': breakdown}
     
-
 def calculate_period_returns(daily_nav_df, report_date_str):
     """
-    Calculates returns and returns a tuple: (results_dict, period_label_str)
+    Calculates returns for: Period (Quarter), 1M, 3M, 6M, YTD, 1Y, 3Y, Inception.
+    Returns: (results_dict, period_label_str)
     """
-    results = {'1M': None, '3M': None, '6M': None, 'YTD': None, 'Period': None}
-    period_label = "Period" # Default fallback
+    results = {
+        'Period': None, '1M': None, '3M': None, '6M': None, 
+        'YTD': None, '1Y': None, '3Y': None, 'Inception': None
+    }
+    period_label = "Quarter"
     
-    if daily_nav_df.empty: 
-        return results, period_label
+    if daily_nav_df.empty: return results, period_label
     
     df = daily_nav_df.copy()
     df['date'] = pd.to_datetime(df['date'])
@@ -158,39 +88,50 @@ def calculate_period_returns(daily_nav_df, report_date_str):
     
     current_date = pd.to_datetime(report_date_str)
     
-    # Filter
+    # Filter to report date
     df = df[df['date'] <= current_date]
     if df.empty: return results, period_label
 
     end_val = df.iloc[-1]['nav']
-    start_file_val = df.iloc[0]['nav']
     
-    # --- CREATE DYNAMIC LABEL ---
-    start_d = df.iloc[0]['date']
-    end_d = df.iloc[-1]['date']
-    # Format: "07/30/2025 - 01/12/2026"
-    period_label = f"{start_d.strftime('%m/%d/%Y')} - {end_d.strftime('%m/%d/%Y')}"
-
-    # Helper
+    # --- Helper Calculation ---
     def get_nav_at(target_date):
+        # Finds NAV on or immediately before target_date
+        if target_date < df.iloc[0]['date']: return df.iloc[0]['nav'] # Use inception if target is earlier
         subset = df[df['date'] <= target_date]
         if subset.empty: return None
         return subset.iloc[-1]['nav']
-
-    d_1m = current_date - pd.DateOffset(months=1)
-    d_3m = current_date - pd.DateOffset(months=3)
-    d_6m = current_date - pd.DateOffset(months=6)
-    d_ytd = datetime.datetime(current_date.year, 1, 1)
 
     def calc(start, end):
         if start and start != 0: return (end / start) - 1.0
         return None
 
-    results['1M'] = calc(get_nav_at(d_1m), end_val)
-    results['3M'] = calc(get_nav_at(d_3m), end_val)
-    results['6M'] = calc(get_nav_at(d_6m), end_val)
-    results['YTD'] = calc(get_nav_at(d_ytd), end_val)
-    results['Period'] = calc(start_file_val, end_val)
+    # --- 1. Define Dates ---
+    d_1m = current_date - pd.DateOffset(months=1)
+    d_3m = current_date - pd.DateOffset(months=3)
+    d_6m = current_date - pd.DateOffset(months=6)
+    d_ytd = datetime.datetime(current_date.year, 1, 1)
+    d_1y  = current_date - pd.DateOffset(years=1)
+    d_3y  = current_date - pd.DateOffset(years=3)
+
+    # Calculate Quarter Start (Jan 1, Apr 1, Jul 1, Oct 1)
+    q_month = ((current_date.month - 1) // 3) * 3 + 1
+    d_quarter = pd.Timestamp(year=current_date.year, month=q_month, day=1)
+
+    # --- 2. Calculate Returns ---
+    # 'Period' is now the Quarter Return
+    results['Period']    = calc(get_nav_at(d_quarter), end_val)
+    results['1M']        = calc(get_nav_at(d_1m), end_val)
+    results['3M']        = calc(get_nav_at(d_3m), end_val)
+    results['6M']        = calc(get_nav_at(d_6m), end_val)
+    results['YTD']       = calc(get_nav_at(d_ytd), end_val)
+    results['1Y']        = calc(get_nav_at(d_1y), end_val)
+    results['3Y']        = calc(get_nav_at(d_3y), end_val)
+    results['Inception'] = calc(df.iloc[0]['nav'], end_val)
+    
+    # --- 3. Generate Label ---
+    q_num = ((current_date.month - 1) // 3) + 1
+    period_label = f"Q{q_num} {current_date.year}"
     
     return results, period_label
 
@@ -214,8 +155,13 @@ def prepare_chart_data(daily_nav_df, benchmark_ticker='SPY'):
     
     if not bench.empty:
         merged = pd.merge(df, bench[benchmark_ticker], left_on='date', right_index=True, how='left')
+        
+        if not merged.empty:
+            merged.iloc[0, merged.columns.get_loc(benchmark_ticker)] = 0.0  # Ensures both lines start at the exact same point on the Y-axis
+
         merged['b_pct'] = merged[benchmark_ticker].fillna(0)
         merged['S&P 500'] = (1 + merged['b_pct']).cumprod() - 1
+        
         return merged[['date', 'Portfolio', 'S&P 500']]
         
     return df[['date', 'Portfolio']]

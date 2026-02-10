@@ -26,7 +26,7 @@ class PortfolioPDF(FPDF):
         # --- FONT LOADING ---
         self.main_font = 'Helvetica' # Default fallback
         try:
-            self.add_font('Carlito', '', 'data/fonts/Carlito-Regular.ttf', uni=True)  # Metric-compatible with Calibri
+            self.add_font('Carlito', '', 'data/fonts/Carlito-Regular.ttf', uni=True)  # Carlito is Metric-compatible with Calibri
             self.add_font('Carlito', 'B', 'data/fonts/Carlito-Bold.ttf',uni=True)
             self.add_font('Carlito', 'I', 'data/fonts/Carlito-Italic.ttf', uni=True)
             self.main_font = 'Carlito'
@@ -86,7 +86,7 @@ class PortfolioPDF(FPDF):
         self.cell(0, 5, f'Page {display_num}', align='C')
         
 
-#  === IPS TABLE DATA ===
+#  === IPS COMPLIANCE TABLE DATA ===
 def get_ips_table_data(pdf_info, summary_df):
     """Constructs data rows: (Category, Min, Max, Target, Current)"""
     rows = []
@@ -163,7 +163,7 @@ def get_ips_table_data(pdf_info, summary_df):
     return rows
 
 
-#  === IPS BOX & WHISKER PLOT GENERATION ===
+#  === IPS COMPLIANCE BOX & WHISKER PLOT ===
 def generate_ips_chart(ips_rows):
     """Creates a 'Box and Whisker' style plot for IPS Compliance. Range (Grey Bar), Target (Black Tick), Current (Colored Point)."""
     if not ips_rows: return None
@@ -172,7 +172,7 @@ def generate_ips_chart(ips_rows):
     data = []
     for cat, v_min, v_max, v_tgt, v_cur in ips_rows:
         is_compliant = (v_min <= v_cur <= v_max)
-        status_color = "#329632" if is_compliant else "#C83232" # Green vs Red
+        status_color = "#329632" if is_compliant else "#C83232" # Change to differentiate Compliance Status
         
         data.append({
             "Category": cat,
@@ -209,7 +209,7 @@ def generate_ips_chart(ips_rows):
     ).configure_legend(
         labelFont='Calibri', titleFont='Calibri', titleFontSize=15, labelFontSize=15
     ).configure_text(
-        font='Calibri', fontSize=12
+        font='Calibri', fontSize=15
     )
 
     chart_path = "temp_ips_chart.png"
@@ -239,7 +239,7 @@ def generate_line_chart(comparison_df):
         ), 
         color=alt.Color('Series:N', 
                         scale=alt.Scale(domain=domain, range=range_colors), 
-                        legend=alt.Legend(title=None, orient='none', legendX=185, legendY=265, direction='horizontal', labelColor='black')
+                        legend=alt.Legend(title=None, orient='none', legendX=185, legendY=275, direction='horizontal', labelColor='black')
         )
     ).properties(
         # Increased width to 500 for better aspect ratio when widened on PDF
@@ -290,7 +290,7 @@ def generate_donut_chart(summary_df):
     )
     
     # 2. LABELS
-    text = base.mark_text(radius=156, size=16, font='Calibri', fontWeight='bold').encode(
+    text = base.mark_text(radius=168, size=20, font='Calibri', fontWeight='bold').encode(
         text=alt.Text('Allocation', format=".2%"), 
         order=alt.Order('MarketValue', sort="descending"),
         color=alt.value("black")
@@ -304,11 +304,11 @@ def generate_donut_chart(summary_df):
         # Set Legend Fonts
         labelFont='Calibri',
         titleFont='Calibri',
-        titleFontSize=16,
-        labelFontSize=16
+        titleFontSize=20,
+        labelFontSize=20
     ).configure_text(
         # Set Global Text Fonts (Backup)
-        font='Calibri', fontSize=16
+        font='Calibri', fontSize=20
     ).configure_view(
         strokeWidth=0
     )
@@ -322,7 +322,7 @@ def generate_donut_chart(summary_df):
 #   OVERALL PORTFOLIO REPORT
 #  ==========================================
 def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metrics, risk_metrics, report_date, output_path, account_title="Total Portfolio",
-                           performance_windows=None, performance_chart_data=None, period_label="Period", main_benchmark_tckr="SPY", risk_time_horizon=1,
+                           performance_windows=None, performance_chart_data=None, period_label="Quarter", main_benchmark_tckr="SPY", risk_time_horizon=1,
                            legal_notes=None, pdf_info=None, text_logo_path=None, logo_path=None):
     
     print(f"   > Generating PDF Report: {output_path}")
@@ -445,7 +445,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
             # Logo starts exactly on the other side of the gap
             logo_x = visual_center_x + gap
             
-            pdf.image(logo_path, x=logo_x, y=content_start_y + 4, w=40)
+            pdf.image(logo_path, x=logo_x, y=content_start_y + 4, w=42)
         except Exception as e: 
             print(f"Warning: Could not load logo: {e}")
     
@@ -519,68 +519,54 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
             status = "Compliant" if v_min <= v_cur <= v_max else "Non-Compliant"
             r.cell(status, style=reg_data_style)
             
-    pdf.ln(22)
+    pdf.ln(26)
     
-    # --- IPS BOX & WHISKERS CHART ---
+    # --- IPS BOX & WHISKERS CHART *LEGEND CREATION HERE* ---
     try:
         ips_chart_img = generate_ips_chart(ips_rows)
         if ips_chart_img:
             # 1. Setup Dimensions
-            img_w = 265
-            img_h = img_w * 0.25 
-            
-            # Calculate Left Edge of the Graph
-            x_start = (pdf.w - img_w) / 2
-            
-            # Capture starting Y for the Legend
+            chart_w = 265
+            legend_start_x = pdf.w - 125
             legend_y = pdf.get_y()
             
             # 2. Draw Custom Legend (TOP - Left Aligned to Graph)
             pdf.set_font('Carlito', '', 12)
             pdf.set_text_color(0, 0, 0) 
             
-            # --- ITEM 1: RANGE (Starts exactly at x_start) ---
-            key1_x = x_start
-            
+            # --- ITEM 1: RANGE ---
+            key1_x = legend_start_x
             pdf.set_draw_color(211, 211, 211) 
-            pdf.set_line_width(3)             
+            pdf.set_line_width(1)             
             pdf.line(key1_x, legend_y+2, key1_x+10, legend_y+2) 
             # Label
             pdf.set_xy(key1_x + 12, legend_y)
-            pdf.cell(30, 4, "Allowed Range", align='L')
+            pdf.cell(30, 4, "Compliance Range", align='L')
             
-            # --- ITEM 2: TARGET (Offset by 50mm) ---
-            key2_x = x_start + 50
-            
+            # --- ITEM 2: TARGET ---
+            key2_x = legend_start_x + 53
             pdf.set_draw_color(0, 0, 0)
-            pdf.set_line_width(1)
+            pdf.set_line_width(0.5)
             pdf.line(key2_x, legend_y, key2_x, legend_y+4) 
             # Label
-            pdf.set_xy(key2_x + 3, legend_y)
+            pdf.set_xy(key2_x + 2, legend_y)
             pdf.cell(20, 4, "Target", align='L')
             
-            # --- ITEM 3: CURRENT (Offset by 90mm) ---
-            key3_x = x_start + 90
-            
+            # --- ITEM 3: CURRENT ---
+            key3_x = legend_start_x + 77
             pdf.set_fill_color(*C_BLUE_LOGO)
             pdf.set_draw_color(*C_BLUE_LOGO)
-            pdf.circle(key3_x, legend_y+2, 1.5, style="FD") 
+            pdf.circle(key3_x, legend_y+2, 1, style="FD") 
             # Label
-            pdf.set_xy(key3_x + 4, legend_y)
+            pdf.set_xy(key3_x + 3, legend_y)
             pdf.cell(30, 4, "Current", align='L')
             
-            # 3. Place Image (BELOW LEGEND)
+            # 3. Place Image (Below Legend)
             pdf.set_line_width(0.2) # Reset line width
-            
-            # Move Y down to make room for image (Legend Height ~6mm + Gap 2mm)
-            image_y = legend_y + 8 
-            
-            pdf.image(ips_chart_img, x=x_start, y=image_y, w=img_w)
-            os.remove(ips_chart_img) 
-            
-            # Move cursor past the image for next content
-            pdf.set_y(image_y + img_h + 5)
-            
+            chart_x = ((pdf.w - chart_w) / 2) - 10
+            chart_y = legend_y + 8 
+            pdf.image(ips_chart_img, x=chart_x, y=chart_y, w=chart_w)
+            os.remove(ips_chart_img)   
     except Exception as e:
         print(f"IPS Chart Error: {e}")
         
@@ -592,11 +578,11 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     breakdown = nav_performance.get('Breakdown', {}) if nav_performance else {}
     
     if breakdown:
-        table_width = 100 # ensure any change here is accounted for in column widths below
+        table_width = 110 # ensure any change here is accounted for in column widths below
         table_start_x = (pdf.w - table_width) / 2
         table_height = 9 * 8 
         table_start_y = (pdf.h - table_height) / 2
-        text_block_height = 24 # 6 + 6 + 2 +10
+        text_block_height = 18 # 6 + 2 + 10
         text_start_y = table_start_y - text_block_height
         
         # Safety Check: Don't let text hit the header (Top Margin ~35mm)
@@ -613,12 +599,6 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
         pdf.set_text_color(0, 0, 0)
         pdf.cell(0, 6, account_title, new_x="LMARGIN", new_y="NEXT", align='L')
         
-        # Date
-        pdf.set_x(table_start_x)
-        pdf.set_font('Carlito', '', 10)
-        pdf.set_text_color(*C_TEXT_GREY)
-        pdf.cell(0, 6, f"Reportings as of {data_rep_date}", new_x="LMARGIN", new_y="NEXT", align='L')
-        
         pdf.ln(2)
         
         # Change in NAV Table Title
@@ -626,11 +606,11 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
         pdf.set_font('Carlito', 'B', 12)
         pdf.set_text_color(0, 0, 0)
         pdf.cell(0, 10, "Quarterly Change in Net Asset Value", new_x="LMARGIN", new_y="NEXT", align='L')
-
+        
         # --- TABLE ---
         pdf.set_y(table_start_y)
-        
-        with pdf.table(col_widths=(70, 30),     # Sum up to table width
+        pdf.set_text_color(0, 0, 0)
+        with pdf.table(col_widths=(80, 30),     # Sum up to table_width above
                        text_align=("LEFT", "RIGHT"), 
                        borders_layout="NONE",
                        align="CENTER", 
@@ -658,6 +638,12 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
                 r.cell(display_name, style=style_row)
                 r.cell(f"${val:,.0f}", style=style_row)
        
+       # Reporting Date
+        pdf.set_x(table_start_x)
+        pdf.set_font('Carlito', '', 10)
+        pdf.set_text_color(*C_TEXT_GREY)
+        pdf.cell(0, 5, f"Reportings as of {data_rep_date}", new_x="LMARGIN", new_y="NEXT", align='L')
+       
        
     #  ==========================================
     #   PAGE 5: PORTFOLIO OVERVIEW
@@ -683,41 +669,43 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     except Exception as e:
         print(f"Asset Allocation Chart Error: {e}")
     
-    pdf.ln(10)
-    
     # --- 2. NAV PERFORMANCE TABLE ---
+    pdf.set_y(start_y + 120)
     pdf.set_font('Carlito', 'B', 12)
     pdf.set_text_color(0,0,0)
     pdf.cell(0, 8, "Performance Overview", new_x="LMARGIN", new_y="NEXT")
     
-    keys = ["Period", "1M", "3M", "6M", "YTD"]     
+    # All available keys: Period (Quarter), 1M, 3M, 6M, YTD, 1Y, 3Y, Inception
+    keys = ["Period", "YTD", "1Y", "3Y", "Inception"]
     
-    with pdf.table(col_widths=(65, 30, 20, 20, 20, 20), 
-                   text_align="CENTER", 
+    # Header Labels mapping
+    headers_map = {
+        "Period": period_label,
+        "YTD": "YTD",
+        "1Y": "1 Year",
+        "3Y": "3 Year",
+        "Inception": "Inception"
+    }
+
+    col_widths = (60, 24, 24, 24, 24, 24)
+    alignments = ("LEFT", "RIGHT", "RIGHT", "RIGHT", "RIGHT", "RIGHT")
+
+    with pdf.table(col_widths=col_widths, 
+                   text_align=alignments, 
                    borders_layout="NONE", 
                    align="LEFT", 
-                   width=165) as table:
+                   width=180) as table:
         
-        # --- HEADER ROW 1: Period Names ---
+        # --- HEADER ROW (Single Row) ---
         row1 = table.row()
         
-        # CHANGE 1: Blank Style for the empty top-left cell
-        blank_style = FontFace(fill_color=C_WHITE)
-        row1.cell("", style=blank_style) 
+        # 1. Account Column
+        row1.cell("Account", style=header_style, align="LEFT")
         
-        # CHANGE 2: Center Alignment for Top Row Labels
-        row1.cell(period_label, style=header_style, align="CENTER")
-        
-        for label in ["1 Month", "3 Month", "6 Month", "YTD"]:
-            row1.cell(label, style=header_style, align="CENTER")
-            
-        # --- HEADER ROW 2: "Return" Label ---
-        row2 = table.row()
-        row2.cell("Account", style=header_style, align="LEFT")
-        
-        # "Return" sub-headers
-        for _ in range(5):
-            row2.cell("Return", style=header_style, align="RIGHT")
+        # 2. Data Columns
+        for k in keys:
+            label = headers_map.get(k, k)
+            row1.cell(label, style=header_style, align="RIGHT")
             
         # --- DATA ROW ---
         row = table.row()
@@ -725,18 +713,15 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
         
         p5_style = FontFace(size_pt=12, fill_color=C_GREY_LIGHT)
         
-        # Account Name
+        # 1. Account Name
         row.cell(acct_str, style=p5_style, align="LEFT")
         
-        # Main Period Data
-        period_date = performance_windows.get("Period") if performance_windows else None
-        row.cell(f"{period_date:.2%}" if period_date is not None else "-", style=p5_style, align="RIGHT", border="RIGHT")
-        
-        # Trailing Returns
-        for k in keys[1:]: 
+        # 2. Data Values
+        for i, k in enumerate(keys): 
             val = performance_windows.get(k) if performance_windows else None
             
-            b_style = "RIGHT" if k != "YTD" else "NONE"
+            # Formatting: Last column (Inception) has no border, others have Right border
+            b_style = "RIGHT" if k != "Inception" else "NONE"
             
             row.cell(f"{val:.2%}" if val is not None else "-", style=p5_style, align="RIGHT", border=b_style)
 
