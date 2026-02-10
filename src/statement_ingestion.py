@@ -17,6 +17,7 @@ class PortfolioData:
     holdings: pd.DataFrame
     account_title: str
     report_date: str
+    period_start_date: str
     legal_notes: pd.DataFrame
     total_nav: float
     settled_cash: float
@@ -241,6 +242,7 @@ def _coerce_float(value) -> float:
     except ValueError:
         return 0.0
         
+        
 def is_valid_ticker(ticker: str) -> bool:
     t = str(ticker).upper().strip()
     if not t: return False
@@ -356,25 +358,39 @@ def get_portfolio_holdings(file_path, benchmark_default_date: str):
     account_title = extract_account_name(sections.accounts)
     results = calculate_cumulative_returns_with_dividends(sections)
     
-    # Extract Date
+    # --- DATA EXTRACTION ---
     meta = sections.statement_metadata
+    
+    # 1. Report End Date (from 'WhenGenerated')
     raw_date = meta.when_generated
     report_date = raw_date.split(',')[0].strip() if raw_date else benchmark_default_date
     
-    # --- Robust NAV Extraction ---
+    # 2. Period Start Date (from 'Period')
+    # Expected format: "July 30, 2025 - January 12, 2026"
+    period_start_date = benchmark_default_date # Fallback
+    if meta.period:
+        try:
+            parts = meta.period.split('-')
+            if len(parts) >= 1:
+                raw_start = parts[0].strip()
+                # Parse "July 30, 2025" -> "2025-07-30"
+                period_start_date = pd.to_datetime(raw_start).strftime('%Y-%m-%d')
+        except Exception as e:
+            print(f"Warning: Could not parse Period Start Date ({e}). Using default.")
+            
+    # --- 3. Robust NAV Extraction ---
     total_nav = extract_total_nav(sections)
 
     # --- Strict Settled Cash Extraction ---
     settled_cash = extract_settled_cash(sections)
                 
-    # --- Ensure realized_pl is passed to main.py ---
+    # --- 4. Ensure realized_pl is passed to main.py ---
     # We rename columns first
     df = results.positions.rename(columns={
         'Symbol': 'ticker',
         'market_value': 'raw_value',
         'cost_basis': 'avg_cost'
     })
-    
     # MUST include 'realized_pl' so main.py summary table works
     cols = ['ticker', 'avg_cost', 'raw_value', 'total_dividends', 'realized_pl', 'cumulative_return']
     if df.empty:
@@ -389,6 +405,7 @@ def get_portfolio_holdings(file_path, benchmark_default_date: str):
         holdings=final_df, 
         account_title=account_title,
         report_date=report_date,
+        period_start_date=period_start_date,
         legal_notes=sections.legal_notes,
         nav_performance=nav_perf,
         total_nav=total_nav,

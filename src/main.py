@@ -81,7 +81,6 @@ def run_pipeline():
     LOGO_FILE = os.path.join(project_root, "data", "gaard_logo.png")
     TEXT_LOGO_FILE = os.path.join(project_root, "data", "gaard_text_logo.png")
     # **************************************************************************************************************************************** #
-    BENCHMARK_START_FIXED = "2025-07-30" # CURRENTLY STATIC
     
     pdf_info = {}
     if os.path.exists(INFO_FILE):
@@ -107,29 +106,32 @@ def run_pipeline():
 
     try:
         # === 1. Load Data ===
-        portfolio_data = get_portfolio_holdings(IBKR_FILE, BENCHMARK_START_FIXED)
+        PERIOD_FALLBACK_DATE = (pd.Timestamp.today().to_period("Q") - 1).start_time.strftime("%Y-%m-%d") # Fallback Date: Last Quarter
+        portfolio_data = get_portfolio_holdings(IBKR_FILE, PERIOD_FALLBACK_DATE)
         holdings = portfolio_data.holdings
         account_title = portfolio_data.account_title
         report_date = portfolio_data.report_date
+        statement_start_date = portfolio_data.period_start_date
+        print(f"   > 1a: Statement Period: {statement_start_date} to {report_date}")
         legal_notes = portfolio_data.legal_notes
         total_nav = portfolio_data.total_nav
         settled_cash = portfolio_data.settled_cash
         nav_performance = portfolio_data.nav_performance
-        print(f"   > 1a: Parsed NAV Performance: {nav_performance}")
+        print(f"   > 1b: Parsed NAV Performance: {nav_performance}")
 
-        # 2. PERFORMANCE HISTORY
+        # --- PERFORMANCE HISTORY ---
         daily_history = parse_performance_csv(PERF_FILE)
     
-        # 3. CALCULATE METRICS
+        # --- CALCULATE METRICS ---
         window_returns, period_label = calculate_period_returns(daily_history, report_date)
         chart_data = prepare_chart_data(daily_history, benchmark_ticker='SPY')
         
-        # --- 1a. OUTPUT FILE NAMES ---
+        # --- OUTPUT FILE NAMES ---
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
         PDF_FILE = os.path.join(output_dir, f"{account_title}_Portfolio_Report_{timestamp}.pdf")
         
-        # --- 1b. CLEAN TICKERS ---
-        print("   > 1b: Cleaning up Tickers...")
+        # --- CLEAN TICKERS ---
+        print("   > 1c: Cleaning up Tickers...")
         # Apply Exact Match Filter
         holdings = holdings[~holdings['ticker'].astype(str).str.upper().isin(IGNORE_EXACT)].copy()
         # Apply "Starts With" Filter (Loop through the config list)
@@ -138,7 +140,7 @@ def run_pipeline():
         # Remove Zero Value rows
         holdings = holdings[holdings['raw_value'].abs() > 0.01].copy()
         
-        # === 2. Auto-Classify ===
+        # === Auto-Classify ===
         print("   > 1c: Running Auto-Classification...")
         all_tickers = holdings['ticker'].unique().tolist()
         name_map = fetch_security_names_yf(all_tickers)
@@ -149,7 +151,7 @@ def run_pipeline():
             axis=1
         )
 
-        # === 3. Cash Logic ===
+        # === Cash Logic ===
         # Insert the Settled Cash Row (Strictly using the extracted number)
         if settled_cash > 1.0:
             cash_row = {
@@ -182,7 +184,7 @@ def run_pipeline():
             }
             holdings = pd.concat([holdings, pd.DataFrame([adj_row])], ignore_index=True)
             
-        # === 4. Calculate Weights ===
+        # === Calculate Weights ===
         total_value = holdings['raw_value'].sum()
         
         if total_value != 0:
@@ -197,21 +199,21 @@ def run_pipeline():
         print(f"Error unpacking data: {e}")
         return
 
-    # === 5. Market Data ===
-    # --- 5a. Calculate Benchmark Returns ---
+    # === 2. Market Data ===
+    # --- Calculate Benchmark Returns ---
     print("\n--- 2a. Fetching Benchmark Data (Yahoo) ---")
     all_benchmarks = [t for sublist in BENCHMARK_CONFIG.values() for t in sublist]
     unique_benchmarks = list(set(all_benchmarks))
     
     bench_growth = pd.DataFrame()
     try:
-        bench_returns = fetch_benchmark_returns_yf(unique_benchmarks, start_date=BENCHMARK_START_FIXED, end_date=report_date)
+        bench_returns = fetch_benchmark_returns_yf(unique_benchmarks, start_date=statement_start_date, end_date=report_date)
         if not bench_returns.empty:
             bench_growth = get_cumulative_index(bench_returns, start_value=100)
     except Exception as e:
         print(f"Yahoo Connection Error: {e}")
 
-    # --- 5b. Calculate Risk Metrics ---
+    # --- Calculate Risk Metrics ---
     print("\n--- 2b. Calculating Risk Profile ---")
     risk_metrics = {}
     try:
@@ -221,7 +223,7 @@ def run_pipeline():
         print(f"Risk Calc Error: {e}")
         risk_metrics = {'Beta': 0, 'R2': 0, 'Volatility': 0, 'Sharpe': 0}
 
-    # === 6. PREPARE DATA FOR PDF ===
+    # === 3. PREPARE DATA FOR PDF ===
     print("\n=== 3. Generating PDF Report ===")
     
     # Total Metrics
@@ -286,7 +288,7 @@ def run_pipeline():
 
     summary_df = pd.DataFrame(summary_rows)
 
-    # === 7. WRITE TO PDF ===
+    # === WRITE TO PDF ===
     try:
         write_portfolio_report(
             account_title=account_title,
