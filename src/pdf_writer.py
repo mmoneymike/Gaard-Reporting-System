@@ -219,31 +219,45 @@ def generate_ips_chart(ips_rows):
 
 # === PORTFOLIO RETURN CHART ===
 def generate_line_chart(comparison_df):
-    """Line Chart: Portfolio vs Benchmark."""
+    """Line Chart: Portfolio vs Benchmark (Dynamic Name)."""
     if comparison_df is None or comparison_df.empty: return None
     
-    source = comparison_df.melt('date', var_name='Series', value_name='Cumulative Return')
-    domain = ['Portfolio', 'S&P 500']
+    # 1. No Melt Needed
+    # The new prepare_chart_data sends us data that is ALREADY in long format:
+    # Columns: ['date', 'Cumulative Return', 'Series']
+    source = comparison_df.copy()
+    
+    # 2. Determine Domain Dynamically (instead of hardcoding 'S&P 500')
+    # We expect 'Series' column to contain ['Portfolio', 'YOUR_BENCHMARK_NAME']
+    series_names = source['Series'].unique().tolist()
+    
+    # Ensure 'Portfolio' is first in the list so it gets the Blue color (#5978F7)
+    if 'Portfolio' in series_names:
+        series_names.remove('Portfolio')
+        # The remaining name Composite Benchmark
+        bench_name = series_names[0] if series_names else "Benchmark"
+        domain = ['Portfolio', bench_name]
+    else:
+        domain = series_names
+
     range_colors = ['#5978F7', '#7F7F7F'] 
     
     chart = alt.Chart(source).mark_line(strokeWidth=3).encode(
         x=alt.X('date:T', 
                 title=None, 
-                # GRID=FALSE for X-Axis (No vertical lines)
                 axis=alt.Axis(format='%b %Y', labelAngle=0, tickCount=6, labelColor='black', grid=False)
         ), 
         y=alt.Y('Cumulative Return:Q', 
                 title=None, 
-                # GRID=TRUE for Y-Axis (Horizontal lines only)
                 axis=alt.Axis(format='%', grid=True, labelColor='black')
         ), 
         color=alt.Color('Series:N', 
                         scale=alt.Scale(domain=domain, range=range_colors), 
-                        legend=alt.Legend(title=None, orient='none', legendX=185, legendY=285, direction='horizontal', labelColor='black')
+                        legend=alt.Legend(title=None, orient='none', legendX=185, legendY=275, direction='horizontal', labelColor='black')
         )
     ).properties(
         width=500, 
-        height=260
+        height=250
     ).configure_axis(
         labelFont='Calibri', titleFont='Calibri', labelFontSize=12
     ).configure_legend(
@@ -431,7 +445,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     # 3. REPORT TITLE
     pdf.set_x(10)
     pdf.set_font('Carlito', 'B', 18)
-    pdf.set_text_color(40, 40, 40)
+    pdf.set_text_color(0, 0, 0)
     pdf.cell(text_area_width, 12, rpt_title, new_x="LMARGIN", new_y="NEXT", align='R')
     
     # 4. REPORT DATE
@@ -680,7 +694,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     pdf.set_x(table_start_x)  # Moves title to start of table
     pdf.set_font('Carlito', 'B', 12)
     pdf.set_text_color(0,0,0)
-    pdf.cell(0, 9, "Performance Overview", new_x="LMARGIN", new_y="NEXT", align='L')
+    pdf.cell(0, 9, "Historical Performance", new_x="LMARGIN", new_y="NEXT", align='L')
     
     # Setup Data
     keys = ["Period", "YTD", "1Y", "3Y", "Inception"]
@@ -690,7 +704,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
         "YTD": "YTD",
         "1Y": "1YR",
         "3Y": "3YR",
-        "Inception": "All-Time"
+        "Inception": "Inception"
     }
 
     col_widths = (60, 24, 24, 24, 24, 24)
@@ -1175,7 +1189,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     # 3. REPORT TITLE
     pdf.set_x(10)
     pdf.set_font('Carlito', 'B', 18)
-    pdf.set_text_color(40, 40, 40)
+    pdf.set_text_color(0, 0, 0)
     pdf.cell(text_area_width, 12, rpt_title, new_x="LMARGIN", new_y="NEXT", align='R')
     
     # 4. REPORT DATE

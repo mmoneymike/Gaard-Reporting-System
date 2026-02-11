@@ -135,32 +135,68 @@ def calculate_period_returns(daily_nav_df, report_date_str):
     return results, period_label
 
 
-def prepare_chart_data(daily_nav_df, benchmark_ticker='SPY'):
-    """Aligns Portfolio NAV with Benchmark for plotting."""
-    if daily_nav_df.empty: return pd.DataFrame()
+def calculate_composite_benchmark_return(benchmark_returns_df: pd.DataFrame, weights: dict) -> pd.Series:
+    """
+    Calculates a weighted average return series for a composite benchmark.
+    weights: dict {ticker: weight} (e.g., {'SPY': 0.6, 'AGG': 0.4})
+    """
+    if benchmark_returns_df.empty: return pd.Series(dtype=float)
     
-    df = daily_nav_df.copy()
-    df['date'] = pd.to_datetime(df['date'])
-    df = df.sort_values('date')
+    # Initialize with zeros aligned to the index
+    composite_series = pd.Series(0.0, index=benchmark_returns_df.index)
     
-    df['pct'] = df['nav'].pct_change().fillna(0)
-    df['Portfolio'] = (1 + df['pct']).cumprod() - 1
-    
-    from yf_loader import fetch_benchmark_returns_yf
-    start_d = df['date'].iloc[0].strftime('%Y-%m-%d')
-    end_d = df['date'].iloc[-1].strftime('%Y-%m-%d')
-    
-    bench = fetch_benchmark_returns_yf([benchmark_ticker], start_date=start_d, end_date=end_d)
-    
-    if not bench.empty:
-        merged = pd.merge(df, bench[benchmark_ticker], left_on='date', right_index=True, how='left')
-        
-        if not merged.empty:
-            merged.iloc[0, merged.columns.get_loc(benchmark_ticker)] = 0.0  # Ensures both lines start at the exact same point on the Y-axis
+    for ticker, weight in weights.items():
+        if ticker in benchmark_returns_df.columns:
+            # Fill NaNs with 0.0 to allow calculation, though usually data should be aligned
+            composite_series += benchmark_returns_df[ticker].fillna(0.0) * weight
+            
+    return composite_series
 
-        merged['b_pct'] = merged[benchmark_ticker].fillna(0)
-        merged['S&P 500'] = (1 + merged['b_pct']).cumprod() - 1
-        
-        return merged[['date', 'Portfolio', 'S&P 500']]
-        
-    return df[['date', 'Portfolio']]
+
+def prepare_chart_data(daily_nav_df, benchmark_series: pd.Series, benchmark_name: str = "Benchmark"):
+    """
+    Prepares data for the Altair line chart.
+    Merges portfolio NAV history with the provided benchmark series.
+    """
+    if daily_nav_df.empty or benchmark_series.empty: return None
+    
+    # 1. Prepare Portfolio Data
+    df_port = daily_nav_df.copy()
+    df_port['date'] = pd.to_datetime(df_port['date'])
+    df_port = df_port.sort_values('date')
+    
+    # Calculate Cumulative Return for Portfolio
+    start_nav = df_port.iloc[0]['nav']
+    df_port['Cumulative Return'] = (df_port['nav'] / start_nav) - 1.0
+    
+    # 2. Prepare Benchmark Data
+    # Convert benchmark DAILY returns to CUMULATIVE returns
+    # We slice the benchmark series to match the portfolio date range
+    start_date = df_port['date'].min()
+    end_date = df_port['date'].max()
+    
+    bench_subset = benchmark_series[start_date:end_date].copy()
+    
+    if bench_subset.empty: return None
+
+    # Calculate Growth of $1
+    bench_growth = (1 + bench_subset).cumprod()
+    # Normalize to start at 0%
+    bench_cumulative = bench_growth - 1.0
+    
+    # Create DataFrame for Benchmark
+    df_bench = pd.DataFrame({
+        'date': bench_cumulative.index,
+        'Cumulative Return': bench_cumulative.values
+    })
+    
+    # 3. Rename Columns for Merging
+    df_port = df_port[['date', 'Cumulative Return']].copy()
+    df_port['Series'] = 'Portfolio'
+    
+    df_bench['Series'] = benchmark_name # Use the dynamic name
+    
+    # 4. Combine
+    final_df = pd.concat([df_port, df_bench], ignore_index=True)
+    
+    return final_df

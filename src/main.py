@@ -14,8 +14,13 @@ from risk_analytics import calculate_portfolio_risk
 #  ==========================================
 #   CONFIGURATION
 #  ==========================================
-MAIN_BENCHMARK_TCKR = 'SPY'
-RISK_TIME_HORIZON = 1
+COMPOSITE_BENCHMARK_CONFIG = {
+    '100% SPY':         {'SPY': 1.0},
+    '100% AGG':         {'AGG': 1.0},
+    '60/40 SPY/AGG':    {'SPY': 0.6, 'AGG': 0.4},
+    '40/60 SPY/AGG':    {'SPY': 0.4, 'AGG': 0.6},
+}
+SELECTED_COMP_BENCHMARK_KEY = '60/40 SPY/AGG'
 
 BENCHMARK_CONFIG = {
     'U.S. Equities':        ['SPY'],  
@@ -80,6 +85,8 @@ def run_pipeline():
     
     LOGO_FILE = os.path.join(project_root, "data", "gaard_logo.png")
     TEXT_LOGO_FILE = os.path.join(project_root, "data", "gaard_text_logo.png")
+    
+    RISK_TIME_HORIZON = 1
     # **************************************************************************************************************************************** #
     
     pdf_info = {}
@@ -124,7 +131,6 @@ def run_pipeline():
     
         # --- CALCULATE METRICS ---
         window_returns, period_label = calculate_period_returns(daily_history, report_date)
-        chart_data = prepare_chart_data(daily_history, benchmark_ticker='SPY')
         
         # --- OUTPUT FILE NAMES ---
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
@@ -200,33 +206,54 @@ def run_pipeline():
         return
 
     # === 2. Market Data ===
-    # --- Calculate Benchmark Returns ---
     print("\n--- 2a. Fetching Benchmark Data (Yahoo) ---")
-    all_benchmarks = [t for sublist in BENCHMARK_CONFIG.values() for t in sublist]
-    unique_benchmarks = list(set(all_benchmarks))
     
+    # 1. Get User Selection for Main Benchmark
+    main_benchmark_weights = COMPOSITE_BENCHMARK_CONFIG.get(SELECTED_COMP_BENCHMARK_KEY, {'SPY': 1.0})
+    main_bench_constituents = list(main_benchmark_weights.keys())
+    
+    # 2. Gather ALL benchmarks needed (Standard + Main Constituents)
+    standard_benchmarks = [t for sublist in BENCHMARK_CONFIG.values() for t in sublist]
+    all_needed_tickers = list(set(standard_benchmarks + main_bench_constituents))
+    
+    bench_returns_df = pd.DataFrame()
     bench_growth = pd.DataFrame()
+    
     try:
-        bench_returns = fetch_benchmark_returns_yf(unique_benchmarks, start_date=statement_start_date, end_date=report_date)
-        if not bench_returns.empty:
-            bench_growth = get_cumulative_index(bench_returns, start_value=100)
+        # Fetch ALL returns
+        bench_returns_df = fetch_benchmark_returns_yf(all_needed_tickers, start_date=statement_start_date, end_date=report_date)
+        
+        # Calculate Index for Table (Standard Benchmarks)
+        if not bench_returns_df.empty:
+            bench_growth = get_cumulative_index(bench_returns_df, start_value=100)
+            
     except Exception as e:
         print(f"Yahoo Connection Error: {e}")
 
-    # --- Calculate Risk Metrics ---
+    # --- 2b. Calculate Composite Benchmark for Chart ---
+    print(f"   > Calculating Super Benchmark: {SELECTED_COMP_BENCHMARK_KEY}")
+    main_benchmark_series = calculate_composite_benchmark_return(bench_returns_df, main_benchmark_weights)
+    chart_data = prepare_chart_data(daily_history, main_benchmark_series, benchmark_name=SELECTED_COMP_BENCHMARK_KEY)
+
+    # --- 2c. Calculate Risk Metrics (Still using a single ticker proxy if needed, or composite?) ---
+    # For simplicity, we use the dominant ticker in the super benchmark as the risk proxy, 
+    # or just default to SPY if complex.
+    risk_proxy = 'SPY'
+    if 'SPY' in main_benchmark_weights: risk_proxy = 'SPY'
+    elif 'AGG' in main_benchmark_weights and len(main_benchmark_weights) == 1: risk_proxy = 'AGG'
+        
     print("\n--- 2b. Calculating Risk Profile ---")
     risk_metrics = {}
     try:
-        risk_metrics = calculate_portfolio_risk(holdings, benchmark_ticker=MAIN_BENCHMARK_TCKR, lookback_years= RISK_TIME_HORIZON)
+        risk_metrics = calculate_portfolio_risk(holdings, benchmark_ticker=risk_proxy, lookback_years= RISK_TIME_HORIZON)
         print("   > Risk Metrics Calculated:", risk_metrics)
     except Exception as e:
         print(f"Risk Calc Error: {e}")
         risk_metrics = {'Beta': 0, 'R2': 0, 'Volatility': 0, 'Sharpe': 0}
 
-    # === 3. PREPARE DATA FOR PDF ===
+    # === 3. PREPARE DATA FOR PDF / EXCEL ===
     print("\n=== 3. Generating PDF Report ===")
     
-    # Total Metrics
     grand_cost = holdings['avg_cost'].sum()
     grand_val = holdings['raw_value'].sum()
     grand_divs = holdings['total_dividends'].sum()
@@ -297,7 +324,7 @@ def run_pipeline():
             nav_performance=nav_performance,
             holdings_df=holdings,
             total_metrics=metrics,
-            main_benchmark_tckr=MAIN_BENCHMARK_TCKR,
+            main_benchmark_tckr=SELECTED_COMP_BENCHMARK_KEY,
             
             performance_windows=window_returns,
             performance_chart_data=chart_data,
