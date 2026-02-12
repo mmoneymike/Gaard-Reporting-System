@@ -95,7 +95,7 @@ def calculate_period_returns(daily_nav_df, report_date_str):
     end_val = df.iloc[-1]['nav']
     start_file_val = df.iloc[0]['nav']
     
-    # --- 1. RESTORED: Dynamic "Q{num} {Year}" Label ---
+    # --- 1. Dynamic "Q{num} {Year}" Label ---
     # We calculate which quarter the report_date falls into
     q_num = ((current_date.month - 1) // 3) + 1
     period_label = f"Q{q_num} {current_date.year}"

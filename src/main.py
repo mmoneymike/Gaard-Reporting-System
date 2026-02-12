@@ -15,12 +15,11 @@ from risk_analytics import calculate_portfolio_risk
 #   CONFIGURATION
 #  ==========================================
 COMPOSITE_BENCHMARK_CONFIG = {
-    '100% SPY':         {'SPY': 1.0},
-    '100% AGG':         {'AGG': 1.0},
+    'SPY':         {'SPY': 1.0},
+    'AGG':         {'AGG': 1.0},
     '60/40 SPY/AGG':    {'SPY': 0.6, 'AGG': 0.4},
     '40/60 SPY/AGG':    {'SPY': 0.4, 'AGG': 0.6},
-}
-SELECTED_COMP_BENCHMARK_KEY = '60/40 SPY/AGG'
+} # Options for SELECTED_COMP_KEY
 
 BENCHMARK_CONFIG = {
     'U.S. Equities':        ['SPY'],  
@@ -28,7 +27,7 @@ BENCHMARK_CONFIG = {
     'Fixed Income':         ['AGG'],
     'Alternative Assets':   ['QAI'],
     'Cash':                 ['BIL'],
-}
+} # Chosen Benchmark Tickers
 
 BENCHMARK_NAMES = {
     'SPY': 'S&P 500',
@@ -36,7 +35,7 @@ BENCHMARK_NAMES = {
     'AGG': 'US Aggregate Bond',
     'QAI': 'NYLI Hedge Multi-Strategy',
     'BIL': '1-3 Month T-Bills',
-}
+} # Chosen Benchmark Names
 
 # 1. Exact Matches: Tickers to remove if they match exactly (Case Insensitive)
 IGNORE_EXACT = [
@@ -81,11 +80,12 @@ def run_pipeline():
     # **************************************************************************************************************************************** #
     IBKR_FILE = os.path.join(project_root, "data", "U21244041_20250730_20260112.csv")                       # GENERAL INTERACTIVE BROKERS FILE
     PERF_FILE = os.path.join(project_root, "data", "Gaard_Capital_LLC_July_30_2025_January_12_2026.csv")    # DAILY NAV FILE
-    INFO_FILE = os.path.join(project_root, "data", "info_for_pdf.xlsx")                                      # INFO NECESSARY FOR PDF STYLING
+    INFO_FILE = os.path.join(project_root, "data", "info_for_pdf.xlsx")                                     # INFO NECESSARY FOR PDF STYLING
     
     LOGO_FILE = os.path.join(project_root, "data", "gaard_logo.png")
     TEXT_LOGO_FILE = os.path.join(project_root, "data", "gaard_text_logo.png")
     
+    SELECTED_COMP_BENCHMARK_KEY = 'SPY'                                                                 # SEE CONFIGURATION ABOVE FOR OPTIONS
     RISK_TIME_HORIZON = 1
     # **************************************************************************************************************************************** #
     
@@ -208,41 +208,84 @@ def run_pipeline():
     # === 2. Market Data ===
     print("\n--- 2a. Fetching Benchmark Data (Yahoo) ---")
     
-    # 1. Get User Selection for Main Benchmark
+    # Get User Selection for Main Benchmark
     main_benchmark_weights = COMPOSITE_BENCHMARK_CONFIG.get(SELECTED_COMP_BENCHMARK_KEY, {'SPY': 1.0})
     main_bench_constituents = list(main_benchmark_weights.keys())
     
-    # 2. Gather ALL benchmarks needed (Standard + Main Constituents)
+    # Gather ALL benchmarks needed (Standard + Main Constituents)
     standard_benchmarks = [t for sublist in BENCHMARK_CONFIG.values() for t in sublist]
     all_needed_tickers = list(set(standard_benchmarks + main_bench_constituents))
     
+    # Fetch Long History (5 Years) for Calculation (1Y/3Y stats)
+    rd_dt = pd.to_datetime(report_date)
+    long_start_dt = rd_dt - pd.DateOffset(years=5)
+    long_start_str = long_start_dt.strftime('%Y-%m-%d')
+    
     bench_returns_df = pd.DataFrame()
-    bench_growth = pd.DataFrame()
+    bench_growth_period = pd.DataFrame()
     
     try:
-        # Fetch ALL returns
-        bench_returns_df = fetch_benchmark_returns_yf(all_needed_tickers, start_date=statement_start_date, end_date=report_date)
+        # Fetch ALL returns (Long History)
+        bench_returns_df = fetch_benchmark_returns_yf(all_needed_tickers, start_date=long_start_str, end_date=report_date)
         
-        # Calculate Index for Table (Standard Benchmarks)
-        if not bench_returns_df.empty:
-            bench_growth = get_cumulative_index(bench_returns_df, start_value=100)
+        # Extract specific period for Asset Allocation Table (Statement Period Only)
+        # Note: We rely on string slicing here which works if index is DatetimeIndex
+        period_subset = bench_returns_df.loc[statement_start_date:report_date].copy()
+        if not period_subset.empty:
+            bench_growth_period = get_cumulative_index(period_subset, start_value=100)
             
     except Exception as e:
         print(f"Yahoo Connection Error: {e}")
 
-    # --- 2b. Calculate Composite Benchmark for Chart ---
+    # --- Calculate Composite & Windows for Chart & Table ---
     print(f"   > Calculating Super Benchmark: {SELECTED_COMP_BENCHMARK_KEY}")
+    
+    # Composite Daily Returns (Full 5Y History)
     main_benchmark_series = calculate_composite_benchmark_return(bench_returns_df, main_benchmark_weights)
+    
+    # Chart Data (Uses Full History to match Portfolio Inception)
     chart_data = prepare_chart_data(daily_history, main_benchmark_series, benchmark_name=SELECTED_COMP_BENCHMARK_KEY)
 
-    # --- 2c. Calculate Risk Metrics (Still using a single ticker proxy if needed, or composite?) ---
+    # Calculate Benchmark Windows (1M, YTD, 1Y, 3Y, etc.)
+    # Create NAV-like DF for the calculator
+    bench_nav_df = pd.DataFrame({
+        'date': main_benchmark_series.index,
+        'nav': (1 + main_benchmark_series).cumprod() * 100
+    })
+    
+    # Calculate Standard Stats
+    bench_windows, _ = calculate_period_returns(bench_nav_df, report_date)
+    
+    # --- CRITICAL: OVERRIDE INCEPTION & PERIOD ---
+    # We must ensure "Inception" matches Portfolio Inception, not the 5Y fetch start.
+    if not bench_nav_df.empty:
+        # Helper to calculate return between two dates
+        def get_ret(s_date, e_date):
+            if bench_nav_df.empty: return 0.0
+            row_start = bench_nav_df[bench_nav_df['date'] <= s_date]
+            val_start = row_start.iloc[-1]['nav'] if not row_start.empty else bench_nav_df.iloc[0]['nav']
+            
+            row_end = bench_nav_df[bench_nav_df['date'] <= e_date]
+            val_end = row_end.iloc[-1]['nav'] if not row_end.empty else bench_nav_df.iloc[-1]['nav']
+            
+            return (val_end / val_start) - 1.0 if val_start != 0 else 0.0
+
+        # Override Period (Statement Start)
+        bench_windows['Period'] = get_ret(pd.to_datetime(statement_start_date), rd_dt)
+        
+        # Override Inception (Portfolio Inception)
+        if not daily_history.empty:
+            port_inception = daily_history['date'].min()
+            bench_windows['Inception'] = get_ret(port_inception, rd_dt)
+
+    # --- 2b. Calculate Risk Metrics (Still using a single ticker proxy if needed, or composite?) ---
+    print("\n--- 2b. Calculating Risk Profile ---")
     # For simplicity, we use the dominant ticker in the super benchmark as the risk proxy, 
     # or just default to SPY if complex.
     risk_proxy = 'SPY'
     if 'SPY' in main_benchmark_weights: risk_proxy = 'SPY'
     elif 'AGG' in main_benchmark_weights and len(main_benchmark_weights) == 1: risk_proxy = 'AGG'
-        
-    print("\n--- 2b. Calculating Risk Profile ---")
+    
     risk_metrics = {}
     try:
         risk_metrics = calculate_portfolio_risk(holdings, benchmark_ticker=risk_proxy, lookback_years= RISK_TIME_HORIZON)
@@ -299,8 +342,9 @@ def run_pipeline():
         targets = BENCHMARK_CONFIG.get(bucket, [])
         for b_ticker in targets:
             b_val = 0.0
-            if not bench_growth.empty and b_ticker in bench_growth.columns:
-                b_val = get_cumulative_return(bench_growth[b_ticker], 'INCEPTION')
+            # Use bench_growth_period (Specific to Statement Period)
+            if not bench_growth_period.empty and b_ticker in bench_growth_period.columns:
+                b_val = get_cumulative_return(bench_growth_period[b_ticker], 'INCEPTION')
             
             friendly_name = BENCHMARK_NAMES.get(b_ticker, b_ticker)
             
@@ -327,6 +371,7 @@ def run_pipeline():
             main_benchmark_tckr=SELECTED_COMP_BENCHMARK_KEY,
             
             performance_windows=window_returns,
+            benchmark_performance_windows=bench_windows,
             performance_chart_data=chart_data,
             period_label=period_label,
             

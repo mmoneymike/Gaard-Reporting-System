@@ -227,7 +227,7 @@ def generate_line_chart(comparison_df):
     # Columns: ['date', 'Cumulative Return', 'Series']
     source = comparison_df.copy()
     
-    # 2. Determine Domain Dynamically (instead of hardcoding 'S&P 500')
+    # 2. Determine Domain Dynamically
     # We expect 'Series' column to contain ['Portfolio', 'YOUR_BENCHMARK_NAME']
     series_names = source['Series'].unique().tolist()
     
@@ -253,7 +253,7 @@ def generate_line_chart(comparison_df):
         ), 
         color=alt.Color('Series:N', 
                         scale=alt.Scale(domain=domain, range=range_colors), 
-                        legend=alt.Legend(title=None, orient='none', legendX=185, legendY=275, direction='horizontal', labelColor='black')
+                        legend=alt.Legend(title=None, orient='none', legendX=185, legendY=276, direction='horizontal', labelColor='black')
         )
     ).properties(
         width=500, 
@@ -337,7 +337,7 @@ def generate_donut_chart(summary_df):
 #   OVERALL PORTFOLIO REPORT
 #  ==========================================
 def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metrics, risk_metrics, report_date, output_path, account_title="Total Portfolio",
-                           performance_windows=None, performance_chart_data=None, period_label="Quarter", main_benchmark_tckr="SPY", risk_time_horizon=1,
+                           performance_windows=None, benchmark_performance_windows=None, performance_chart_data=None, period_label="Quarter", main_benchmark_tckr="SPY", risk_time_horizon=1,
                            legal_notes=None, pdf_info=None, text_logo_path=None, logo_path=None):
     
     print(f"   > Generating PDF Report: {output_path}")
@@ -404,14 +404,8 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     pdf.add_page()
     
     # --- DATA EXTRACTION ---
-    acct_name = clean_text(pdf_info.get('page_1_account_name', account_title))
-    
-    quarter_val = clean_text(pdf_info.get('quarter', ''))
-    if quarter_val:
-        rpt_title = f"{quarter_val} Portfolio Report"
-    else:
-        rpt_title = clean_text(pdf_info.get('page_1_report_title', 'Quarterly Portfolio Report'))
-
+    account_name = clean_text(pdf_info.get('page_1_account_name', account_title))
+    report_title = f"{period_label} Portfolio Report"
     title_date_input = pdf_info.get('page_1_report_date', report_date)
     title_rep_date = format_nice_date(title_date_input)
     
@@ -440,13 +434,13 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     pdf.set_x(10)
     pdf.set_font('Carlito', 'B', 18)
     pdf.set_text_color(0,0,0)
-    pdf.cell(text_area_width, 12, acct_name, new_x="LMARGIN", new_y="NEXT", align='R')
+    pdf.cell(text_area_width, 12, account_name, new_x="LMARGIN", new_y="NEXT", align='R')
     
     # 3. REPORT TITLE
     pdf.set_x(10)
     pdf.set_font('Carlito', 'B', 18)
     pdf.set_text_color(0, 0, 0)
-    pdf.cell(text_area_width, 12, rpt_title, new_x="LMARGIN", new_y="NEXT", align='R')
+    pdf.cell(text_area_width, 12, report_title, new_x="LMARGIN", new_y="NEXT", align='R')
     
     # 4. REPORT DATE
     pdf.set_x(10)
@@ -597,7 +591,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
         table_start_x = (pdf.w - table_width) / 2
         table_height = 9 * 8 
         table_start_y = (pdf.h - table_height) / 2
-        text_block_height = 17 # Height Calculation: AccountTitle(6) + Gap(2) + TableTitle(9)
+        text_block_height = 14 # Height Calculation: TableTitle(9) + ReportingDate(5)
         text_start_y = table_start_y - text_block_height
         
         # Safety Check: Don't let text hit the header (Top Margin ~35mm)
@@ -605,22 +599,18 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
             text_start_y = 35
             table_start_y = text_start_y + text_block_height
 
-        # --- TABLE TITLE TEXT (Left Aligned to Table) ---
+        # Table Title (Left Aligned to Table)
         pdf.set_y(text_start_y)
-        
-        # Account Title
-        pdf.set_x(table_start_x) # Start at table's left edge
-        pdf.set_font('Carlito', 'B', 16)
-        pdf.set_text_color(0, 0, 0)
-        pdf.cell(0, 6, account_title, new_x="LMARGIN", new_y="NEXT", align='L')
-        
-        pdf.ln(2)
-        
-        # Change in NAV Table Title
         pdf.set_x(table_start_x)
         pdf.set_font('Carlito', 'B', 12)
         pdf.set_text_color(0, 0, 0)
         pdf.cell(0, 9, "Quarterly Change in Net Asset Value", new_x="LMARGIN", new_y="NEXT", align='L')
+        
+        # Reporting Date
+        pdf.set_x(table_start_x)
+        pdf.set_font('Carlito', '', 10)
+        pdf.set_text_color(*C_TEXT_GREY)
+        pdf.cell(0, 5, f"Reportings as of {data_rep_date}", new_x="LMARGIN", new_y="NEXT", align='L')
         
         # --- TABLE ---
         pdf.set_y(table_start_y)
@@ -653,11 +643,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
                 r.cell(display_name, style=style_row)
                 r.cell(f"${val:,.0f}", style=style_row)
        
-       # Reporting Date
-        pdf.set_x(table_start_x)
-        pdf.set_font('Carlito', '', 10)
-        pdf.set_text_color(*C_TEXT_GREY)
-        pdf.cell(0, 5, f"Reportings as of {data_rep_date}", new_x="LMARGIN", new_y="NEXT", align='L')
+       
        
        
     #  ==========================================
@@ -672,7 +658,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
         try:
             line_chart_img = generate_line_chart(performance_chart_data)
             if line_chart_img: 
-                pdf.set_font('Carlito', 'B', 12); pdf.set_text_color(0, 0, 0); pdf.cell(0, 9, f"Endowment Performance vs S&P 500", new_x="LMARGIN", new_y="NEXT")
+                pdf.set_font('Carlito', 'B', 12); pdf.set_text_color(0, 0, 0); pdf.cell(0, 9, f"Endowment Performance vs Benchmark", new_x="LMARGIN", new_y="NEXT")
                 pdf.set_y(start_y+10); pdf.image(line_chart_img, w=165); os.remove(line_chart_img)
         except Exception as e:
             print(f"Performance Chart Error: {e}")
@@ -725,7 +711,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
             label = headers_map.get(k, k)
             row1.cell(label, style=header_style, align="RIGHT")
             
-        # --- DATA ROW ---
+        # --- ROW 1: ACCOUNT DATA ---
         row = table.row()
         acct_str = account_title[:38] + "..." if len(account_title) > 40 else account_title
         p5_style = FontFace(size_pt=12, fill_color=C_GREY_LIGHT)
@@ -737,6 +723,17 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
             b_style = "RIGHT" if k != "Inception" else "NONE"
             row.cell(f"{val:.2%}" if val is not None else "-", style=p5_style, align="RIGHT", border=b_style)
 
+        # --- ROW 2: BENCHMARK DATA (NEW) ---
+        if benchmark_performance_windows:
+            row_bench = table.row()
+            p5_bench_style = FontFace(size_pt=12, emphasis="ITALICS", color=C_TEXT_GREY, fill_color=C_WHITE)
+            bench_label = main_benchmark_tckr
+            row_bench.cell(f"Benchmark: {bench_label}", style=p5_bench_style)
+            
+            for i, k in enumerate(keys): 
+                val = benchmark_performance_windows.get(k)
+                b_style = "RIGHT" if k != "Inception" else "NONE"
+                row_bench.cell(f"{val:.2%}" if val is not None else "-", style=p5_bench_style, align="RIGHT", border=b_style)
 
     #  ==========================================
     #   PAGE 6: PORTFOLIO PERFORMANCE BY ALLOCATION
@@ -791,7 +788,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     table_start_y = (pdf.h - table_height) / 2
     
     # Calculate Y where the Text Block starts (hanging above the table)
-    text_block_height = 9   # Heights: Title(9)
+    text_block_height = 14   # Heights: TableTitle(9) + ReportingTitle(5)
     text_start_y = table_start_y - text_block_height
     
     # Safety Check: Don't let text hit the header (Top Margin ~35mm)
@@ -802,11 +799,17 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     # --- 2. RENDER TEXT (Left Aligned to Table) ---
     pdf.set_y(text_start_y)
     
-    # Title
+    # Table Title
     pdf.set_x(table_start_x) # Start at table's left edge
     pdf.set_font('Carlito', 'B', 12)
     pdf.set_text_color(0, 0, 0)
     pdf.cell(0, 9, "Allocation Summary", new_x="LMARGIN", new_y="NEXT", align='L')
+    
+    # Reporting Date
+    pdf.set_x(table_start_x)
+    pdf.set_font('Carlito', '', 10)
+    pdf.set_text_color(*C_TEXT_GREY)
+    pdf.cell(0, 5, f"Reportings as of {data_rep_date}", new_x="LMARGIN", new_y="NEXT", align='L')
     
     # --- 3. RENDER TABLE (Centered) ---
     # We ensure the cursor is exactly at the calculated table start
@@ -844,16 +847,10 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
                 r.cell("---" if row.get('IsCash') else f"{row['Return']:.2%}", style=bucket_style)
             elif row['Type'] == 'Benchmark':
                 r = table.row()
-                r.cell(f"      {row['Name']}", style=bench_style)
+                r.cell(f"Benchmark: {row['Name']}", style=bench_style)
                 r.cell("", style=bench_style, border="RIGHT") 
                 r.cell("", style=bench_style, border="RIGHT") 
                 r.cell(f"{row['Return']:.2%}", style=bench_style)
-
-    # Reporting Date
-    pdf.set_x(table_start_x)
-    pdf.set_font('Carlito', '', 10)
-    pdf.set_text_color(*C_TEXT_GREY)
-    pdf.cell(0, 5, f"Reportings as of {data_rep_date}", new_x="LMARGIN", new_y="NEXT", align='L')
         
         
     #  ==========================================
@@ -904,7 +901,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
         
         # --- HEADER ---
         h_row = table.row()
-        headers = ["Ticker", "Name", "Allocation", "Cost Basis", "Value", "Return"]
+        headers = ["Ticker", "Name", "Allocation", "Cost Basis", "Value", return_header]
         for h in headers: h_row.cell(h, style=header_style)
             
         for bucket in unique_buckets:
@@ -967,8 +964,8 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
                 
                 # Data Cols
                 r.cell(f"{pos['weight']:.2%}", style=reg_data_style, border="RIGHT")
-                r.cell(f"${pos['avg_cost']:,.2f}", style=reg_data_style, border="RIGHT")
-                r.cell(f"${pos['raw_value']:,.2f}", style=reg_data_style, border="RIGHT")
+                r.cell(f"${pos['avg_cost']:,.0f}", style=reg_data_style, border="RIGHT")
+                r.cell(f"${pos['raw_value']:,.0f}", style=reg_data_style, border="RIGHT")
                 r.cell(ret_str, style=reg_data_style)
 
     
@@ -1026,7 +1023,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     #  ==========================================
     #   PAGE 11: MARKET REVIEW
     #  ==========================================
-    pdf.show_standard_header = True; pdf.header_text = "Market Review"; pdf.add_page()
+    pdf.show_standard_header = True; pdf.header_text = f"Market Review: {period_label}"; pdf.add_page()
     
     # 1. Clean and Get Text
     raw_text = clean_text(pdf_info.get('page_11_macro_market_recap', 'No macro views provided.'))
@@ -1120,7 +1117,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
                        borders_layout="HORIZONTAL_LINES",
                        align="LEFT",
                        width=270,
-                       line_height=5) as table: 
+                       line_height=4) as table: 
             
             # Header Style
             legalnotes_header_style = FontFace(size_pt=8, emphasis="BOLD", color=C_WHITE, fill_color=C_BLUE_LOGO)
@@ -1148,14 +1145,8 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     pdf.add_page()
     
     # --- DATA EXTRACTION ---
-    acct_name = clean_text(pdf_info.get('page_1_account_name', account_title))
-    
-    quarter_val = clean_text(pdf_info.get('quarter', ''))
-    if quarter_val:
-        rpt_title = f"{quarter_val} Portfolio Report"
-    else:
-        rpt_title = clean_text(pdf_info.get('page_1_report_title', 'Quarterly Portfolio Report'))
-
+    account_name = clean_text(pdf_info.get('page_1_account_name', account_title))
+    report_title = f"{period_label} Portfolio Report"
     title_date_input = pdf_info.get('page_1_report_date', report_date)
     title_rep_date = format_nice_date(title_date_input)
     
@@ -1184,13 +1175,13 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     pdf.set_x(10)
     pdf.set_font('Carlito', 'B', 18)
     pdf.set_text_color(0,0,0)
-    pdf.cell(text_area_width, 12, acct_name, new_x="LMARGIN", new_y="NEXT", align='R')
+    pdf.cell(text_area_width, 12, account_name, new_x="LMARGIN", new_y="NEXT", align='R')
     
     # 3. REPORT TITLE
     pdf.set_x(10)
     pdf.set_font('Carlito', 'B', 18)
     pdf.set_text_color(0, 0, 0)
-    pdf.cell(text_area_width, 12, rpt_title, new_x="LMARGIN", new_y="NEXT", align='R')
+    pdf.cell(text_area_width, 12, report_title, new_x="LMARGIN", new_y="NEXT", align='R')
     
     # 4. REPORT DATE
     pdf.set_x(10)
