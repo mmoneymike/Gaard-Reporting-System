@@ -409,54 +409,55 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     title_date_input = pdf_info.get('page_1_report_date', report_date)
     title_rep_date = format_nice_date(title_date_input)
     
-    # --- LAYOUT CONFIGURATION ---
-    block_shift = 15  # <--- Adjust this to move the whole group Left/Right
-    
-    # 2. Calculate the "Visual Center" axis
-    visual_center_x = (pdf.w / 2) + block_shift
-    gap = 8  # Space between text and logo
-    content_start_y = 70
-    
-    # --- LEFT SIDE: TEXT BLOCK (Right Aligned to Visual Center) ---
-    pdf.set_y(content_start_y)
-    
-    # Text box starts at left margin (10) and ends at (visual_center_x - gap)
-    # align='R' pushes the text against the invisible visual_center line
-    text_area_width = (visual_center_x - gap) - 10 
-    
-    # 1. FIRM NAME
-    pdf.set_x(10)
-    pdf.set_font('Carlito', 'B', 38)
-    pdf.set_text_color(*C_BLUE_LOGO)
-    pdf.cell(text_area_width, 20, 'Gaard Capital LLC', new_x="LMARGIN", new_y="NEXT", align='R')
-    
-    # 2. ACCOUNT NAME
-    pdf.set_x(10)
-    pdf.set_font('Carlito', 'B', 18)
-    pdf.set_text_color(0,0,0)
-    pdf.cell(text_area_width, 12, account_name, new_x="LMARGIN", new_y="NEXT", align='R')
-    
-    # 3. REPORT TITLE
-    pdf.set_x(10)
-    pdf.set_font('Carlito', 'B', 18)
-    pdf.set_text_color(0, 0, 0)
-    pdf.cell(text_area_width, 12, report_title, new_x="LMARGIN", new_y="NEXT", align='R')
-    
-    # 4. REPORT DATE
-    pdf.set_x(10)
-    pdf.set_font('Carlito', '', 12)
-    pdf.set_text_color(100, 100, 100)
-    pdf.cell(text_area_width, 10, f"{title_rep_date}", new_x="LMARGIN", new_y="NEXT", align='R')
-
-    # --- RIGHT SIDE: LOGO (Left Aligned to Visual Center) ---
+    # --- 1. LOGO (TOP CENTER) ---
     if logo_path and os.path.exists(logo_path):
-        try:
-            # Logo starts exactly on the other side of the gap
-            logo_x = visual_center_x + gap
-            
-            pdf.image(logo_path, x=logo_x, y=content_start_y + 4, w=41)
+        logo_w = 15  # Much smaller size
+        logo_x = (pdf.w - logo_w) / 2
+        logo_y = 55  # Positioned near the top
+        try: 
+            pdf.image(logo_path, x=logo_x, y=logo_y, w=logo_w)
         except Exception as e: 
             print(f"Warning: Could not load logo: {e}")
+
+    # --- 2. MAIN SECTION (VERTICALLY CENTERED) ---
+    # Calculate vertical center of page (A4 Landscape Height ~210mm)
+    page_center_y = pdf.h / 2
+    
+    # Estimated Heights: Gap(5) + Name(12) + Title(10) + Date(8) + Gap(5) = ~40mm total content
+    content_height = 40 
+    start_y = page_center_y - (content_height / 2)
+    
+    # Line Settings
+    line_width = 200
+    line_start_x = (pdf.w - line_width) / 2
+    line_end_x = line_start_x + line_width
+    
+    # A. TOP BLUE LINE
+    pdf.set_draw_color(*C_BLUE_LOGO)
+    pdf.set_line_width(0.5)
+    pdf.line(line_start_x, start_y, line_end_x, start_y)
+    
+    # B. TEXT BLOCK
+    pdf.set_y(start_y + 6) # Small gap after line
+    
+    # Account Name
+    pdf.set_font('Carlito', 'B', 24)
+    pdf.set_text_color(0, 0, 0)
+    pdf.cell(0, 12, account_name, align='C', new_x="LMARGIN", new_y="NEXT")
+    
+    # Report Title
+    pdf.set_font('Carlito', 'B', 18)
+    pdf.set_text_color(0, 0, 0)
+    pdf.cell(0, 10, report_title, align='C', new_x="LMARGIN", new_y="NEXT")
+    
+    # Report Date
+    pdf.set_font('Carlito', '', 12)
+    pdf.set_text_color(100, 100, 100)
+    pdf.cell(0, 8, f"{title_rep_date}", align='C', new_x="LMARGIN", new_y="NEXT")
+    
+    # C. BOTTOM BLUE LINE
+    final_y = pdf.get_y() + 6 # Small gap after text
+    pdf.line(line_start_x, final_y, line_end_x, final_y)
     
     
     #  ==========================================
@@ -591,7 +592,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
         table_start_x = (pdf.w - table_width) / 2
         table_height = 9 * 8 
         table_start_y = (pdf.h - table_height) / 2
-        text_block_height = 14 # Height Calculation: TableTitle(9) + ReportingDate(5)
+        text_block_height = 12 # Height Calculation: TableTitle(5) + ReportingDate(4) + Gap(3)
         text_start_y = table_start_y - text_block_height
         
         # Safety Check: Don't let text hit the header (Top Margin ~35mm)
@@ -604,13 +605,15 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
         pdf.set_x(table_start_x)
         pdf.set_font('Carlito', 'B', 12)
         pdf.set_text_color(0, 0, 0)
-        pdf.cell(0, 9, "Quarterly Change in Net Asset Value", new_x="LMARGIN", new_y="NEXT", align='L')
+        pdf.cell(0, 5, "Quarterly Change in Net Asset Value", new_x="LMARGIN", new_y="NEXT", align='L')
         
         # Reporting Date
         pdf.set_x(table_start_x)
         pdf.set_font('Carlito', '', 10)
         pdf.set_text_color(*C_TEXT_GREY)
-        pdf.cell(0, 5, f"Reportings as of {data_rep_date}", new_x="LMARGIN", new_y="NEXT", align='L')
+        pdf.cell(0, 4, f"Reportings as of {data_rep_date}", new_x="LMARGIN", new_y="NEXT", align='L')
+      
+        pdf.ln(3)
         
         # --- TABLE ---
         pdf.set_y(table_start_y)
@@ -783,12 +786,8 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     # Vertical Center: Calculate height of the TABLE ONLY
     num_data_rows = len(summary_df)
     table_height = (1 + num_data_rows) * 8  # Header + Data Rows
-    
-    # Calculate Y where the table should start to be perfectly centered
     table_start_y = (pdf.h - table_height) / 2
-    
-    # Calculate Y where the Text Block starts (hanging above the table)
-    text_block_height = 14   # Heights: TableTitle(9) + ReportingTitle(5)
+    text_block_height = 12   # Heights: TableTitle(5) + ReportingTitle(5) + Gap(3)
     text_start_y = table_start_y - text_block_height
     
     # Safety Check: Don't let text hit the header (Top Margin ~35mm)
@@ -803,13 +802,14 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     pdf.set_x(table_start_x) # Start at table's left edge
     pdf.set_font('Carlito', 'B', 12)
     pdf.set_text_color(0, 0, 0)
-    pdf.cell(0, 9, "Allocation Summary", new_x="LMARGIN", new_y="NEXT", align='L')
+    pdf.cell(0, 5, "Allocation Summary", new_x="LMARGIN", new_y="NEXT", align='L')
     
     # Reporting Date
     pdf.set_x(table_start_x)
     pdf.set_font('Carlito', '', 10)
     pdf.set_text_color(*C_TEXT_GREY)
-    pdf.cell(0, 5, f"Reportings as of {data_rep_date}", new_x="LMARGIN", new_y="NEXT", align='L')
+    pdf.cell(0, 4, f"Reportings as of {data_rep_date}", new_x="LMARGIN", new_y="NEXT", align='L')
+    pdf.ln(3)
     
     # --- 3. RENDER TABLE (Centered) ---
     # We ensure the cursor is exactly at the calculated table start
@@ -1150,54 +1150,55 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     title_date_input = pdf_info.get('page_1_report_date', report_date)
     title_rep_date = format_nice_date(title_date_input)
     
-    # --- LAYOUT CONFIGURATION ---
-    block_shift = 15  # <--- Adjust this to move the whole group Left/Right
-    
-    # 2. Calculate the "Visual Center" axis
-    visual_center_x = (pdf.w / 2) + block_shift
-    gap = 8  # Space between text and logo
-    content_start_y = 70
-    
-    # --- LEFT SIDE: TEXT BLOCK (Right Aligned to Visual Center) ---
-    pdf.set_y(content_start_y)
-    
-    # Text box starts at left margin (10) and ends at (visual_center_x - gap)
-    # align='R' pushes the text against the invisible visual_center line
-    text_area_width = (visual_center_x - gap) - 10 
-    
-    # 1. FIRM NAME
-    pdf.set_x(10)
-    pdf.set_font('Carlito', 'B', 38)
-    pdf.set_text_color(*C_BLUE_LOGO)
-    pdf.cell(text_area_width, 20, 'Gaard Capital LLC', new_x="LMARGIN", new_y="NEXT", align='R')
-    
-    # 2. ACCOUNT NAME
-    pdf.set_x(10)
-    pdf.set_font('Carlito', 'B', 18)
-    pdf.set_text_color(0,0,0)
-    pdf.cell(text_area_width, 12, account_name, new_x="LMARGIN", new_y="NEXT", align='R')
-    
-    # 3. REPORT TITLE
-    pdf.set_x(10)
-    pdf.set_font('Carlito', 'B', 18)
-    pdf.set_text_color(0, 0, 0)
-    pdf.cell(text_area_width, 12, report_title, new_x="LMARGIN", new_y="NEXT", align='R')
-    
-    # 4. REPORT DATE
-    pdf.set_x(10)
-    pdf.set_font('Carlito', '', 12)
-    pdf.set_text_color(100, 100, 100)
-    pdf.cell(text_area_width, 10, f"{title_rep_date}", new_x="LMARGIN", new_y="NEXT", align='R')
-
-    # --- RIGHT SIDE: LOGO (Left Aligned to Visual Center) ---
+    # --- 1. LOGO (TOP CENTER) ---
     if logo_path and os.path.exists(logo_path):
-        try:
-            # Logo starts exactly on the other side of the gap
-            logo_x = visual_center_x + gap
-            
-            pdf.image(logo_path, x=logo_x, y=content_start_y + 4, w=41)
+        logo_w = 15  # Much smaller size
+        logo_x = (pdf.w - logo_w) / 2
+        logo_y = 55  # Positioned near the top
+        try: 
+            pdf.image(logo_path, x=logo_x, y=logo_y, w=logo_w)
         except Exception as e: 
             print(f"Warning: Could not load logo: {e}")
+
+    # --- 2. MAIN SECTION (VERTICALLY CENTERED) ---
+    # Calculate vertical center of page (A4 Landscape Height ~210mm)
+    page_center_y = pdf.h / 2
+    
+    # Estimated Heights: Gap(5) + Name(12) + Title(10) + Date(8) + Gap(5) = ~40mm total content
+    content_height = 40 
+    start_y = page_center_y - (content_height / 2)
+    
+    # Line Settings
+    line_width = 200
+    line_start_x = (pdf.w - line_width) / 2
+    line_end_x = line_start_x + line_width
+    
+    # A. TOP BLUE LINE
+    pdf.set_draw_color(*C_BLUE_LOGO)
+    pdf.set_line_width(0.5)
+    pdf.line(line_start_x, start_y, line_end_x, start_y)
+    
+    # B. TEXT BLOCK
+    pdf.set_y(start_y + 6) # Small gap after line
+    
+    # Account Name
+    pdf.set_font('Carlito', 'B', 24)
+    pdf.set_text_color(0, 0, 0)
+    pdf.cell(0, 12, account_name, align='C', new_x="LMARGIN", new_y="NEXT")
+    
+    # Report Title
+    pdf.set_font('Carlito', 'B', 18)
+    pdf.set_text_color(0, 0, 0)
+    pdf.cell(0, 10, report_title, align='C', new_x="LMARGIN", new_y="NEXT")
+    
+    # Report Date
+    pdf.set_font('Carlito', '', 12)
+    pdf.set_text_color(100, 100, 100)
+    pdf.cell(0, 8, f"{title_rep_date}", align='C', new_x="LMARGIN", new_y="NEXT")
+    
+    # C. BOTTOM BLUE LINE
+    final_y = pdf.get_y() + 6 # Small gap after text
+    pdf.line(line_start_x, final_y, line_end_x, final_y)
             
     pdf.suppress_footer = True
     
