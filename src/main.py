@@ -8,7 +8,7 @@ from yf_loader import fetch_benchmark_returns_yf, fetch_security_names_yf
 from return_metrics import*
 from pdf_writer import write_portfolio_report
 from excel_writer import write_portfolio_report_xlsx
-from risk_analytics import calculate_portfolio_risk
+from risk_metrics import calculate_portfolio_risk
 
 
 #  ==========================================
@@ -85,7 +85,7 @@ def run_pipeline():
     LOGO_FILE = os.path.join(project_root, "data", "gaard_logo.png")
     TEXT_LOGO_FILE = os.path.join(project_root, "data", "gaard_text_logo.png")
     
-    SELECTED_COMP_BENCHMARK_KEY = 'SPY'                                                                 # SEE CONFIGURATION ABOVE FOR OPTIONS
+    SELECTED_COMP_BENCHMARK_KEY = '60/40 SPY/AGG'                                                           # SEE CONFIGURATION ABOVE FOR OPTIONS
     RISK_TIME_HORIZON = 1
     # **************************************************************************************************************************************** #
     
@@ -106,7 +106,7 @@ def run_pipeline():
     else:
         print(f"Warning: Info file not found at {INFO_FILE}")
     
-    print(f"=== 1. Ingesting Portfolio (Internal) ===")
+    print(f"\n === 1. Ingesting Portfolio (Internal) ===")
     if not os.path.exists(IBKR_FILE):
         print(f"CRITICAL ERROR: Could not find file at: {IBKR_FILE}")
         return
@@ -147,7 +147,7 @@ def run_pipeline():
         holdings = holdings[holdings['raw_value'].abs() > 0.01].copy()
         
         # === Auto-Classify ===
-        print("   > 1c: Running Auto-Classification...")
+        print("   > 1d: Running Auto-Classification...")
         all_tickers = holdings['ticker'].unique().tolist()
         name_map = fetch_security_names_yf(all_tickers)
         
@@ -206,7 +206,7 @@ def run_pipeline():
         return
 
     # === 2. Market Data ===
-    print("\n--- 2a. Fetching Benchmark Data (Yahoo) ---")
+    print("\n=== 2. Fetching Market Data (External) ===")
     
     # Get User Selection for Main Benchmark
     main_benchmark_weights = COMPOSITE_BENCHMARK_CONFIG.get(SELECTED_COMP_BENCHMARK_KEY, {'SPY': 1.0})
@@ -234,11 +234,12 @@ def run_pipeline():
         if not period_subset.empty:
             bench_growth_period = get_cumulative_index(period_subset, start_value=100)
             
+        print("   > 2a. Fetched Benchmark Data (Yahoo)")
     except Exception as e:
         print(f"Yahoo Connection Error: {e}")
 
     # --- Calculate Composite & Windows for Chart & Table ---
-    print(f"   > Calculating Super Benchmark: {SELECTED_COMP_BENCHMARK_KEY}")
+    print(f"   > Calculating Composite Benchmark: {SELECTED_COMP_BENCHMARK_KEY}")
     
     # Composite Daily Returns (Full 5Y History)
     main_benchmark_series = calculate_composite_benchmark_return(bench_returns_df, main_benchmark_weights)
@@ -278,21 +279,20 @@ def run_pipeline():
             port_inception = daily_history['date'].min()
             bench_windows['Inception'] = get_ret(port_inception, rd_dt)
 
-    # --- 2b. Calculate Risk Metrics (Still using a single ticker proxy if needed, or composite?) ---
-    print("\n--- 2b. Calculating Risk Profile ---")
-    # For simplicity, we use the dominant ticker in the super benchmark as the risk proxy, 
-    # or just default to SPY if complex.
-    risk_proxy = 'SPY'
-    if 'SPY' in main_benchmark_weights: risk_proxy = 'SPY'
-    elif 'AGG' in main_benchmark_weights and len(main_benchmark_weights) == 1: risk_proxy = 'AGG'
-    
+    # --- 2b. Calculate Risk Metrics ---
+    print(f"   > 2b. Calculating Risk Profile (Horizon: {RISK_TIME_HORIZON or 'Full'} Yrs) ---")
     risk_metrics = {}
     try:
-        risk_metrics = calculate_portfolio_risk(holdings, benchmark_ticker=risk_proxy, lookback_years= RISK_TIME_HORIZON)
-        print("   > Risk Metrics Calculated:", risk_metrics)
+        # Pass lookback_years here
+        risk_metrics = calculate_portfolio_risk(
+            daily_history, 
+            main_benchmark_series, 
+            lookback_years=RISK_TIME_HORIZON
+        )
+        print(f"   > Risk Metrics Calculated Successfully: {risk_metrics}")
     except Exception as e:
         print(f"Risk Calc Error: {e}")
-        risk_metrics = {'Beta': 0, 'R2': 0, 'Volatility': 0, 'Sharpe': 0}
+        risk_metrics = {}
 
     # === 3. PREPARE DATA FOR PDF / EXCEL ===
     print("\n=== 3. Generating PDF Report ===")

@@ -972,38 +972,111 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     #  ==========================================
     #   PAGE 8: RISK
     #  ==========================================
-    pdf.show_standard_header = True; pdf.header_text = "Risk"; pdf.add_page()
-    pdf.set_y(15); pdf.ln(10)
+    #  ==========================================
+    #   PAGE 8: RISK ANALYTICS
+    #  ==========================================
+    pdf.show_standard_header = True; pdf.header_text = "Risk Analysis"; pdf.add_page()
     
-            # # --- RISK METRICS TABLE ---
-        # risk_y_offset = chart_y_offset + 75
-        # risk_y_pos = start_y + risk_y_offset
-        # if risk_metrics:
-        #     pdf.set_y(risk_y_pos)
-        #     pdf.set_x(155)
-            
-        #     pdf.set_font('Carlito', 'B', 11)
-        #     pdf.set_text_color(0, 0, 0)
-        #     header_text = f"Risk Profile: {risk_time_horizon} vs {risk_benchmark_tckr}"
-        #     pdf.cell(0, 8, header_text, new_x="LMARGIN", new_y="NEXT")
-        #     pdf.set_x(165)
-            
-        #     beta_str = f"{risk_metrics.get('Beta', 0):.2f}"
-        #     stdev_str = f"{risk_metrics.get('Daily Standard Deviation', 0):.2%}" 
-        #     sharpe_str = f"{risk_metrics.get('Sharpe Ratio', 0):.2f}"
-        #     r2_str = f"{risk_metrics.get('R2', 0):.2f}"
+    # 1. SETUP DATA & LABELS
+    horizon_label = f"{risk_time_horizon} Year" if risk_time_horizon else "Full History"
+    
+    # Define the rows structure: (Label, Value, Format, IsSectionHeader)
+    risk_rows = []
+    
+    # --- Section 1: Idiosyncratic Risk ---
+    risk_rows.append((f"Idiosyncratic Risk vs {main_benchmark_tckr}", None, None, True))
+    risk_rows.append(("Idiosyncratic Risk", risk_metrics.get('Idiosyncratic Risk', 0.0), "percent", False))
+    risk_rows.append(("R-Squared", risk_metrics.get('R-Squared (vs Bench)', 0.0), "float", False))
+    
+    # --- Section 2: Factor Coefficients ---
+    risk_rows.append(("Factor Coefficients (Betas)", None, None, True))
+    factor_keys = [
+        ('Size (IWM)', 'Beta: Size (IWM)'), 
+        ('Value (IWD)', 'Beta: Value (IWD)'), 
+        ('Quality (QUAL)', 'Beta: Quality (QUAL)'), 
+        ('Momentum (MTUM)', 'Beta: Momentum (MTUM)')
+    ]
+    for label, key in factor_keys:
+        risk_rows.append((label, risk_metrics.get(key, 0.0), "float", False))
 
-        #     col_widths = (10, 14, 13, 14, 20, 17, 16, 14)
-        #     with pdf.table(col_widths=col_widths, borders_layout="NONE", align="LEFT", width=125) as table:
-        #         row = table.row()
-        #         row.cell("Beta", style=FontFace(size_pt=8, color=C_BLUE_PRIMARY))
-        #         row.cell(beta_str, style=FontFace(size_pt=9, emphasis="BOLD"))
-        #         row.cell("Sharpe", style=FontFace(size_pt=8, color=C_BLUE_PRIMARY))
-        #         row.cell(sharpe_str, style=FontFace(size_pt=9, emphasis="BOLD"))
-        #         row.cell("Std Dev (Day)", style=FontFace(size_pt=8, color=C_BLUE_PRIMARY))
-        #         row.cell(stdev_str, style=FontFace(size_pt=9, emphasis="BOLD"))
-        #         row.cell("R-Square", style=FontFace(size_pt=8, color=C_BLUE_PRIMARY))
-        #         row.cell(r2_str, style=FontFace(size_pt=9, emphasis="BOLD"))   
+    # 2. CALCULATE LAYOUT (Centering Logic from Page 4)
+    table_width = 105 
+    table_start_x = (pdf.w - table_width) / 2
+    
+    # Calculate Table Height: (Header + Data Rows) * Row Height
+    # Header(1) + Data(len(risk_rows))
+    total_rows = 1 + len(risk_rows)
+    table_height = total_rows * 8 
+    
+    # Vertical Center
+    table_start_y = (pdf.h - table_height) / 2
+    
+    # Title Position
+    text_block_height = 12 # TableTitle(5) + ReportingTitle(4) + Gap(3) 
+    text_start_y = table_start_y - text_block_height
+    
+    # Safety Check (Top Margin)
+    if text_start_y < 35:
+        text_start_y = 35
+        table_start_y = text_start_y + text_block_height
+
+    # 3. RENDER TITLE
+    pdf.set_y(text_start_y)
+    pdf.set_x(table_start_x)
+    pdf.set_font('Carlito', 'B', 12)
+    pdf.set_text_color(0, 0, 0)
+    pdf.cell(0, 5, f"Risk Profile ({horizon_label})", new_x="LMARGIN", new_y="NEXT", align='L')
+
+    # Reporting Date Footer (aligned to table)
+    pdf.set_x(table_start_x)
+    pdf.set_font('Carlito', '', 10)
+    pdf.set_text_color(*C_TEXT_GREY)
+    pdf.cell(0, 3, f"Reportings as of {data_rep_date}", new_x="LMARGIN", new_y="NEXT", align='L')
+    pdf.ln(3)
+    
+    # 4. RENDER TABLE
+    pdf.set_y(table_start_y)
+    pdf.set_text_color(0, 0, 0)
+    
+    with pdf.table(col_widths=(75, 30), 
+                   text_align=("LEFT", "RIGHT"), 
+                   borders_layout="NONE", 
+                   align="CENTER", 
+                   width=table_width, 
+                   line_height=8) as table:
+        
+        # --- HEADER ROW ---
+        header = table.row()
+        header.cell("Risk Metric", style=header_style)
+        header.cell("Value", style=header_style)
+        
+        # --- DATA ROWS ---
+        for label, val, fmt, is_header in risk_rows:
+            
+            # Style Logic
+            if is_header:
+                # Section Header: Bold, Grey Background, No Indent
+                display_name = label
+                val_str = ""
+                bg_color = C_GREY_LIGHT
+                font_style = "BOLD"
+            else:
+                # Metric Row: Normal, White Background, Indented
+                display_name = f"      {label}"
+                bg_color = C_WHITE
+                font_style = ""
+                
+                # Formatting
+                if fmt == 'percent': val_str = f"{val:.2%}"
+                elif fmt == 'float': val_str = f"{val:.2f}"
+                else: val_str = str(val)
+
+            # Define FontFace for this row
+            style_row = FontFace(emphasis=font_style, size_pt=12, fill_color=bg_color)
+            
+            r = table.row()
+            r.cell(display_name, style=style_row)
+            r.cell(val_str, style=style_row)
         
         
     #  ==========================================
