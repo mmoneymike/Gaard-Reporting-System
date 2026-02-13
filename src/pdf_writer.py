@@ -410,12 +410,12 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     title_rep_date = format_nice_date(title_date_input)
     
     # --- 1. LOGO (TOP CENTER) ---
-    if logo_path and os.path.exists(logo_path):
-        logo_w = 15  # Much smaller size
+    if text_logo_path and os.path.exists(text_logo_path):
+        logo_w = 46  # Much smaller size
         logo_x = (pdf.w - logo_w) / 2
         logo_y = 55  # Positioned near the top
         try: 
-            pdf.image(logo_path, x=logo_x, y=logo_y, w=logo_w)
+            pdf.image(text_logo_path, x=logo_x, y=logo_y, w=logo_w)
         except Exception as e: 
             print(f"Warning: Could not load logo: {e}")
 
@@ -461,7 +461,64 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     
     
     #  ==========================================
-    #   PAGE 2: ENDOWMENT GOALS & OBJECTIVES
+    #   PAGE 2: TABLE OF CONTENTS (CENTERED)
+    #  ==========================================
+    pdf.show_standard_header = True; pdf.header_text = "Table of Contents"; pdf.add_page()
+    
+    toc_items = [
+        "Endowment Goals and Objectives",
+        "Endowment Target Allocations",
+        "Change in Portfolio Value",
+        "Portfolio Overview",
+        "Portfolio Performance by Allocation",
+        "Expanded Investment Performance",
+        "Risk Analysis",
+        "Financial Statistics",
+        "Market Review",
+        "Important Information and Disclosures",
+        "Statement Notes"
+    ]
+    
+    # 1. Dimensions
+    toc_width = 140  # Width of the TOC block
+    start_x = (pdf.w - toc_width) / 2
+    
+    # 2. Vertical Centering
+    # Row Height = 10mm (Text) + 2mm (Gap) = 12mm
+    total_height = len(toc_items) * 12 
+    start_y = (pdf.h - total_height) / 2
+    
+    # Ensure it doesn't hit the header (Top Margin ~35mm)
+    if start_y < 35: start_y = 35
+    
+    pdf.set_y(start_y)
+    
+    for i, item in enumerate(toc_items, 1):
+        num_str = f"{i:02d}."
+        
+        # --- Set Row Start Position ---
+        pdf.set_x(start_x)
+        
+        # 1. Number (Right Aligned in small cell)
+        pdf.set_font('Carlito', 'B', 14); pdf.set_text_color(*C_BLUE_LOGO)
+        pdf.cell(15, 10, num_str, align='R')
+        
+        # 2. Text (Left Aligned in remaining space)
+        pdf.set_font('Carlito', '', 14); pdf.set_text_color(0, 0, 0)
+        # Width = Total Block Width - Number Cell Width
+        pdf.cell(toc_width - 15, 10, item, new_x="LMARGIN", new_y="NEXT", align='L')
+        
+        # 3. Separator Line
+        curr_y = pdf.get_y()
+        pdf.set_draw_color(240, 240, 240); pdf.set_line_width(0.2)
+        pdf.line(start_x, curr_y, start_x + toc_width, curr_y)
+        
+        # 4. Gap
+        pdf.set_y(curr_y + 2)
+        
+        
+    #  ==========================================
+    #   PAGE 3: ENDOWMENT GOALS & OBJECTIVES
     #  ==========================================
     pdf.show_standard_header = True; pdf.header_text = "Endowment Goals and Objectives"; pdf.add_page()
     pdf.set_y(15); pdf.ln(10)
@@ -491,7 +548,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     pdf.multi_cell(text_block_width, line_height, ips_text)
     
     #  ==========================================
-    #   PAGE 3: ENDOWMENT TARGET ALLOCATIONS
+    #   PAGE 4: ENDOWMENT TARGET ALLOCATIONS
     #  ==========================================
     pdf.show_standard_header = True; pdf.header_text = "Endowment Target Allocations"; pdf.add_page()
     pdf.ln(2) 
@@ -582,7 +639,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
         
         
     #  ==========================================
-    #   PAGE 4: CHANGE IN PORTFOLIO VALUE
+    #   PAGE 5: CHANGE IN PORTFOLIO VALUE
     #  ==========================================
     pdf.show_standard_header = True; pdf.header_text = "Change in Portfolio Value"; pdf.add_page()
     breakdown = nav_performance.get('Breakdown', {}) if nav_performance else {}
@@ -648,9 +705,8 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
        
        
        
-       
     #  ==========================================
-    #   PAGE 5: PORTFOLIO OVERVIEW
+    #   PAGE 6: PORTFOLIO OVERVIEW
     #  ==========================================
     pdf.show_standard_header = True; pdf.header_text = "Portfolio Overview"; pdf.add_page()
     pdf.set_font('Carlito', '', 10); pdf.set_text_color(*C_TEXT_GREY); pdf.cell(0, 1, f"Reportings as of {data_rep_date}", new_x="LMARGIN", new_y="NEXT"); 
@@ -739,7 +795,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
                 row_bench.cell(f"{val:.2%}" if val is not None else "-", style=p5_bench_style, align="RIGHT", border=b_style)
 
     #  ==========================================
-    #   PAGE 6: PORTFOLIO PERFORMANCE BY ALLOCATION
+    #   PAGE 7: PORTFOLIO PERFORMANCE BY ALLOCATION
     #  ==========================================
     # === UPDATE HOLDINGS: MOVE ACCRUALS INTO CASH ===
     # 1. Update Holdings Ticker: Move 'Other' to 'Cash'
@@ -854,7 +910,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
         
         
     #  ==========================================
-    #   PAGE 7+: EXPANDED INVESTMENT PERFORMANCE BY ALLOCATION
+    #   PAGE 8+: EXPANDED INVESTMENT PERFORMANCE BY ALLOCATION
     #  ==========================================
     pdf.show_standard_header = True; pdf.header_text = "Expanded Investment Performance by Allocation"; pdf.add_page()
     pdf.set_font('Carlito', 'B', 14); pdf.set_text_color(0, 0, 0); pdf.ln(2)
@@ -970,10 +1026,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
 
     
     #  ==========================================
-    #   PAGE 8: RISK
-    #  ==========================================
-    #  ==========================================
-    #   PAGE 8: RISK ANALYTICS
+    #   PAGE 9: RISK ANALYTICS
     #  ==========================================
     pdf.show_standard_header = True; pdf.header_text = "Risk Analysis"; pdf.add_page()
     
@@ -1080,21 +1133,21 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
         
         
     #  ==========================================
-    #   PAGE 9: FINANCIAL STATISTICS
+    #   PAGE 10: FINANCIAL STATISTICS
     #  ==========================================
     pdf.show_standard_header = True; pdf.header_text = "Financial Statistics"; pdf.add_page()
     pdf.set_y(15); pdf.ln(10)
     
     
     #  ==========================================
-    #   PAGE 10: MACRO VIEWS, EMPIRICAL
+    #   PAGE 11: MACRO VIEWS, EMPIRICAL
     #  ==========================================
     pdf.show_standard_header = True; pdf.header_text = "Macro Views, Empirical"; pdf.add_page()
     pdf.set_y(15); pdf.ln(10)
     
     
     #  ==========================================
-    #   PAGE 11: MARKET REVIEW
+    #   PAGE 12: MARKET REVIEW
     #  ==========================================
     pdf.show_standard_header = True; pdf.header_text = f"Market Review: {period_label}"; pdf.add_page()
     
@@ -1157,7 +1210,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
         
     
     #  ==========================================
-    #   PAGE 12: IMPORTANT INFO AND DISCLOSURES
+    #   PAGE 13: IMPORTANT INFO AND DISCLOSURES
     #  ==========================================
     pdf.show_standard_header = True; pdf.header_text = "Important Information and Disclosures"; pdf.add_page()
     pdf.set_y(15)
@@ -1173,7 +1226,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
                 
                 
     #  ==========================================
-    #   PAGE 13: STATMENT NOTES & DEFINITIONS
+    #   PAGE 14+: STATMENT NOTES & DEFINITIONS
     #  ==========================================
     pdf.show_standard_header = True; pdf.header_text = "Statement Notes"; pdf.add_page()
     pdf.ln(2) 
@@ -1224,12 +1277,12 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     title_rep_date = format_nice_date(title_date_input)
     
     # --- 1. LOGO (TOP CENTER) ---
-    if logo_path and os.path.exists(logo_path):
-        logo_w = 15  # Much smaller size
+    if text_logo_path and os.path.exists(text_logo_path):
+        logo_w = 46  # Much smaller size
         logo_x = (pdf.w - logo_w) / 2
         logo_y = 55  # Positioned near the top
         try: 
-            pdf.image(logo_path, x=logo_x, y=logo_y, w=logo_w)
+            pdf.image(text_logo_path, x=logo_x, y=logo_y, w=logo_w)
         except Exception as e: 
             print(f"Warning: Could not load logo: {e}")
 
