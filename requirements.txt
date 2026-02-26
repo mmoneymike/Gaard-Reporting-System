@@ -3,6 +3,6 @@ datetime
 yfinance
 XlsxWriter
 altair
-fpdf
 fpdf2
+vl-convert-python
 scipy
