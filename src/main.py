@@ -3,7 +3,7 @@ import os
 import datetime
 
 # --- IMPORTS ---
-from src.statement_ingestion import get_portfolio_holdings, parse_since_inception_csv
+from statement_ingestion import get_portfolio_holdings, parse_since_inception_csv
 from yf_loader import fetch_benchmark_returns_yf, fetch_security_names_yf
 from return_metrics import*
 from pdf_writer import write_portfolio_report
@@ -39,7 +39,7 @@ BENCHMARK_NAMES = {
 
 # 1. Exact Matches: Tickers to remove if they match exactly (Case Insensitive)
 IGNORE_EXACT = [
-    'CASH', 
+    'CASH',
     'TOTAL CASH',
 ]
 
@@ -54,7 +54,7 @@ def auto_classify_asset(ticker: str, security_name: str) -> str:
     n = str(security_name).upper().strip()
     
     # 1. Hardcoded
-    if t in ['ICSH']: return 'Cash'
+    if t in ['USD', 'ICSH']: return 'Cash'
     if t in ['VEA', 'VWO', 'IMTM', 'VXUS']: return 'International Equities'
     if t in ['BND', 'VGSH', 'VGIT']: return 'Fixed Income'
     if t in ['VNQ', 'BCI']: return 'Alternative Assets'
@@ -77,15 +77,23 @@ def run_pipeline():
     output_dir = os.path.join(project_root,"output")
     
     # **************************************************************************************************************************************** #
-    QUARTER_STMT_CSV = os.path.join(project_root, "data", "U21244041_20250730_20260112.csv")                                       # GENERAL INTERACTIVE BROKERS FILE
-    SINCE_INCEPTION_STMT_CSV = os.path.join(project_root, "data", "Gaard_Capital_LLC_July_30_2025_January_12_2026.csv")            # DAILY NAV FILE
+    # DUAL-FILE ARCHITECTURE PATHS
+    QUARTER_STMT_CSV = os.path.join(
+        project_root, "data", "Gaard_Capital_LLC_2025_Q4_2025_Q4", 
+        "Brogaard_Asset_Protection_Trust_U21244041_October_01_2025_December_31_2025.csv"
+    )                                       
+    SINCE_INCEPTION_STMT_CSV = os.path.join(                                                                    
+        project_root, "data", "Gaard_Capital_LLC_Inception_February_23_2026", 
+        "Brogaard_Asset_Protection_Trust_U21244041_July_30_2025_February_23_2026.csv"
+    )            
     
-    INFO_FILE = os.path.join(project_root, "data", "info_for_pdf.xlsx")                                                             # INFO NECESSARY FOR PDF STYLING
-    LOGO_FILE = os.path.join(project_root, "data", "gaard_logo.png")
-    TEXT_LOGO_FILE = os.path.join(project_root, "data", "gaard_text_logo.png")
+    INFO_FILE = os.path.join(project_root, "data", "info_for_pdf.xlsx")                                         # INFO NECESSARY FOR PDF STYLING
+    LOGO_FILE = os.path.join(project_root, "data", "pdf_resources", "logos", "gaard_logo.png")
+    TEXT_LOGO_FILE = os.path.join(project_root, "data", "pdf_resources", "logos", "gaard_text_logo.png")
     
-    SELECTED_COMP_BENCHMARK_KEY = '60/40 SPY/AGG'                                                               # SEE CONFIGURATION ABOVE FOR OPTIONS
-    RISK_TIME_HORIZON = 1                                                                   # USED FOR RISK METRICS: IDIOSYNCHRATIC RISK & FACTORS
+    SELECTED_COMP_BENCHMARK_KEY = '60/40 SPY/AGG'                                                           # SEE CONFIGURATION ABOVE FOR OPTIONS
+    RISK_TIME_HORIZON = 1                                                                  # USED FOR RISK METRICS: IDIOSYNCHRATIC RISK & FACTORS
+    # * OUTPUT FILE NAMING BELOW
     # **************************************************************************************************************************************** #
     
     # === Load PDF Info ===
@@ -128,44 +136,66 @@ def run_pipeline():
         # --- SINCE INCEPTION STATEMENT ---
         inception_data = parse_since_inception_csv(SINCE_INCEPTION_STMT_CSV)
         daily_history = inception_data.daily_returns
+        
+        # Setup Dates (Ensuring everything is a proper Pandas Timestamp)
+        rd_date = pd.to_datetime(report_date)
+        qs_date = pd.to_datetime(quarter_start_date)
+        
+        # --- ENSURE DATA TYPES & ALIGNMENT ---
+        if not daily_history.empty:
+            # Standardize columns to lowercase and drop duplicates
+            daily_history.columns = [c.lower() for c in daily_history.columns]
+            daily_history = daily_history.loc[:, ~daily_history.columns.duplicated()].copy()
 
+            # Force date conversion with SPECIFIC format: Format %m/%d/%y matches Inception CSV's "07/30/25"
+            daily_history['date'] = pd.to_datetime(daily_history['date'], format='%m/%d/%y', errors='coerce').dt.normalize()
+            
+            # 3. Create 'nav' Wealth Index from the 'return' column
+            # This turns 0.0556 into 105.56, allowing (105.56 / 100) - 1 = 5.56%
+            if 'return' in daily_history.columns:
+                print("   > Converting Cumulative Returns to Wealth Index (NAV)...")
+                daily_history['nav'] = (1 + daily_history['return'].astype(float)) * 100
+                
+            daily_history = daily_history.sort_values('date').reset_index(drop=True)
+            daily_history = daily_history[daily_history['date'] <= rd_date].copy()
+        
+        # Check for matching end dates
+        max_inception_dt = daily_history['date'].max()
+        if not pd.isna(max_inception_dt) and max_inception_dt.strftime('%Y-%m-%d') != rd_date.strftime('%Y-%m-%d'):
+            print(f"WARNING: Date Mismatch! Quarter ends {rd_date.date()}, Inception data ends {max_inception_dt.date()}")
+    
         # --- CALCULATE PERIOD RETURNS ---
-        window_returns, period_label = calculate_period_returns(daily_history, report_date)
+        # Pass the normalized Timestamp 'rd_date' instead of the string 'report_date'
+        window_returns, quarter_label = calculate_period_returns(daily_history, rd_date)
         
-        # --- CLEAN TICKERS ---
-        print("   > Cleaning and Classifying Tickers...")
-        holdings = holdings[~holdings['ticker'].astype(str).str.upper().isin(IGNORE_EXACT)].copy()
-        for prefix in IGNORE_STARTSWITH:
-            holdings = holdings[~holdings['ticker'].astype(str).str.startswith(prefix)].copy()
-        holdings = holdings[holdings['raw_value'].abs() > 0.01].copy()
+        # 'Quarter' Return (Direct from Quarter statement)
+        window_returns['Quarter'] = key_stats.get('CumulativeReturn', 0.0)
         
-        # --- AUTO CLASSIFY ---
-        all_tickers = holdings['ticker'].unique().tolist()
-        name_map = fetch_security_names_yf(all_tickers)
-        
-        holdings['official_name'] = holdings['ticker'].map(name_map).fillna('')
-        holdings['asset_class'] = holdings.apply(
-            lambda row: auto_classify_asset(row['ticker'], row['official_name']), axis=1
-        )
-        
-        # --- OUTPUT FILE NAMES ---
+        # 'Inception' Return (Calculated from the Wealth Index)
+        if not daily_history.empty:
+            first_val = daily_history['nav'].iloc[0]
+            last_val = daily_history['nav'].iloc[-1]
+            window_returns['Inception'] = (last_val / first_val) - 1.0 if first_val != 0 else 0.0
+            
+        # *** OUTPUT FILE NAME ***
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
         PDF_FILE = os.path.join(output_dir, f"{account_title}_Quarter_Portfolio_Report_{timestamp}.pdf")
-        
+
         # --- CLEAN TICKERS ---
-        print("   > 1c: Cleaning up Tickers...")
+        print("   > 1c. Cleaning up Tickers...")
         # Apply Exact Match Filter
         holdings = holdings[~holdings['ticker'].astype(str).str.upper().isin(IGNORE_EXACT)].copy()
-        # Apply "Starts With" Filter (Loop through the config list)
+        # Apply "Starts With" Filter
         for prefix in IGNORE_STARTSWITH:
             holdings = holdings[~holdings['ticker'].astype(str).str.startswith(prefix)].copy()
         # Remove Zero Value rows
         holdings = holdings[holdings['raw_value'].abs() > 0.01].copy()
         
-        # === Auto-Classify ===
-        print("   > 1d: Running Auto-Classification...")
+        # --- AUTO CLASSIFY ---
+        print("   > 1d. Running Auto-Classification...")
         all_tickers = holdings['ticker'].unique().tolist()
         name_map = fetch_security_names_yf(all_tickers)
+        # name_map['USD'] = 'Settled Cash'  # Override YF for Settled Cash
         
         holdings['official_name'] = holdings['ticker'].map(name_map).fillna('')
         holdings['asset_class'] = holdings.apply(
@@ -195,11 +225,7 @@ def run_pipeline():
     standard_benchmarks = [t for sublist in BENCHMARK_CONFIG.values() for t in sublist]
     all_needed_tickers = list(set(standard_benchmarks + main_bench_constituents))
     
-    # --- CALCULATE DATES FOR TRAILING RETURNS & RISK METRICS ---
-    # Setup Dates (Ensuring everything is a proper Pandas Timestamp)
-    rd_date = pd.to_datetime(report_date)
-    qs_date = pd.to_datetime(quarter_start_date)
-    
+    # --- CALCULATE DATES FOR TRAILING RETURNS & RISK METRICS ---  
     # Pull Inception Date
     if not daily_history.empty:
         portfolio_inception_date = pd.to_datetime(daily_history['date'].min())
@@ -239,7 +265,26 @@ def run_pipeline():
     print(f"   > 2b. Calculating Composite Benchmark: {SELECTED_COMP_BENCHMARK_KEY}")
     main_benchmark_series = calculate_composite_benchmark_return(bench_returns_df, main_benchmark_weights)
     chart_data = prepare_chart_data(daily_history, main_benchmark_series, benchmark_name=SELECTED_COMP_BENCHMARK_KEY)
-
+    print(f"   > Performance Chart: Prepared {len(chart_data)} daily data points.")
+    # === DEBUG BLOCK: CHART DATA INTEGRITY ===
+    if chart_data is not None and not chart_data.empty:
+        print("\n[DEBUG] Chart Data Hand-off:")
+        print(f"   - Total Rows: {len(chart_data)}")
+        print(f"   - Series Detected: {chart_data['Series'].unique()}")
+        
+        # Check for NaN values in the return column
+        null_counts = chart_data['Cumulative Return'].isnull().sum()
+        print(f"   - Null Returns Found: {null_counts}")
+        
+        # Peek at the head and tail to see if values look like percentages (e.g., 0.05) 
+        # or Wealth Index (e.g., 105.0)
+        print("   - Sample Data (Head):")
+        print(chart_data.head(4))
+        print("   - Sample Data (Tail):")
+        print(chart_data.tail(4))
+    else:
+        print("\n[DEBUG] CRITICAL: chart_data is EMPTY or NONE after preparation.")
+    # =========================================
     # Calculate Benchmark Windows
     bench_nav_df = pd.DataFrame({
         'date': main_benchmark_series.index,
@@ -351,7 +396,7 @@ def run_pipeline():
             performance_windows=window_returns,
             benchmark_performance_windows=bench_windows,
             performance_chart_data=chart_data,
-            period_label=period_label,
+            quarter_label=quarter_label,
             
             risk_metrics=risk_metrics,
             risk_time_horizon=RISK_TIME_HORIZON,

@@ -78,9 +78,9 @@ def calculate_period_returns(daily_nav_df, report_date_str):
         'Period': None, '1M': None, '3M': None, '6M': None, 
         'YTD': None, '1Y': None, '3Y': None, 'Inception': None
     }
-    period_label = "Period"
+    quarter_label = "Period"
     
-    if daily_nav_df.empty: return results, period_label
+    if daily_nav_df.empty: return results, quarter_label
     
     df = daily_nav_df.copy()
     df['date'] = pd.to_datetime(df['date'])
@@ -90,7 +90,7 @@ def calculate_period_returns(daily_nav_df, report_date_str):
     
     # Filter to report date
     df = df[df['date'] <= current_date]
-    if df.empty: return results, period_label
+    if df.empty: return results, quarter_label
 
     end_val = df.iloc[-1]['nav']
     start_file_val = df.iloc[0]['nav']
@@ -98,7 +98,7 @@ def calculate_period_returns(daily_nav_df, report_date_str):
     # --- 1. Dynamic "Q{num} {Year}" Label ---
     # We calculate which quarter the report_date falls into
     q_num = ((current_date.month - 1) // 3) + 1
-    period_label = f"Q{q_num} {current_date.year}"
+    quarter_label = f"Q{q_num} {current_date.year}"
 
     # --- Helper Calculation ---
     def get_nav_at(target_date):
@@ -132,7 +132,7 @@ def calculate_period_returns(daily_nav_df, report_date_str):
     results['3Y']        = calc(get_nav_at(d_3y), end_val)
     results['Inception'] = calc(df.iloc[0]['nav'], end_val)
     
-    return results, period_label
+    return results, quarter_label
 
 
 def calculate_composite_benchmark_return(benchmark_returns_df: pd.DataFrame, weights: dict) -> pd.Series:

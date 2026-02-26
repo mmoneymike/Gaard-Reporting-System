@@ -106,6 +106,7 @@ def calculate_portfolio_risk(daily_nav_df, benchmark_series, lookback_years=None
                 
                 # Align Portfolio with Factors
                 aligned_factors = pd.concat([port_returns, f_rets], axis=1, join='inner').dropna()
+                aligned_factors = aligned_factors.dropna()
                 
                 if not aligned_factors.empty:
                     y_port = aligned_factors.iloc[:, 0] # Portfolio is first column

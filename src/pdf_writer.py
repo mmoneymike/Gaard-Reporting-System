@@ -26,9 +26,9 @@ class PortfolioPDF(FPDF):
         # --- FONT LOADING ---
         self.main_font = 'Helvetica' # Default fallback
         try:
-            self.add_font('Carlito', '', 'data/fonts/Carlito-Regular.ttf', uni=True)  # Carlito is Metric-compatible with Calibri
-            self.add_font('Carlito', 'B', 'data/fonts/Carlito-Bold.ttf',uni=True)
-            self.add_font('Carlito', 'I', 'data/fonts/Carlito-Italic.ttf', uni=True)
+            self.add_font('Carlito', '', 'data/pdf_resources/fonts/Carlito-Regular.ttf', uni=True)  # Carlito is Metric-compatible with Calibri
+            self.add_font('Carlito', 'B', 'data/pdf_resources/fonts/Carlito-Bold.ttf',uni=True)
+            self.add_font('Carlito', 'I', 'data/pdf_resources/fonts/Carlito-Italic.ttf', uni=True)
             self.main_font = 'Carlito'
             print("   > Loaded custom Calibri/Carlito font from data/fonts folder.")
         except Exception as e:
@@ -213,7 +213,7 @@ def generate_ips_chart(ips_rows):
     )
 
     chart_path = "temp_ips_chart.png"
-    chart.save(chart_path, scale_factor=3.0)
+    chart.save(chart_path, scale_factor=3.0, engine="vl-convert")
     return chart_path
     
 
@@ -266,7 +266,7 @@ def generate_line_chart(comparison_df):
         strokeWidth=0
     )
     
-    chart.save("temp_line_chart.png", scale_factor=3.0)
+    chart.save("temp_line_chart.png", scale_factor=3.0, engine="vl-convert")
     return "temp_line_chart.png"
     
     
@@ -329,15 +329,15 @@ def generate_donut_chart(summary_df):
     )
 
     chart_path = "temp_chart.png"
-    chart.save(chart_path, scale_factor=3.0)
+    chart.save(chart_path, scale_factor=3.0, engine="vl-convert")
     return chart_path
 
 
 #  ==========================================
 #   OVERALL PORTFOLIO REPORT
 #  ==========================================
-def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metrics, risk_metrics, report_date, output_path, account_title="Total Portfolio",
-                           performance_windows=None, benchmark_performance_windows=None, performance_chart_data=None, period_label="Quarter", main_benchmark_tckr="SPY", risk_time_horizon=1,
+def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metrics, risk_metrics, report_date, output_path, account_title="Total Portfolio",
+                           performance_windows=None, benchmark_performance_windows=None, performance_chart_data=None, quarter_label="Quarter", main_benchmark_tckr="SPY", risk_time_horizon=1,
                            legal_notes=None, pdf_info=None, text_logo_path=None, logo_path=None):
     
     print(f"   > Generating PDF Report: {output_path}")
@@ -405,7 +405,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     
     # --- DATA EXTRACTION ---
     account_name = clean_text(pdf_info.get('page_1_account_name', account_title))
-    report_title = f"{period_label} Portfolio Report"
+    report_title = f"{quarter_label} Portfolio Report"
     title_date_input = pdf_info.get('page_1_report_date', report_date)
     title_rep_date = format_nice_date(title_date_input)
     
@@ -642,8 +642,19 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     #   PAGE 5: CHANGE IN PORTFOLIO VALUE
     #  ==========================================
     pdf.show_standard_header = True; pdf.header_text = "Change in Portfolio Value"; pdf.add_page()
-    breakdown = nav_performance.get('Breakdown', {}) if nav_performance else {}
-    
+    breakdown = {}
+    if key_statistics:
+        breakdown = {
+            "Starting Value": key_statistics.get('BeginningNAV', 0.0),
+            "Mark-to-Market": key_statistics.get('MTM', 0.0),
+            "Deposits & Withdrawals": key_statistics.get('Deposits & Withdrawals', 0.0),
+            "Dividends": key_statistics.get('Dividends', 0.0),
+            "Interest": key_statistics.get('Interest', 0.0),
+            "Fees & Commissions": key_statistics.get('Fees & Commissions', 0.0),
+            "Change in Interest Accruals": key_statistics.get('ChangeInInterestAccruals', 0.0),
+            "Ending Value": key_statistics.get('EndingNAV', 0.0)
+        }
+        
     if breakdown:
         table_width = 105 # ensure any change here is accounted for in column widths below
         table_start_x = (pdf.w - table_width) / 2
@@ -688,7 +699,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
             header.cell("Value", style=header_style)
             
             # Data
-            row_order = ["Starting Value", "Mark-to-Market", "Deposits & Withdrawals", "Dividends", "Interest", "Change in Interest Accruals", "Commissions", "Ending Value"]
+            row_order = ["Starting Value", "Mark-to-Market", "Deposits & Withdrawals", "Dividends", "Interest","Fees & Commissions", "Change in Interest Accruals", "Ending Value"]
             for key in row_order:
                 val = breakdown.get(key, 0.0)
                 is_bold = key in ["Starting Value", "Ending Value"]
@@ -742,10 +753,10 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     pdf.cell(0, 9, "Historical Performance", new_x="LMARGIN", new_y="NEXT", align='L')
     
     # Setup Data
-    keys = ["Period", "YTD", "1Y", "3Y", "Inception"]
+    keys = ["Quarter", "YTD", "1Y", "3Y", "Inception"]
     
     headers_map = {
-        "Period": f"{period_label}",
+        "Quarter": f"{quarter_label}",
         "YTD": "YTD",
         "1Y": "1YR",
         "3Y": "3YR",
@@ -830,7 +841,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
              summary_df.at[other_idx, 'Name'] = 'Cash'
              summary_df.at[other_idx, 'IsCash'] = True
     
-    # === RENDER PAGE 6 ===
+    # === RENDER PAGE 7 ===
     pdf.show_standard_header = True; pdf.header_text = "Portfolio Performance by Allocation"; pdf.add_page()
     
     # --- 1. CALCULATE POSITIONS ---
@@ -1002,7 +1013,10 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
                 r = table.row()
                 # Cash Balance Formatting
                 raw_ticker = str(pos['ticker'])
-                if raw_ticker == "CASH_BAL":
+                if raw_ticker == "USD":
+                    display_ticker = "Settled Cash"
+                    ret_str = "---"
+                elif raw_ticker == "CASH_BAL":
                     display_ticker = "Cash"
                     ret_str = "---"
                 elif raw_ticker == "ACCRUALS":
@@ -1149,7 +1163,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     #  ==========================================
     #   PAGE 12: MARKET REVIEW
     #  ==========================================
-    pdf.show_standard_header = True; pdf.header_text = f"Market Review: {period_label}"; pdf.add_page()
+    pdf.show_standard_header = True; pdf.header_text = f"Market Review: {quarter_label}"; pdf.add_page()
     
     # 1. Clean and Get Text
     raw_text = clean_text(pdf_info.get('page_11_macro_market_recap', 'No macro views provided.'))
@@ -1272,7 +1286,7 @@ def write_portfolio_report(summary_df, holdings_df, nav_performance, total_metri
     
     # --- DATA EXTRACTION ---
     account_name = clean_text(pdf_info.get('page_1_account_name', account_title))
-    report_title = f"{period_label} Portfolio Report"
+    report_title = f"{quarter_label} Portfolio Report"
     title_date_input = pdf_info.get('page_1_report_date', report_date)
     title_rep_date = format_nice_date(title_date_input)
     
