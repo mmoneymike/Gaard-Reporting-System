@@ -16,7 +16,7 @@ class PortfolioData:
     holdings: pd.DataFrame          
     account_title: str              
     report_date: str
-    period_start_date: str          
+    quarter_start_date: str          
     total_nav: float                
     key_statistics: dict            # Aggregated summary stats (Includes ChangeInInterestAccruals)
     settled_cash: float
@@ -338,7 +338,7 @@ def get_portfolio_holdings(quarterly_stmt_csv: str, benchmark_default_date: str)
         holdings=holdings_df, 
         account_title=account_title,
         report_date=report_date,
-        period_start_date=period_start_date,
+        quarter_start_date=period_start_date,
         total_nav=total_nav,
         key_statistics=key_stats,
         settled_cash=settled_cash,
