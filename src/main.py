@@ -144,17 +144,16 @@ def run_pipeline():
         # --- ENSURE DATA TYPES & ALIGNMENT ---
         if not daily_history.empty:
             # Standardize columns to lowercase and drop duplicates
-            daily_history.columns = [c.lower() for c in daily_history.columns]
             daily_history = daily_history.loc[:, ~daily_history.columns.duplicated()].copy()
 
             # Force date conversion with SPECIFIC format: Format %m/%d/%y matches Inception CSV's "07/30/25"
-            daily_history['date'] = pd.to_datetime(daily_history['date'], format='%m/%d/%y', errors='coerce').dt.normalize()
+            daily_history['date'] = pd.to_datetime(daily_history['Date'], format='%m/%d/%y', errors='coerce').dt.normalize()
             
             # 3. Create 'nav' Wealth Index from the 'return' column
             # This turns 0.0556 into 105.56, allowing (105.56 / 100) - 1 = 5.56%
             if 'return' in daily_history.columns:
                 print("   > Converting Cumulative Returns to Wealth Index (NAV)...")
-                daily_history['nav'] = (1 + daily_history['return'].astype(float)) * 100
+                daily_history['nav'] = (1 + daily_history['Return'].astype(float) / 100) * 100
                 
             daily_history = daily_history.sort_values('date').reset_index(drop=True)
             daily_history = daily_history[daily_history['date'] <= rd_date].copy()

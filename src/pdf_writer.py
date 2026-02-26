@@ -1045,7 +1045,8 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
     pdf.show_standard_header = True; pdf.header_text = "Risk Analysis"; pdf.add_page()
     
     # 1. SETUP DATA & LABELS
-    horizon_label = f"{risk_time_horizon} Year" if risk_time_horizon else "Full History"
+    # horizon_label = f"{risk_time_horizon} Year" if risk_time_horizon else "Full History" # functionality to dynamically pull Risk Time Horizon
+    horizon_label = "Since Inception"
     
     # Define the rows structure: (Label, Value, Format, IsSectionHeader)
     risk_rows = []

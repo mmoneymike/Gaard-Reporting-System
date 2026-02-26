@@ -149,7 +149,12 @@ def extract_key_statistics(sections: QuarterStatementSections) -> dict:
     
     for field in fields:
         if field in df.columns:
-            stats[field] = _coerce_float(row[field])
+            val = _coerce_float(row[field])
+            # If it's the return field, divide by 100 to get the decimal
+            if field == 'CumulativeReturn':
+                stats[field] = val / 100
+            else:
+                stats[field] = val
             
     # MAP 'Other' to 'ChangeInInterestAccruals' for PDF reporting
     stats['ChangeInInterestAccruals'] = stats.get('Other', 0.0)
@@ -247,12 +252,12 @@ def process_holdings_from_data(sections: QuarterStatementSections) -> pd.DataFra
         ibkr_return_map = (df_perf_clean.set_index('Symbol')['Return'] / 100).to_dict()
 
     # Aggregate all unique symbols
-    all_syms = set(df_open['Symbol']) | set(div_map.keys()) | set(real_map.keys())
-    all_syms.discard('')
+    all_symbols = set(df_open['Symbol']) | set(div_map.keys()) | set(real_map.keys())
+    all_symbols.discard('')
     
     rows = []
-    for sym in all_syms:
-        o = df_open[df_open['Symbol'] == sym]
+    for symbol in all_symbols:
+        o = df_open[df_open['Symbol'] == symbol]
         
         cv = o['Value'].sum() if not o.empty else 0.0
         cb = o['Cost Basis'].sum() if not o.empty else 0.0
@@ -262,23 +267,26 @@ def process_holdings_from_data(sections: QuarterStatementSections) -> pd.DataFra
             desc = o['Description'].iloc[0]
             sector = o['Sector'].iloc[0]
         else:
-            desc = desc_map.get(sym, '')
-            sector = sector_map.get(sym, '')
+            desc = desc_map.get(symbol, '')
+            sector = sector_map.get(symbol, '')
             
-        div = div_map.get(sym, 0.0)
-        real = real_map.get(sym, 0.0)
+        div = div_map.get(symbol, 0.0)
+        real = real_map.get(symbol, 0.0)
         
         # --- RETURN LOGIC ---
-        if cb > 0:
-            # If it's OPEN, calculate it exactly
+        # Use the official IBKR return for the symbol if available (TWR)
+        # Fallback to simple ROI only if IBKR data is missing
+        official_twr = ibkr_return_map.get(symbol)
+        if official_twr is not None:
+            ret = official_twr
+        elif cb > 0:
             total_gen = (cv - cb) + div + real
             ret = total_gen / cb
         else:
-            # If it's CLOSED, fallback to the official IBKR return for that symbol
-            ret = ibkr_return_map.get(sym, 0.0)
-        
+            ret = 0.0
+    
         rows.append({
-            'ticker': sym,
+            'ticker': symbol,
             'description': desc,
             'asset_class': sector,
             'raw_value': cv,
@@ -355,22 +363,19 @@ def parse_since_inception_csv(since_inception_stmt_csv: str) -> SinceInceptionDa
     if not since_inception_stmt_csv or not Path(since_inception_stmt_csv).exists():
         return SinceInceptionData(pd.DataFrame(), pd.DataFrame())
 
-    raw_sections, metainfo = read_quarter_statement_csv(since_inception_stmt_csv)
+    raw_sections, _ = read_quarter_statement_csv(since_inception_stmt_csv)
     
-    # 1. Cumulative Performance Statistics
     perf_df = raw_sections.get("Cumulative Performance Statistics", pd.DataFrame())
-    if not perf_df.empty and 'Date' in perf_df.columns and 'Return' in perf_df.columns:
-        perf_df['date'] = pd.to_datetime(perf_df['Date'], format='%Y%m%d', errors='coerce')
-        perf_df['nav'] = perf_df['Return'].apply(_coerce_float) 
         
-        daily_returns = perf_df.dropna(subset=['date', 'nav']).sort_values('date')[['date', 'nav']]
+    if not perf_df.empty and 'Date' in perf_df.columns and 'Return' in perf_df.columns:
+        perf_df['date'] = pd.to_datetime(perf_df['Date'], format='%m/%d/%y', errors='coerce')
+        
+        # Divide the raw 'Return' column by 100
+        perf_df['return'] = perf_df['Return'].apply(_coerce_float) / 100
+        
+        daily_returns = perf_df.dropna(subset=['date', 'return']).sort_values('date').copy()
     else:
-        daily_returns = pd.DataFrame(columns=['date', 'nav'])
-
+        daily_returns = pd.DataFrame(columns=['date', 'return'])
     # 2. Risk Measures
     risk_df = raw_sections.get("Risk Measures", pd.DataFrame())
-    
-    return SinceInceptionData(
-        daily_returns=daily_returns,
-        risk_measures=risk_df
-    )
+    return SinceInceptionData(daily_returns=daily_returns, risk_measures=risk_df)
