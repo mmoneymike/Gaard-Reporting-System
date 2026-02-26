@@ -3,7 +3,7 @@ import os
 import datetime
 
 # --- IMPORTS ---
-from statement_ingestion import get_portfolio_holdings, parse_performance_csv
+from src.statement_ingestion import get_portfolio_holdings, parse_since_inception_csv
 from yf_loader import fetch_benchmark_returns_yf, fetch_security_names_yf
 from return_metrics import*
 from pdf_writer import write_portfolio_report
@@ -39,7 +39,6 @@ BENCHMARK_NAMES = {
 
 # 1. Exact Matches: Tickers to remove if they match exactly (Case Insensitive)
 IGNORE_EXACT = [
-    'USD', 
     'CASH', 
     'TOTAL CASH',
 ]
@@ -59,13 +58,13 @@ def auto_classify_asset(ticker: str, security_name: str) -> str:
     if t in ['VEA', 'VWO', 'IMTM', 'VXUS']: return 'International Equities'
     if t in ['BND', 'VGSH', 'VGIT']: return 'Fixed Income'
     if t in ['VNQ', 'BCI']: return 'Alternative Assets'
-    if t == 'CASH_BAL': return 'Cash'
     
     # 2. Keywords
     if any(k in n for k in ['INTL', 'EMERGING', 'EUROPE', 'ASIA', 'DEVELOPED']): return 'International Equities'
     if any(k in n for k in ['BOND', 'TREASURY', 'FIXED INC', 'AGGREGATE']): return 'Fixed Income'
     if any(k in n for k in ['REIT', 'REAL ESTATE', 'GOLD', 'COMMODITY', 'BITCOIN']): return 'Alternative Assets'
 
+    # 3. If no keywords found, classify as US Equity
     return 'U.S. Equities'
 
 #  ==========================================
@@ -78,63 +77,80 @@ def run_pipeline():
     output_dir = os.path.join(project_root,"output")
     
     # **************************************************************************************************************************************** #
-    IBKR_FILE = os.path.join(project_root, "data", "U21244041_20250730_20260112.csv")                       # GENERAL INTERACTIVE BROKERS FILE
-    PERF_FILE = os.path.join(project_root, "data", "Gaard_Capital_LLC_July_30_2025_January_12_2026.csv")    # DAILY NAV FILE
-    INFO_FILE = os.path.join(project_root, "data", "info_for_pdf.xlsx")                                     # INFO NECESSARY FOR PDF STYLING
+    QUARTER_STMT_CSV = os.path.join(project_root, "data", "U21244041_20250730_20260112.csv")                                       # GENERAL INTERACTIVE BROKERS FILE
+    SINCE_INCEPTION_STMT_CSV = os.path.join(project_root, "data", "Gaard_Capital_LLC_July_30_2025_January_12_2026.csv")            # DAILY NAV FILE
     
+    INFO_FILE = os.path.join(project_root, "data", "info_for_pdf.xlsx")                                                             # INFO NECESSARY FOR PDF STYLING
     LOGO_FILE = os.path.join(project_root, "data", "gaard_logo.png")
     TEXT_LOGO_FILE = os.path.join(project_root, "data", "gaard_text_logo.png")
     
-    SELECTED_COMP_BENCHMARK_KEY = '60/40 SPY/AGG'                                                           # SEE CONFIGURATION ABOVE FOR OPTIONS
-    RISK_TIME_HORIZON = 1
+    SELECTED_COMP_BENCHMARK_KEY = '60/40 SPY/AGG'                                                               # SEE CONFIGURATION ABOVE FOR OPTIONS
+    RISK_TIME_HORIZON = 1                                                                   # USED FOR RISK METRICS: IDIOSYNCHRATIC RISK & FACTORS
     # **************************************************************************************************************************************** #
     
+    # === Load PDF Info ===
     pdf_info = {}
     if os.path.exists(INFO_FILE):
         print("   > SETUP: Loading PDF Info Sheet...")
         try:
             info_df = pd.read_excel(INFO_FILE, header=2)
             info_df.columns = [c.strip() if isinstance(c, str) else c for c in info_df.columns]
-            
             if 'key' in info_df.columns and 'value' in info_df.columns:
-                info_df = info_df.dropna(subset=['key'])
-                pdf_info = dict(zip(info_df['key'], info_df['value']))
+                pdf_info = dict(zip(info_df['key'].dropna(), info_df['value'].dropna()))
             else:
                 print(f"Warning: Exprected columns 'key' and 'value' not found. Found: {info_df.columns.to_list()}")
         except Exception as e:
-            print(f"Warning: Could not load info file: {e}")
-    else:
-        print(f"Warning: Info file not found at {INFO_FILE}")
+            print(f"Warning: Could not load Info File for PDF: {e}")
     
+    # === Load All Data ===
     print(f"\n === 1. Ingesting Portfolio (Internal) ===")
-    if not os.path.exists(IBKR_FILE):
-        print(f"CRITICAL ERROR: Could not find file at: {IBKR_FILE}")
+    if not os.path.exists(QUARTER_STMT_CSV):
+        print(f"CRITICAL ERROR: Could not find file at: {QUARTER_STMT_CSV}")
+        import traceback
+        traceback.print_exc()
         return
 
     try:
-        # === 1. Load Data ===
-        PERIOD_FALLBACK_DATE = (pd.Timestamp.today().to_period("Q") - 1).start_time.strftime("%Y-%m-%d") # Fallback Date: Last Quarter
-        portfolio_data = get_portfolio_holdings(IBKR_FILE, PERIOD_FALLBACK_DATE)
+        # === 1. Load Data from Statements. Calculate, Classify, and Weight Assets ===
+        PERIOD_FALLBACK_DATE = (pd.Timestamp.today().to_period("Q") - 1).start_time.strftime("%Y-%m-%d") # Fallback Date: Manually Compute Last Quarter
+        portfolio_data = get_portfolio_holdings(QUARTER_STMT_CSV, PERIOD_FALLBACK_DATE) # Benchmark Default Date will be overwritten to exact end date
+        
+        # --- QUARTER STATEMENT ---
         holdings = portfolio_data.holdings
         account_title = portfolio_data.account_title
         report_date = portfolio_data.report_date
-        statement_start_date = portfolio_data.period_start_date
-        print(f"   > 1a: Statement Period: {statement_start_date} to {report_date}")
-        legal_notes = portfolio_data.legal_notes
+        quarter_start_date = portfolio_data.quarter_start_date
+        key_stats = portfolio_data.key_statistics
         total_nav = portfolio_data.total_nav
-        settled_cash = portfolio_data.settled_cash
-        nav_performance = portfolio_data.nav_performance
-        print(f"   > 1b: Parsed NAV Performance: {nav_performance}")
+        legal_notes = portfolio_data.legal_notes
+        print(f"   > 1a: Quarter Statement Period Check: {quarter_start_date} to {report_date}")
+        
+        # --- SINCE INCEPTION STATEMENT ---
+        inception_data = parse_since_inception_csv(SINCE_INCEPTION_STMT_CSV)
+        daily_history = inception_data.daily_returns
 
-        # --- PERFORMANCE HISTORY ---
-        daily_history = parse_performance_csv(PERF_FILE)
-    
-        # --- CALCULATE METRICS ---
+        # --- CALCULATE PERIOD RETURNS ---
         window_returns, period_label = calculate_period_returns(daily_history, report_date)
+        
+        # --- CLEAN TICKERS ---
+        print("   > Cleaning and Classifying Tickers...")
+        holdings = holdings[~holdings['ticker'].astype(str).str.upper().isin(IGNORE_EXACT)].copy()
+        for prefix in IGNORE_STARTSWITH:
+            holdings = holdings[~holdings['ticker'].astype(str).str.startswith(prefix)].copy()
+        holdings = holdings[holdings['raw_value'].abs() > 0.01].copy()
+        
+        # --- AUTO CLASSIFY ---
+        all_tickers = holdings['ticker'].unique().tolist()
+        name_map = fetch_security_names_yf(all_tickers)
+        
+        holdings['official_name'] = holdings['ticker'].map(name_map).fillna('')
+        holdings['asset_class'] = holdings.apply(
+            lambda row: auto_classify_asset(row['ticker'], row['official_name']), axis=1
+        )
         
         # --- OUTPUT FILE NAMES ---
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
-        PDF_FILE = os.path.join(output_dir, f"{account_title}_Portfolio_Report_{timestamp}.pdf")
+        PDF_FILE = os.path.join(output_dir, f"{account_title}_Quarter_Portfolio_Report_{timestamp}.pdf")
         
         # --- CLEAN TICKERS ---
         print("   > 1c: Cleaning up Tickers...")
@@ -156,160 +172,128 @@ def run_pipeline():
             lambda row: auto_classify_asset(row['ticker'], row['official_name']), 
             axis=1
         )
-
-        # === Cash Logic ===
-        # Insert the Settled Cash Row (Strictly using the extracted number)
-        if settled_cash > 1.0:
-            cash_row = {
-                'ticker': 'CASH_BAL',
-                'official_name': 'Settled Cash',
-                'asset_class': 'Cash',
-                'avg_cost': settled_cash,   
-                'raw_value': settled_cash,
-                'realized_pl': 0.0,
-                'total_dividends': 0.0, 
-                'cumulative_return': 0.0
-            }
-            holdings = pd.concat([holdings, pd.DataFrame([cash_row])], ignore_index=True)
-
-        # Reconcile to Official NAV
-        # We calculate: (Official NAV) - (Stocks + Settled Cash) = Accruals/Rounding
-        current_total = holdings['raw_value'].sum()
-        discrepancy = total_nav - current_total
-
-        if abs(discrepancy) > 1.0:
-            adj_row = {
-                'ticker': 'ACCRUALS',
-                'official_name': 'Portfolio Accruals/Other',
-                'asset_class': 'Other',
-                'avg_cost': discrepancy,
-                'raw_value': discrepancy,
-                'realized_pl': 0.0,
-                'total_dividends': 0.0,
-                'cumulative_return': 0.0
-            }
-            holdings = pd.concat([holdings, pd.DataFrame([adj_row])], ignore_index=True)
             
         # === Calculate Weights ===
         total_value = holdings['raw_value'].sum()
-        
-        if total_value != 0:
-            holdings['weight'] = holdings['raw_value'] / total_value
-        else:
-            holdings['weight'] = 0.0
-            
-        holdings['weight'] = holdings['weight'].fillna(0.0)
+        holdings['weight'] = (holdings['raw_value'] / total_value).fillna(0.0) if total_value else 0.0
         holdings['cumulative_return'] = holdings['cumulative_return'].fillna(0.0)
             
     except ValueError as e:
         print(f"Error unpacking data: {e}")
+        import traceback
+        traceback.print_exc()
         return
 
-    # === 2. Market Data ===
+    # === 2. Fetch Market Data from YF ===
     print("\n=== 2. Fetching Market Data (External) ===")
     
     # Get User Selection for Main Benchmark
-    main_benchmark_weights = COMPOSITE_BENCHMARK_CONFIG.get(SELECTED_COMP_BENCHMARK_KEY, {'SPY': 1.0})
+    main_benchmark_weights = COMPOSITE_BENCHMARK_CONFIG.get(SELECTED_COMP_BENCHMARK_KEY, {'SPY': 1.0}) # Fallback Benchmark: SPY
     main_bench_constituents = list(main_benchmark_weights.keys())
     
     # Gather ALL benchmarks needed (Standard + Main Constituents)
     standard_benchmarks = [t for sublist in BENCHMARK_CONFIG.values() for t in sublist]
     all_needed_tickers = list(set(standard_benchmarks + main_bench_constituents))
     
-    # Fetch Long History (5 Years) for Calculation (1Y/3Y stats)
-    rd_dt = pd.to_datetime(report_date)
-    long_start_dt = rd_dt - pd.DateOffset(years=5)
-    long_start_str = long_start_dt.strftime('%Y-%m-%d')
+    # --- CALCULATE DATES FOR TRAILING RETURNS & RISK METRICS ---
+    # Setup Dates (Ensuring everything is a proper Pandas Timestamp)
+    rd_date = pd.to_datetime(report_date)
+    qs_date = pd.to_datetime(quarter_start_date)
     
+    # Pull Inception Date
+    if not daily_history.empty:
+        portfolio_inception_date = pd.to_datetime(daily_history['date'].min())
+    else:
+        portfolio_inception_date = qs_date # Fallback: Quarter Start Date
+    
+    # Still need 5 Years Ago Date for 1Y/3Y/5Y metrics *** UPDATE IF LONGER RETURN PERIODS ARE ADDED
+    five_years_ago_date = rd_date - pd.DateOffset(years=5)
+    
+    # Pick OLDEST date between Inception and 5 Years Ago (+ 7 day buffer to ensure first day isn't missed)
+    fetched_start_date = min(portfolio_inception_date, five_years_ago_date) - pd.Timedelta(days=7)
+    
+    # --- FETCH BENCHMARK RETURNS ---
     bench_returns_df = pd.DataFrame()
     bench_growth_period = pd.DataFrame()
     
     try:
-        # Fetch ALL returns (Long History)
-        bench_returns_df = fetch_benchmark_returns_yf(all_needed_tickers, start_date=long_start_str, end_date=report_date)
+        bench_returns_df = fetch_benchmark_returns_yf(
+            all_needed_tickers, 
+            start_date=fetched_start_date.strftime('%Y-%m-%d'), 
+            end_date=report_date
+        )
         
-        # Extract specific period for Asset Allocation Table (Statement Period Only)
-        # Note: We rely on string slicing here which works if index is DatetimeIndex
-        period_subset = bench_returns_df.loc[statement_start_date:report_date].copy()
+        # Slice specifically for the quarter
+        period_subset = bench_returns_df.loc[quarter_start_date:report_date].copy()
         if not period_subset.empty:
             bench_growth_period = get_cumulative_index(period_subset, start_value=100)
             
-        print("   > 2a. Fetched Benchmark Data (Yahoo)")
+        print("   > Fetched Benchmark Data from Yahoo Finance")
     except Exception as e:
         print(f"Yahoo Connection Error: {e}")
+        import traceback
+        traceback.print_exc()
 
-    # --- Calculate Composite & Windows for Chart & Table ---
-    print(f"   > Calculating Composite Benchmark: {SELECTED_COMP_BENCHMARK_KEY}")
-    
-    # Composite Daily Returns (Full 5Y History)
+    # --- CALCULATE COMPOSITE BENCHMARK ---
+    # Calculate Composite Benchmark for Performance History Chart and Table
+    print(f"   > 2b. Calculating Composite Benchmark: {SELECTED_COMP_BENCHMARK_KEY}")
     main_benchmark_series = calculate_composite_benchmark_return(bench_returns_df, main_benchmark_weights)
-    
-    # Chart Data (Uses Full History to match Portfolio Inception)
     chart_data = prepare_chart_data(daily_history, main_benchmark_series, benchmark_name=SELECTED_COMP_BENCHMARK_KEY)
 
-    # Calculate Benchmark Windows (1M, YTD, 1Y, 3Y, etc.)
-    # Create NAV-like DF for the calculator
+    # Calculate Benchmark Windows
     bench_nav_df = pd.DataFrame({
         'date': main_benchmark_series.index,
         'nav': (1 + main_benchmark_series).cumprod() * 100
     })
     
-    # Calculate Standard Stats
+    # --- CALCULATE BENCHMARK PERIODS ---
+    # Get standard calendar windows (1M, 3M, YTD, 1Y, 3Y, 5Y)
     bench_windows, _ = calculate_period_returns(bench_nav_df, report_date)
     
-    # --- CRITICAL: OVERRIDE INCEPTION & PERIOD ---
-    # We must ensure "Inception" matches Portfolio Inception, not the 5Y fetch start.
+    # Match the exact Portfolio dates for 'Period' and 'Inception'
     if not bench_nav_df.empty:
-        # Helper to calculate return between two dates
-        def get_ret(s_date, e_date):
-            if bench_nav_df.empty: return 0.0
-            row_start = bench_nav_df[bench_nav_df['date'] <= s_date]
-            val_start = row_start.iloc[-1]['nav'] if not row_start.empty else bench_nav_df.iloc[0]['nav']
-            
-            row_end = bench_nav_df[bench_nav_df['date'] <= e_date]
-            val_end = row_end.iloc[-1]['nav'] if not row_end.empty else bench_nav_df.iloc[-1]['nav']
-            
-            return (val_end / val_start) - 1.0 if val_start != 0 else 0.0
-
-        # Override Period (Statement Start)
-        bench_windows['Period'] = get_ret(pd.to_datetime(statement_start_date), rd_dt)
+        nav_series = bench_nav_df.set_index('date')['nav']
         
-        # Override Inception (Portfolio Inception)
-        if not daily_history.empty:
-            port_inception = daily_history['date'].min()
-            bench_windows['Inception'] = get_ret(port_inception, rd_dt)
+        def get_exact_ret(start_dt, end_dt):
+            val_start = nav_series.asof(start_dt)
+            val_end = nav_series.asof(end_dt)
+            
+            if pd.isna(val_start) or pd.isna(val_end) or val_start == 0:
+                return 0.0
+            return (val_end / val_start) - 1.0
 
-    # --- 2b. Calculate Risk Metrics ---
-    print(f"   > 2b. Calculating Risk Profile (Horizon: {RISK_TIME_HORIZON or 'Full'} Yrs) ---")
-    risk_metrics = {}
+        # Calculate benchmark return for the exact Statement Quarter
+        bench_windows['Period'] = get_exact_ret(qs_date, rd_date)
+        
+        # Calculate benchmark return for the exact Lifetime of the account
+        if not daily_history.empty:
+            bench_windows['Inception'] = get_exact_ret(portfolio_inception_date, rd_date)
+
+    # --- CALCULATE RISK METRICS ---
+    print(f"   > 2c. Calculating Risk Profile (Horizon: {RISK_TIME_HORIZON or 'Full'} Yrs) ---")
     try:
-        # Pass lookback_years here
-        risk_metrics = calculate_portfolio_risk(
-            daily_history, 
-            main_benchmark_series, 
-            lookback_years=RISK_TIME_HORIZON
-        )
-        print(f"   > Risk Metrics Calculated Successfully: {risk_metrics}")
+        risk_metrics = calculate_portfolio_risk(daily_history, main_benchmark_series, lookback_years=RISK_TIME_HORIZON)
     except Exception as e:
-        print(f"Risk Calc Error: {e}")
+        print(f"Risk Calculation Error: {e}")
+        import traceback
+        traceback.print_exc()
         risk_metrics = {}
 
     # === 3. PREPARE DATA FOR PDF / EXCEL ===
     print("\n=== 3. Generating PDF Report ===")
-    
+
+    # Aggregate Grand Totals
     grand_cost = holdings['avg_cost'].sum()
-    grand_val = holdings['raw_value'].sum()
+    grand_value = holdings['raw_value'].sum()
     grand_divs = holdings['total_dividends'].sum()
+    grand_realized = holdings['realized_pl'].sum()
     
-    total_ret_val = 0.0
-    if grand_cost != 0:
-        total_ret_val = (grand_val + grand_divs) / grand_cost - 1.0
-        
     metrics = {
-        'return': total_ret_val,
-        'value': grand_val
+        'return': ((grand_value - grand_cost) + grand_divs + grand_realized) / grand_cost if grand_cost != 0 else 0.0,
+        'value': grand_value
     }
     
+    # Build Asset Allocation Summary Rows
     summary_rows = []
     my_buckets = holdings['asset_class'].unique()
     
@@ -320,37 +304,31 @@ def run_pipeline():
     for bucket in sorted_buckets:
         bucket_data = holdings[holdings['asset_class'] == bucket]
         
+        # Aggregate bucket-level metrics
         b_mv = bucket_data['raw_value'].sum()
         b_cost = bucket_data['avg_cost'].sum()
         b_divs = bucket_data['total_dividends'].sum()
-        b_alloc = b_mv / grand_val if grand_val else 0.0
+        b_realized = bucket_data['realized_pl'].sum()
         
-        if b_cost != 0:
-            my_return = (b_mv + b_divs) / b_cost - 1
-        else:
-            my_return = 0.0
-        
+        # Add Bucket Row
         summary_rows.append({
             'Type': 'Bucket',         
             'Name': bucket,
             'MarketValue': b_mv,
-            'Allocation': b_alloc,
-            'Return': my_return,
+            'Allocation': b_mv / grand_value if grand_value else 0.0,
+            'Return': ((b_mv - b_cost) + b_divs + b_realized) / b_cost if b_cost != 0 else 0.0,
             'IsCash': (bucket == 'Cash')
         })
         
-        targets = BENCHMARK_CONFIG.get(bucket, [])
-        for b_ticker in targets:
+        # Add Corresponding Benchmark Row(s)
+        for b_ticker in BENCHMARK_CONFIG.get(bucket, []):
             b_val = 0.0
-            # Use bench_growth_period (Specific to Statement Period)
             if not bench_growth_period.empty and b_ticker in bench_growth_period.columns:
                 b_val = get_cumulative_return(bench_growth_period[b_ticker], 'INCEPTION')
             
-            friendly_name = BENCHMARK_NAMES.get(b_ticker, b_ticker)
-            
             summary_rows.append({
                 'Type': 'Benchmark',     
-                'Name': friendly_name,
+                'Name': BENCHMARK_NAMES.get(b_ticker, b_ticker),
                 'MarketValue': None,
                 'Allocation': None,
                 'Return': b_val,
@@ -359,13 +337,13 @@ def run_pipeline():
 
     summary_df = pd.DataFrame(summary_rows)
 
-    # === WRITE TO PDF ===
+    # -- WRITE TO PDF ---
     try:
         write_portfolio_report(
             account_title=account_title,
             report_date=report_date,
             summary_df=summary_df,
-            nav_performance=nav_performance,
+            key_statistics=key_stats,
             holdings_df=holdings,
             total_metrics=metrics,
             main_benchmark_tckr=SELECTED_COMP_BENCHMARK_KEY,
