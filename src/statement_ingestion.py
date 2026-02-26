@@ -13,15 +13,15 @@ SECTION_META = "MetaInfo"
 @dataclass(frozen=True)
 class PortfolioData:
     """Strict definition of this portfolio data contract."""
-    holdings: pd.DataFrame          
+    holdings: pd.DataFrame          # Open Positions
     account_title: str              
-    report_date: str
-    quarter_start_date: str          
+    report_date: str                # Last Date of Analysis Period
+    quarter_start_date: str         # Start Date of Analysis Period
     total_nav: float                
-    key_statistics: dict            # Aggregated summary stats (Includes ChangeInInterestAccruals)
-    settled_cash: float
-    legal_notes: pd.DataFrame       # Retained for PDF disclosures
-    daily_history: pd.DataFrame     
+    key_statistics: dict            # Aggregated summary stats (Pulls Analysis Period and Change in NAV)
+    settled_cash: float             
+    legal_notes: pd.DataFrame       
+    daily_history: pd.DataFrame     # From Inception CSV section: Cumulative Performance Statistics
 
 @dataclass(frozen=True)
 class QuarterStatementMetadata:
@@ -90,6 +90,7 @@ def read_quarter_statement_csv(path: str | Path) -> tuple[dict[str, pd.DataFrame
 
 # === PULL & BUILD SECTIONS FROM QUARTERLY STATEMENT ===
 def build_statement_sections(path: str | Path) -> QuarterStatementSections:
+    """Builds individual sections from Quarter Statement."""
     raw_sections, metainfo = read_quarter_statement_csv(path)
     
     return QuarterStatementSections(
@@ -107,6 +108,7 @@ def build_statement_sections(path: str | Path) -> QuarterStatementSections:
    
 # === HELPER FUNCTIONS === 
 def extract_metadata(sections: QuarterStatementSections) -> QuarterStatementMetadata:
+    """Extract metadata: Name, Account, Period from Quarter Statement."""
     name = None
     account = None
     period = None
@@ -365,6 +367,7 @@ def parse_since_inception_csv(since_inception_stmt_csv: str) -> SinceInceptionDa
 
     raw_sections, _ = read_quarter_statement_csv(since_inception_stmt_csv)
     
+    # --- 1. Performance Data ---
     perf_df = raw_sections.get("Cumulative Performance Statistics", pd.DataFrame())
         
     if not perf_df.empty and 'Date' in perf_df.columns and 'Return' in perf_df.columns:
@@ -376,6 +379,31 @@ def parse_since_inception_csv(since_inception_stmt_csv: str) -> SinceInceptionDa
         daily_returns = perf_df.dropna(subset=['date', 'return']).sort_values('date').copy()
     else:
         daily_returns = pd.DataFrame(columns=['date', 'return'])
-    # 2. Risk Measures
+
+    # --- 2. Risk Measures Extraction & Cleaning ---
     risk_df = raw_sections.get("Risk Measures", pd.DataFrame())
-    return SinceInceptionData(daily_returns=daily_returns, risk_measures=risk_df)
+    processed_risk = {}
+
+    if not risk_df.empty and 'Risk Measure' in risk_df.columns and 'Account Value' in risk_df.columns:
+        # Create a dictionary mapping the metric name (without the colon) to its value
+        # Example: "Max Drawdown:" -> "Max Drawdown"
+        val_map = {
+            str(row['Risk Measure']).replace(':', '').strip(): row['Account Value'] 
+            for _, row in risk_df.iterrows()
+        }
+        
+        # Extract the metrics based on their exact names in the CSV
+        processed_risk['Ending VAMI'] = _coerce_float(val_map.get('Ending VAMI', 0))
+        processed_risk['Max Drawdown'] = _coerce_float(val_map.get('Max Drawdown', 0))
+        processed_risk['Sharpe Ratio'] = _coerce_float(val_map.get('Sharpe Ratio', 0))
+        processed_risk['Sortino Ratio'] = _coerce_float(val_map.get('Sortino Ratio', 0))
+        processed_risk['Standard Deviation'] = _coerce_float(val_map.get('Standard Deviation', 0))
+        processed_risk['Downside Deviation'] = _coerce_float(val_map.get('Downside Deviation', 0))
+        processed_risk['Mean Return'] = _coerce_float(val_map.get('Mean Return', 0))
+        # Keep text-based fields as strings 
+        processed_risk['Peak-To-Valley'] = str(val_map.get('Peak-To-Valley', ''))
+        processed_risk['Recovery'] = str(val_map.get('Recovery', ''))
+        processed_risk['Positive Periods'] = str(val_map.get('Positive Periods', ''))
+        processed_risk['Negative Periods'] = str(val_map.get('Negative Periods', ''))   
+        
+    return SinceInceptionData(daily_returns=daily_returns, risk_measures=processed_risk)

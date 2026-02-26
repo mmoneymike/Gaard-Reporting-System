@@ -136,7 +136,7 @@ def run_pipeline():
         # --- SINCE INCEPTION STATEMENT ---
         inception_data = parse_since_inception_csv(SINCE_INCEPTION_STMT_CSV)
         daily_history = inception_data.daily_returns
-        
+        inception_risk_measures = inception_data.risk_measures
         # Setup Dates (Ensuring everything is a proper Pandas Timestamp)
         rd_date = pd.to_datetime(report_date)
         qs_date = pd.to_datetime(quarter_start_date)
@@ -231,7 +231,7 @@ def run_pipeline():
     else:
         portfolio_inception_date = qs_date # Fallback: Quarter Start Date
     
-    # Still need 5 Years Ago Date for 1Y/3Y/5Y metrics *** UPDATE IF LONGER RETURN PERIODS ARE ADDED
+    # Still need 5 Years Ago Date for 1Y/3Y/5Y metrics *** UPDATE IF LONGER RETURN PERIODS ARE ADDED ***
     five_years_ago_date = rd_date - pd.DateOffset(years=5)
     
     # Pick OLDEST date between Inception and 5 Years Ago (+ 7 day buffer to ensure first day isn't missed)
@@ -265,25 +265,7 @@ def run_pipeline():
     main_benchmark_series = calculate_composite_benchmark_return(bench_returns_df, main_benchmark_weights)
     chart_data = prepare_chart_data(daily_history, main_benchmark_series, benchmark_name=SELECTED_COMP_BENCHMARK_KEY)
     print(f"   > Performance Chart: Prepared {len(chart_data)} daily data points.")
-    # === DEBUG BLOCK: CHART DATA INTEGRITY ===
-    if chart_data is not None and not chart_data.empty:
-        print("\n[DEBUG] Chart Data Hand-off:")
-        print(f"   - Total Rows: {len(chart_data)}")
-        print(f"   - Series Detected: {chart_data['Series'].unique()}")
-        
-        # Check for NaN values in the return column
-        null_counts = chart_data['Cumulative Return'].isnull().sum()
-        print(f"   - Null Returns Found: {null_counts}")
-        
-        # Peek at the head and tail to see if values look like percentages (e.g., 0.05) 
-        # or Wealth Index (e.g., 105.0)
-        print("   - Sample Data (Head):")
-        print(chart_data.head(4))
-        print("   - Sample Data (Tail):")
-        print(chart_data.tail(4))
-    else:
-        print("\n[DEBUG] CRITICAL: chart_data is EMPTY or NONE after preparation.")
-    # =========================================
+
     # Calculate Benchmark Windows
     bench_nav_df = pd.DataFrame({
         'date': main_benchmark_series.index,
@@ -316,7 +298,13 @@ def run_pipeline():
     # --- CALCULATE RISK METRICS ---
     print(f"   > 2c. Calculating Risk Profile (Horizon: {RISK_TIME_HORIZON or 'Full'} Yrs) ---")
     try:
+        # Custom metrics: Idiosynchratic Risk, Factors
         risk_metrics = calculate_portfolio_risk(daily_history, main_benchmark_series, lookback_years=RISK_TIME_HORIZON)
+        
+        # Merge clean Inception CSV metrics
+        if isinstance(inception_risk_measures, dict) and inception_risk_measures:
+            risk_metrics.update(inception_risk_measures)  
+            
     except Exception as e:
         print(f"Risk Calculation Error: {e}")
         import traceback

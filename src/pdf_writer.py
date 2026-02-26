@@ -1047,17 +1047,34 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
     # 1. SETUP DATA & LABELS
     # horizon_label = f"{risk_time_horizon} Year" if risk_time_horizon else "Full History" # functionality to dynamically pull Risk Time Horizon
     horizon_label = "Since Inception"
+        
+    # --- TABLE 1 (LEFT): Profile & Volatility (Pulled from Inception CSV) ---
+    left_rows = []
     
-    # Define the rows structure: (Label, Value, Format, IsSectionHeader)
-    risk_rows = []
+    left_rows.append(("Performance & Drawdown Profile", None, None, True))
+    left_rows.append(("Ending VAMI", risk_metrics.get('Ending VAMI', 0.0), "float", False))
+    left_rows.append(("Mean Return", risk_metrics.get('Mean Return', 0.0), "percent", False))
+    left_rows.append(("Max Drawdown", risk_metrics.get('Max Drawdown', 0.0), "percent", False))
+    left_rows.append(("Peak-To-Valley", risk_metrics.get('Peak-To-Valley', 'N/A'), "string", False))
+    left_rows.append(("Recovery", risk_metrics.get('Recovery', 'N/A'), "string", False))
+    left_rows.append(("Positive Periods", risk_metrics.get('Positive Periods', 'N/A'), "string", False))
+    left_rows.append(("Negative Periods", risk_metrics.get('Negative Periods', 'N/A'), "string", False))
+
+    left_rows.append(("Volatility & Risk-Adjusted Returns", None, None, True))
+    left_rows.append(("Standard Deviation", risk_metrics.get('Standard Deviation', 0.0), "percent", False))
+    left_rows.append(("Downside Deviation", risk_metrics.get('Downside Deviation', 0.0), "percent", False))
+    left_rows.append(("Sharpe Ratio", risk_metrics.get('Sharpe Ratio', 0.0), "float", False))
+    left_rows.append(("Sortino Ratio", risk_metrics.get('Sortino Ratio', 0.0), "float", False))
     
-    # --- Section 1: Idiosyncratic Risk ---
-    risk_rows.append((f"Idiosyncratic Risk vs {main_benchmark_tckr}", None, None, True))
-    risk_rows.append(("Idiosyncratic Risk", risk_metrics.get('Idiosyncratic Risk', 0.0), "percent", False))
-    risk_rows.append(("R-Squared", risk_metrics.get('R-Squared (vs Bench)', 0.0), "float", False))
+    # --- TABLE 2 (RIGHT): Relative Risk & Factors (Manually Calculated)---
+    right_rows = []
     
-    # --- Section 2: Factor Coefficients ---
-    risk_rows.append(("Factor Coefficients (Betas)", None, None, True))
+    right_rows.append((f"Relative Risk vs {main_benchmark_tckr}", None, None, True))
+    right_rows.append(("Idiosyncratic Risk", risk_metrics.get('Idiosyncratic Risk', 0.0), "percent", False))
+    right_rows.append(("R-Squared", risk_metrics.get('R-Squared (vs Bench)', 0.0), "float", False))
+    right_rows.append(("Information Ratio", risk_metrics.get('Information Ratio', 0.0), "float", False))
+    
+    right_rows.append(("Factor Coefficients (Betas)", None, None, True))
     factor_keys = [
         ('Size (IWM)', 'Beta: Size (IWM)'), 
         ('Value (IWD)', 'Beta: Value (IWD)'), 
@@ -1065,16 +1082,20 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
         ('Momentum (MTUM)', 'Beta: Momentum (MTUM)')
     ]
     for label, key in factor_keys:
-        risk_rows.append((label, risk_metrics.get(key, 0.0), "float", False))
+        right_rows.append((label, risk_metrics.get(key, 0.0), "float", False))
 
-    # 2. CALCULATE LAYOUT (Centering Logic from Page 4)
-    table_width = 105 
-    table_start_x = (pdf.w - table_width) / 2
+    # 2. CALCULATE LAYOUT
+    table_width = 120
+    table_gap = 15
+    total_block_width = (table_width * 2) + table_gap
     
-    # Calculate Table Height: (Header + Data Rows) * Row Height
-    # Header(1) + Data(len(risk_rows))
-    total_rows = 1 + len(risk_rows)
-    table_height = total_rows * 8 
+    # Calculate X coordinates for side-by-side alignment
+    table1_start_x = (pdf.w - total_block_width) / 2
+    table2_start_x = table1_start_x + table_width + table_gap
+    
+    # Calculate Height of the tallest table to center vertically
+    max_data_rows = max(len(left_rows), len(right_rows))
+    table_height = (1 + max_data_rows) * 8  # +1 for the Header row
     
     # Vertical Center
     table_start_y = (pdf.h - table_height) / 2
@@ -1088,63 +1109,70 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
         text_start_y = 35
         table_start_y = text_start_y + text_block_height
 
-    # 3. RENDER TITLE
+    # 3. RENDER TITLES
     pdf.set_y(text_start_y)
-    pdf.set_x(table_start_x)
+    pdf.set_x(table1_start_x)
     pdf.set_font('Carlito', 'B', 12)
     pdf.set_text_color(0, 0, 0)
     pdf.cell(0, 5, f"Risk Profile ({horizon_label})", new_x="LMARGIN", new_y="NEXT", align='L')
 
-    # Reporting Date Footer (aligned to table)
-    pdf.set_x(table_start_x)
+    # Reporting Date Footer 
+    pdf.set_x(table1_start_x)
     pdf.set_font('Carlito', '', 10)
     pdf.set_text_color(*C_TEXT_GREY)
     pdf.cell(0, 3, f"Reportings as of {data_rep_date}", new_x="LMARGIN", new_y="NEXT", align='L')
     pdf.ln(3)
     
-    # 4. RENDER TABLE
-    pdf.set_y(table_start_y)
-    pdf.set_text_color(0, 0, 0)
-    
-    with pdf.table(col_widths=(75, 30), 
-                   text_align=("LEFT", "RIGHT"), 
-                   borders_layout="NONE", 
-                   align="CENTER", 
-                   width=table_width, 
-                   line_height=8) as table:
-        
-        # --- HEADER ROW ---
-        header = table.row()
-        header.cell("Risk Metric", style=header_style)
-        header.cell("Value", style=header_style)
-        
-        # --- DATA ROWS ---
-        for label, val, fmt, is_header in risk_rows:
-            
-            # Style Logic
-            if is_header:
-                # Section Header: Bold, Grey Background, No Indent
-                display_name = label
-                val_str = ""
-                bg_color = C_GREY_LIGHT
-                font_style = "BOLD"
-            else:
-                # Metric Row: Normal, White Background, Indented
-                display_name = f"      {label}"
-                bg_color = C_WHITE
-                font_style = ""
-                
-                # Formatting
-                if fmt == 'percent': val_str = f"{val:.2%}"
-                elif fmt == 'float': val_str = f"{val:.2f}"
-                else: val_str = str(val)
+    # Lock in the Y coordinate so both tables align perfectly at the top
+    locked_start_y = pdf.get_y()
+    original_l_margin = pdf.l_margin
 
-            # Define FontFace for this row
-            style_row = FontFace(emphasis=font_style, size_pt=12, fill_color=bg_color)
+    # 4. HELPER TO RENDER INDIVIDUAL TABLE
+    def render_risk_table(rows, start_x):
+        pdf.set_left_margin(start_x)
+        pdf.set_y(locked_start_y)
+        pdf.set_text_color(0, 0, 0)
+        
+        with pdf.table(col_widths=(65, 55), 
+                       text_align=("LEFT", "RIGHT"), 
+                       borders_layout="NONE", 
+                       align="LEFT", 
+                       width=table_width, 
+                       line_height=8) as table:
             
-            r = table.row()
-            r.cell(display_name, style=style_row)
-            r.cell(val_str, style=style_row)
+            # --- HEADER ROW ---
+            header = table.row()
+            header.cell("Risk Metric", style=header_style)
+            header.cell("Value", style=header_style)
+            
+            # --- DATA ROWS ---
+            for label, val, fmt, is_header in rows:
+                if is_header:
+                    display_name = label
+                    val_str = ""
+                    bg_color = C_GREY_LIGHT
+                    font_style = "BOLD"
+                else:
+                    display_name = f"      {label}"
+                    bg_color = C_WHITE
+                    font_style = ""
+                    
+                    if fmt == 'percent': val_str = f"{val:.2%}"
+                    elif fmt == 'float': val_str = f"{val:.2f}"
+                    else: val_str = str(val)
+
+                style_row = FontFace(emphasis=font_style, size_pt=12, fill_color=bg_color)
+                
+                r = table.row()
+                r.cell(display_name, style=style_row)
+                r.cell(val_str, style=style_row)
+
+    # 5. EXECUTE TABLE RENDERING
+    render_risk_table(left_rows, table1_start_x)
+    render_risk_table(right_rows, table2_start_x)
+    
+    # Reset margin to avoid breaking subsequent pages
+    pdf.set_left_margin(original_l_margin)
         
         
     #  ==========================================
