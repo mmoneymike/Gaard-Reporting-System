@@ -6,3 +6,4 @@ altair
 fpdf2
 vl-convert-python
 scipy
+openpyxl
