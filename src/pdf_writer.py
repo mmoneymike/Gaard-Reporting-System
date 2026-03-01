@@ -879,7 +879,6 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
     pdf.ln(3)
     
     # --- 3. RENDER TABLE (Centered) ---
-    # We ensure the cursor is exactly at the calculated table start
     pdf.set_y(table_start_y)
     
     # Styles
@@ -889,7 +888,7 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
     quarter_val = pdf_info.get('quarter', '')
     return_header = f"{quarter_val} Return" if quarter_val else "Return"
     
-    with pdf.table(col_widths=(60, 25, 30, 25),                     # make sure these are sum to table_width
+    with pdf.table(col_widths=(60, 25, 30, 25),                     # make sure these sum to table_width
                    text_align=("LEFT", "RIGHT", "RIGHT", "RIGHT"), 
                    borders_layout="NONE", 
                    align="CENTER", 
@@ -1014,21 +1013,22 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
                 # Cash Balance Formatting
                 raw_ticker = str(pos['ticker'])
                 if raw_ticker == "USD":
-                    display_ticker = "Settled Cash"
-                    ret_str = "---"
-                elif raw_ticker == "CASH_BAL":
-                    display_ticker = "Cash"
+                    display_ticker = "USD"
+                    name_str = "Settled Cash"
                     ret_str = "---"
                 elif raw_ticker == "ACCRUALS":
-                    display_ticker = "Accruals"  
+                    display_ticker = "Accruals"
+                    name_str = "Interest Accruals"
                     ret_str = "---"
                 else:
                     display_ticker = raw_ticker
                     ret_str = f"{pos['cumulative_return']:.2%}"
+                    # Only pull official_name for normal tickers
+                    name_str = str(pos.get('official_name', ''))
                 
-                # Ticker & Name Cols
-                name_str = str(pos.get('official_name', ''))
+                # Truncate Name if too long
                 if len(name_str) > 60: name_str = name_str[:58] + "..."
+                
                 r.cell(display_ticker, style=reg_name_style)
                 r.cell(name_str, style=reg_name_style)
                 
@@ -1072,7 +1072,6 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
     right_rows.append((f"Relative Risk vs {main_benchmark_tckr}", None, None, True))
     right_rows.append(("Idiosyncratic Risk", risk_metrics.get('Idiosyncratic Risk', 0.0), "percent", False))
     right_rows.append(("R-Squared", risk_metrics.get('R-Squared (vs Bench)', 0.0), "float", False))
-    right_rows.append(("Information Ratio", risk_metrics.get('Information Ratio', 0.0), "float", False))
     
     right_rows.append(("Factor Coefficients (Betas)", None, None, True))
     factor_keys = [
@@ -1085,8 +1084,8 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
         right_rows.append((label, risk_metrics.get(key, 0.0), "float", False))
 
     # 2. CALCULATE LAYOUT
-    table_width = 120
-    table_gap = 15
+    table_width = 130
+    table_gap = 10
     total_block_width = (table_width * 2) + table_gap
     
     # Calculate X coordinates for side-by-side alignment
@@ -1133,7 +1132,7 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
         pdf.set_y(locked_start_y)
         pdf.set_text_color(0, 0, 0)
         
-        with pdf.table(col_widths=(65, 55), 
+        with pdf.table(col_widths=(65, 65), 
                        text_align=("LEFT", "RIGHT"), 
                        borders_layout="NONE", 
                        align="LEFT", 
@@ -1215,14 +1214,9 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
         else:
             col2_paras.append(p)
             
-    # 4. Define Layout Dimensions (Perfectly Centered)
-    # A4 Width = 297mm
-    # Side Margins = 20mm each (Total 40mm)
-    # Gap = 10mm
+    # Layout Dimensions: Side Margins = 20mm each (Total 40mm), Gap = 10mm
     side_margin = 20
     col_gap = 10
-    
-    # (297 - 40 - 10) / 2 = 123.5mm per column
     col_width = (pdf.w - (side_margin * 2) - col_gap) / 2
     
     pdf.set_font('Carlito', '', 12)
@@ -1243,7 +1237,6 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
     pdf.set_y(start_y)      
     
     # Calculate exact start of Column 2
-    # 20 (Margin) + 123.5 (Col 1) + 10 (Gap) = 153.5
     col2_x = side_margin + col_width + col_gap
     
     for p in col2_paras:
