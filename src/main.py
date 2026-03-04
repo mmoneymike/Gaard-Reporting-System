@@ -3,6 +3,7 @@ import os
 import datetime
 
 # --- IMPORTS ---
+from ib_connector import fetch_files_via_sftp, decrypt_pgp_files
 from statement_ingestion import get_portfolio_holdings, parse_since_inception_csv
 from yf_loader import fetch_benchmark_returns_yf, fetch_security_names_yf
 from return_metrics import*
@@ -14,6 +15,18 @@ from risk_metrics import calculate_portfolio_risk
 #  ==========================================
 #   CONFIGURATION
 #  ==========================================
+# SFTP & PGP CONFIGURATION
+IB_SFTP_HOST = 'ftp2.interactivebrokers.com'
+IB_USERNAME = 'gaardcapital'
+REMOTE_STATEMENT_DIR = 'outgoing'
+
+# MY KEY PATHS
+SSH_PRIVATE_KEY_PATH = '/Users/michaelmolenaar/Desktop/BROGAARD/Gaard/Gaard Reporting System/data/Gaard_Keys/IB_SSH_Private.txt'
+SSH_PUBLIC_KEY_PATH  = '/Users/michaelmolenaar/Desktop/BROGAARD/Gaard/Gaard Reporting System/data/Gaard_Keys/IB_SSH_Public.txt'
+PGP_PRIVATE_KEY_PATH = '/Users/michaelmolenaar/Desktop/BROGAARD/Gaard/Gaard Reporting System/data/Gaard_Keys/IB_PGP_Private.txt'
+PGP_PUBLIC_KEY_PATH  = '/Users/michaelmolenaar/Desktop/BROGAARD/Gaard/Gaard Reporting System/data/Gaard_Keys/IB_PGP_Public.txt'
+PGP_PASSPHRASE = None
+
 COMPOSITE_BENCHMARK_CONFIG = {
     'SPY':         {'SPY': 1.0},
     'AGG':         {'AGG': 1.0},
@@ -76,6 +89,39 @@ def run_pipeline():
     project_root = os.path.dirname(script_dir)
     output_dir = os.path.join(project_root,"output")
     
+    # ---------------------------------------------------------
+    # Fetch & Decrypt Files from IBKR
+    # ---------------------------------------------------------
+    raw_download_dir = os.path.join(project_root, "data", "raw_encrypted_downloads")
+    
+    # Decide where you want the decrypted CSVs to be saved. 
+    decrypted_dir = os.path.join(project_root, "data", "raw_downloads")             # **CHANGE DATE HERE FOR FILE FOLDER***
+    
+    print("\n === 0. Fetching Data from Remote Server ===")
+    try:
+        
+        # Pass SSH public key to SFTP fetch
+        downloaded_files = fetch_files_via_sftp(
+            host=IB_SFTP_HOST, 
+            username=IB_USERNAME, 
+            ssh_key_path=SSH_PRIVATE_KEY_PATH, 
+            ssh_public_key_path=SSH_PUBLIC_KEY_PATH,  
+            remote_dir=REMOTE_STATEMENT_DIR, 
+            local_download_dir=raw_download_dir
+        )
+        
+        # Pass PGP public key to decryption
+        if downloaded_files:
+            decrypted_results = decrypt_pgp_files(
+                pgp_private_key_path=PGP_PRIVATE_KEY_PATH,
+                pgp_public_key_path=PGP_PUBLIC_KEY_PATH,  
+                encrypted_files=downloaded_files,
+                output_dir=decrypted_dir,
+                pgp_passphrase=PGP_PASSPHRASE
+            )
+    except Exception as e:
+        print(f"Warning: Failed to fetch/decrypt new data. Proceeding with existing local files. Error: {e}")
+        
     # **************************************************************************************************************************************** #
     # DUAL-FILE ARCHITECTURE PATHS
     QUARTER_STMT_CSV = os.path.join(
@@ -276,7 +322,7 @@ def run_pipeline():
     # Get standard calendar windows (1M, 3M, YTD, 1Y, 3Y, 5Y)
     bench_windows, _ = calculate_period_returns(bench_nav_df, report_date)
     
-    # Match the exact Portfolio dates for 'Period' and 'Inception'
+    # Match the exact Portfolio dates for 'Quarter' and 'Inception'
     if not bench_nav_df.empty:
         nav_series = bench_nav_df.set_index('date')['nav']
         
@@ -289,7 +335,7 @@ def run_pipeline():
             return (val_end / val_start) - 1.0
 
         # Calculate benchmark return for the exact Statement Quarter
-        bench_windows['Period'] = get_exact_ret(qs_date, rd_date)
+        bench_windows['Quarter'] = get_exact_ret(qs_date, rd_date)
         
         # Calculate benchmark return for the exact Lifetime of the account
         if not daily_history.empty:
