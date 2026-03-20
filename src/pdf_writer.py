@@ -397,6 +397,13 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
     header_style = FontFace(size_pt=12, emphasis="BOLD", color=C_WHITE, fill_color=C_BLUE_LOGO)
     
     
+    # Use statement-derived account title (Introduction -> Name) for front/back cover pages.
+    # Keep pdf_info fallback only if statement data is missing or generic.
+    cover_account_name_raw = account_title
+    if not cover_account_name_raw or str(cover_account_name_raw).strip().lower() == "total portfolio":
+        cover_account_name_raw = pdf_info.get('page_1_account_name', account_title)
+    cover_account_name = clean_text(cover_account_name_raw)
+
     #  ==========================================
     #   COVER PAGE
     #  ==========================================
@@ -404,7 +411,7 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
     pdf.add_page()
     
     # --- DATA EXTRACTION ---
-    account_name = clean_text(pdf_info.get('page_1_account_name', account_title))
+    account_name = cover_account_name
     report_title = f"{quarter_label} Portfolio Report"
     title_date_input = pdf_info.get('page_1_report_date', report_date)
     title_rep_date = format_nice_date(title_date_input)
@@ -1307,7 +1314,7 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
     pdf.add_page()
     
     # --- DATA EXTRACTION ---
-    account_name = clean_text(pdf_info.get('page_1_account_name', account_title))
+    account_name = cover_account_name
     report_title = f"{quarter_label} Portfolio Report"
     title_date_input = pdf_info.get('page_1_report_date', report_date)
     title_rep_date = format_nice_date(title_date_input)
