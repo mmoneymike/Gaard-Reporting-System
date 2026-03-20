@@ -1057,8 +1057,8 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
     left_rows.append(("Max Drawdown", risk_metrics.get('Max Drawdown', 0.0), "percent", False))
     left_rows.append(("Peak-To-Valley", risk_metrics.get('Peak-To-Valley', 'N/A'), "string", False))
     left_rows.append(("Recovery", risk_metrics.get('Recovery', 'N/A'), "string", False))
-    left_rows.append(("Positive Periods", risk_metrics.get('Positive Periods', 'N/A'), "string", False))
-    left_rows.append(("Negative Periods", risk_metrics.get('Negative Periods', 'N/A'), "string", False))
+    # left_rows.append(("Positive Periods", risk_metrics.get('Positive Periods', 'N/A'), "string", False))
+    # left_rows.append(("Negative Periods", risk_metrics.get('Negative Periods', 'N/A'), "string", False))
 
     left_rows.append(("Volatility & Risk-Adjusted Returns", None, None, True))
     left_rows.append(("Standard Deviation", risk_metrics.get('Standard Deviation', 0.0), "percent", False))
@@ -1084,7 +1084,7 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
         right_rows.append((label, risk_metrics.get(key, 0.0), "float", False))
 
     # 2. CALCULATE LAYOUT
-    table_width = 130
+    table_width = 133
     table_gap = 10
     total_block_width = (table_width * 2) + table_gap
     

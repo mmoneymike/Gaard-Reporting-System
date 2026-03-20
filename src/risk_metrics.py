@@ -30,10 +30,10 @@ def get_live_risk_free_rate(default_rate=0.04):
     return default_rate
 
 
-def calculate_portfolio_risk(daily_nav_df, benchmark_series, lookback_years=None, rf_rate=None):
+def calculate_portfolio_risk(daily_nav_df, benchmark_series, rf_rate=None):
     """
     Calculates SPECIFIC risk metrics: Idiosyncratic Risk and Factor Coefficients.
-    If lookback_years is provided (e.g., 3), it filters data to the most recent N years.
+    Uses the full date range of the provided data (since inception).
     """
     metrics = {
         'Idiosyncratic Risk': 0.0,
@@ -55,15 +55,6 @@ def calculate_portfolio_risk(daily_nav_df, benchmark_series, lookback_years=None
     df = daily_nav_df.copy()
     df['date'] = pd.to_datetime(df['date'])
     df = df.sort_values('date').set_index('date')
-    
-    # --- FILTER BY LOOKBACK HORIZON ---
-    if lookback_years is not None and lookback_years > 0:
-        end_date = df.index.max()
-        start_date = end_date - pd.DateOffset(years=lookback_years)
-        df = df[df.index >= start_date]
-        
-        # Also filter benchmark series to match start date (for efficiency)
-        benchmark_series = benchmark_series[benchmark_series.index >= start_date]
     
     port_returns = df['nav'].pct_change().dropna()
     

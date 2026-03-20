@@ -1,6 +1,8 @@
 import pandas as pd
 import os
+import csv
 import datetime
+import traceback
 
 # --- IMPORTS ---
 from ib_connector import fetch_files_via_sftp, decrypt_pgp_files
@@ -20,7 +22,7 @@ IB_SFTP_HOST = 'ftp2.interactivebrokers.com'
 IB_USERNAME = 'gaardcapital'
 REMOTE_STATEMENT_DIR = 'outgoing'
 
-# MY KEY PATHS
+# MM KEY PATHS
 SSH_PRIVATE_KEY_PATH = '/Users/michaelmolenaar/Desktop/BROGAARD/Gaard/Gaard Reporting System/data/Gaard_Keys/IB_SSH_Private.txt'
 SSH_PUBLIC_KEY_PATH  = '/Users/michaelmolenaar/Desktop/BROGAARD/Gaard/Gaard Reporting System/data/Gaard_Keys/IB_SSH_Public.txt'
 PGP_PRIVATE_KEY_PATH = '/Users/michaelmolenaar/Desktop/BROGAARD/Gaard/Gaard Reporting System/data/Gaard_Keys/IB_PGP_Private.txt'
@@ -28,18 +30,18 @@ PGP_PUBLIC_KEY_PATH  = '/Users/michaelmolenaar/Desktop/BROGAARD/Gaard/Gaard Repo
 PGP_PASSPHRASE = None
 
 COMPOSITE_BENCHMARK_CONFIG = {
-    'SPY':         {'SPY': 1.0},
-    'AGG':         {'AGG': 1.0},
+    'SPY':              {'SPY': 1.0},
+    'AGG':              {'AGG': 1.0},
     '60/40 SPY/AGG':    {'SPY': 0.6, 'AGG': 0.4},
     '40/60 SPY/AGG':    {'SPY': 0.4, 'AGG': 0.6},
 } # Options for SELECTED_COMP_KEY
 
 BENCHMARK_CONFIG = {
-    'U.S. Equities':        ['SPY'],  
-    'International Equities': ['ACWI'], 
-    'Fixed Income':         ['AGG'],
-    'Alternative Assets':   ['QAI'],
-    'Cash':                 ['BIL'],
+    'U.S. Equities':            ['SPY'],  
+    'International Equities':   ['ACWI'], 
+    'Fixed Income':             ['AGG'],
+    'Alternative Assets':       ['QAI'],
+    'Cash':                     ['BIL'],
 } # Chosen Benchmark Tickers
 
 BENCHMARK_NAMES = {
@@ -50,6 +52,7 @@ BENCHMARK_NAMES = {
     'BIL': '1-3 Month T-Bills',
 } # Chosen Benchmark Names
 
+# Ignore Specific Holdings
 # 1. Exact Matches: Tickers to remove if they match exactly (Case Insensitive)
 IGNORE_EXACT = [
     'CASH',
@@ -61,6 +64,13 @@ IGNORE_STARTSWITH = [
     '912797PN1',  # Treasury Bond Series
 ]
 
+SELECTED_COMP_BENCHMARK_KEY = '60/40 SPY/AGG'                                                           # SEE CONFIGURATION ABOVE FOR OPTIONS
+RISK_TIME_HORIZON = None                                                                # Since Inception (full history)
+
+
+#  ==========================================
+#   HELPERS
+#  ==========================================
 # --- LOCAL AUTO-CLASSIFY ---
 def auto_classify_asset(ticker: str, security_name: str) -> str:
     t = str(ticker).upper().strip()
@@ -69,8 +79,8 @@ def auto_classify_asset(ticker: str, security_name: str) -> str:
     # 1. Hardcoded
     if t in ['USD', 'ICSH']: return 'Cash'
     if t in ['VEA', 'VWO', 'IMTM', 'VXUS']: return 'International Equities'
-    if t in ['BND', 'VGSH', 'VGIT']: return 'Fixed Income'
-    if t in ['VNQ', 'BCI']: return 'Alternative Assets'
+    if t in ['BND', 'VGIT', 'VGSH']: return 'Fixed Income'
+    if t in ['BCI', 'GSG', 'VNQ']: return 'Alternative Assets'
     
     # 2. Keywords
     if any(k in n for k in ['INTL', 'EMERGING', 'EUROPE', 'ASIA', 'DEVELOPED']): return 'International Equities'
@@ -80,94 +90,73 @@ def auto_classify_asset(ticker: str, security_name: str) -> str:
     # 3. If no keywords found, classify as US Equity
     return 'U.S. Equities'
 
-#  ==========================================
-#   MAIN PIPELINE
-#  ==========================================
-def run_pipeline():
-    # --- PATHS SETUP ---
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.dirname(script_dir)
-    output_dir = os.path.join(project_root,"output")
-    
-    # ---------------------------------------------------------
-    # Fetch & Decrypt Files from IBKR
-    # ---------------------------------------------------------
-    raw_download_dir = os.path.join(project_root, "data", "raw_encrypted_downloads")
-    
-    # Decide where you want the decrypted CSVs to be saved. 
-    decrypted_dir = os.path.join(project_root, "data", "raw_downloads")             # **CHANGE DATE HERE FOR FILE FOLDER***
-    
-    print("\n === 0. Fetching Data from Remote Server ===")
-    try:
-        
-        # Pass SSH public key to SFTP fetch
-        downloaded_files = fetch_files_via_sftp(
-            host=IB_SFTP_HOST, 
-            username=IB_USERNAME, 
-            ssh_key_path=SSH_PRIVATE_KEY_PATH, 
-            ssh_public_key_path=SSH_PUBLIC_KEY_PATH,  
-            remote_dir=REMOTE_STATEMENT_DIR, 
-            local_download_dir=raw_download_dir
-        )
-        
-        # Pass PGP public key to decryption
-        if downloaded_files:
-            decrypted_results = decrypt_pgp_files(
-                pgp_private_key_path=PGP_PRIVATE_KEY_PATH,
-                pgp_public_key_path=PGP_PUBLIC_KEY_PATH,  
-                encrypted_files=downloaded_files,
-                output_dir=decrypted_dir,
-                pgp_passphrase=PGP_PASSPHRASE
-            )
-    except Exception as e:
-        print(f"Warning: Failed to fetch/decrypt new data. Proceeding with existing local files. Error: {e}")
-        
-    # **************************************************************************************************************************************** #
-    # DUAL-FILE ARCHITECTURE PATHS
-    QUARTER_STMT_CSV = os.path.join(
-        project_root, "data", "Gaard_Capital_LLC_2025_Q4_2025_Q4", 
-        "Brogaard_Asset_Protection_Trust_U21244041_October_01_2025_December_31_2025.csv"
-    )                                       
-    SINCE_INCEPTION_STMT_CSV = os.path.join(                                                                    
-        project_root, "data", "Gaard_Capital_LLC_Inception_February_23_2026", 
-        "Brogaard_Asset_Protection_Trust_U21244041_July_30_2025_February_23_2026.csv"
-    )            
-    
-    INFO_FILE = os.path.join(project_root, "data", "info_for_pdf.xlsx")                                         # INFO NECESSARY FOR PDF STYLING
-    LOGO_FILE = os.path.join(project_root, "data", "pdf_resources", "logos", "gaard_logo.png")
-    TEXT_LOGO_FILE = os.path.join(project_root, "data", "pdf_resources", "logos", "gaard_text_logo.png")
-    
-    SELECTED_COMP_BENCHMARK_KEY = '60/40 SPY/AGG'                                                           # SEE CONFIGURATION ABOVE FOR OPTIONS
-    RISK_TIME_HORIZON = 1                                                                  # USED FOR RISK METRICS: IDIOSYNCHRATIC RISK & FACTORS
-    # * OUTPUT FILE NAMING BELOW
-    # **************************************************************************************************************************************** #
-    
-    # === Load PDF Info ===
-    pdf_info = {}
-    if os.path.exists(INFO_FILE):
-        print("   > SETUP: Loading PDF Info Sheet...")
-        try:
-            info_df = pd.read_excel(INFO_FILE, header=2)
-            info_df.columns = [c.strip() if isinstance(c, str) else c for c in info_df.columns]
-            if 'key' in info_df.columns and 'value' in info_df.columns:
-                pdf_info = dict(zip(info_df['key'].dropna(), info_df['value'].dropna()))
-            else:
-                print(f"Warning: Exprected columns 'key' and 'value' not found. Found: {info_df.columns.to_list()}")
-        except Exception as e:
-            print(f"Warning: Could not load Info File for PDF: {e}")
-    
-    # === Load All Data ===
-    print(f"\n === 1. Ingesting Portfolio (Internal) ===")
-    if not os.path.exists(QUARTER_STMT_CSV):
-        print(f"CRITICAL ERROR: Could not find file at: {QUARTER_STMT_CSV}")
-        import traceback
-        traceback.print_exc()
-        return
 
+def extract_account_info(csv_path):
+    """Quick-reads a CSV's Introduction row to extract account ID and name."""
     try:
-        # === 1. Load Data from Statements. Calculate, Classify, and Weight Assets ===
-        PERIOD_FALLBACK_DATE = (pd.Timestamp.today().to_period("Q") - 1).start_time.strftime("%Y-%m-%d") # Fallback Date: Manually Compute Last Quarter
-        portfolio_data = get_portfolio_holdings(QUARTER_STMT_CSV, PERIOD_FALLBACK_DATE) # Benchmark Default Date will be overwritten to exact end date
+        with open(csv_path, 'r', encoding='utf-8-sig') as f:
+            reader = csv.reader(f)
+            for row in reader:
+                if len(row) >= 4 and row[0].strip() == 'Introduction' and row[1].strip() == 'Data':
+                    return row[3].strip(), row[2].strip()  # (account_id, account_name)
+    except Exception:
+        pass
+    return None, None
+
+
+def discover_and_pair_accounts(decrypted_results):
+    """Scans all decrypted CSVs, extracts account IDs, and pairs inception + quarterly by account.
+    
+    Returns: { account_id: { 'name': str, 'inception': path|None, 'quarterly': path|None } }
+    """
+    accounts = {}
+    
+    for category in ['inception', 'quarterly']:
+        for csv_path in decrypted_results.get(category, []):
+            if not csv_path.endswith('.csv'):
+                continue
+            account_id, account_name = extract_account_info(csv_path)
+            if not account_id:
+                print(f"   > Warning: Could not read account ID from {os.path.basename(csv_path)}")
+                continue
+            
+            if account_id not in accounts:
+                accounts[account_id] = {'name': account_name, 'inception': None, 'quarterly': None}
+            
+            # Keep the most recent file per account per category (by file modification time)
+            existing = accounts[account_id][category]
+            if existing is None or os.path.getmtime(csv_path) > os.path.getmtime(existing):
+                accounts[account_id][category] = csv_path
+    
+    return accounts
+
+
+#  ==========================================
+#   PER-ACCOUNT REPORT GENERATION
+#  ==========================================
+def generate_report_for_account(quarter_csv, inception_csv, shared):
+    """Generates a single PDF report for one account.
+    
+    Parameters:
+        quarter_csv:   Path to the quarterly statement CSV
+        inception_csv: Path to the since-inception statement CSV
+        shared:        Dict with shared config/resources
+    """
+    output_dir       = shared['output_dir']
+    pdf_info         = shared['pdf_info']
+    LOGO_FILE        = shared['logo_file']
+    TEXT_LOGO_FILE   = shared['text_logo_file']
+    
+    # === 1. Load Data from Statements ===
+    print(f"\n === 1. Ingesting Portfolio (Internal) ===")
+    if not os.path.exists(quarter_csv):
+        print(f"CRITICAL ERROR: Could not find Quarterly file at: {quarter_csv}")
+        return
+    
+    try:
+        # === 1a. Load Quarter Statement ===
+        PERIOD_FALLBACK_DATE = (pd.Timestamp.today().to_period("Q") - 1).start_time.strftime("%Y-%m-%d")
+        portfolio_data = get_portfolio_holdings(quarter_csv, PERIOD_FALLBACK_DATE)
         
         # --- QUARTER STATEMENT ---
         holdings = portfolio_data.holdings
@@ -180,7 +169,7 @@ def run_pipeline():
         print(f"   > 1a: Quarter Statement Period Check: {quarter_start_date} to {report_date}")
         
         # --- SINCE INCEPTION STATEMENT ---
-        inception_data = parse_since_inception_csv(SINCE_INCEPTION_STMT_CSV)
+        inception_data = parse_since_inception_csv(inception_csv)
         daily_history = inception_data.daily_returns
         inception_risk_measures = inception_data.risk_measures
         # Setup Dates (Ensuring everything is a proper Pandas Timestamp)
@@ -210,7 +199,6 @@ def run_pipeline():
             print(f"WARNING: Date Mismatch! Quarter ends {rd_date.date()}, Inception data ends {max_inception_dt.date()}")
     
         # --- CALCULATE PERIOD RETURNS ---
-        # Pass the normalized Timestamp 'rd_date' instead of the string 'report_date'
         window_returns, quarter_label = calculate_period_returns(daily_history, rd_date)
         
         # 'Quarter' Return (Direct from Quarter statement)
@@ -240,7 +228,6 @@ def run_pipeline():
         print("   > 1d. Running Auto-Classification...")
         all_tickers = holdings['ticker'].unique().tolist()
         name_map = fetch_security_names_yf(all_tickers)
-        # name_map['USD'] = 'Settled Cash'  # Override YF for Settled Cash
         
         holdings['official_name'] = holdings['ticker'].map(name_map).fillna('')
         holdings['asset_class'] = holdings.apply(
@@ -255,7 +242,6 @@ def run_pipeline():
             
     except ValueError as e:
         print(f"Error unpacking data: {e}")
-        import traceback
         traceback.print_exc()
         return
 
@@ -263,7 +249,7 @@ def run_pipeline():
     print("\n=== 2. Fetching Market Data (External) ===")
     
     # Get User Selection for Main Benchmark
-    main_benchmark_weights = COMPOSITE_BENCHMARK_CONFIG.get(SELECTED_COMP_BENCHMARK_KEY, {'SPY': 1.0}) # Fallback Benchmark: SPY
+    main_benchmark_weights = COMPOSITE_BENCHMARK_CONFIG.get(SELECTED_COMP_BENCHMARK_KEY, {'SPY': 1.0})
     main_bench_constituents = list(main_benchmark_weights.keys())
     
     # Gather ALL benchmarks needed (Standard + Main Constituents)
@@ -271,16 +257,12 @@ def run_pipeline():
     all_needed_tickers = list(set(standard_benchmarks + main_bench_constituents))
     
     # --- CALCULATE DATES FOR TRAILING RETURNS & RISK METRICS ---  
-    # Pull Inception Date
     if not daily_history.empty:
         portfolio_inception_date = pd.to_datetime(daily_history['date'].min())
     else:
-        portfolio_inception_date = qs_date # Fallback: Quarter Start Date
+        portfolio_inception_date = qs_date
     
-    # Still need 5 Years Ago Date for 1Y/3Y/5Y metrics *** UPDATE IF LONGER RETURN PERIODS ARE ADDED ***
     five_years_ago_date = rd_date - pd.DateOffset(years=5)
-    
-    # Pick OLDEST date between Inception and 5 Years Ago (+ 7 day buffer to ensure first day isn't missed)
     fetched_start_date = min(portfolio_inception_date, five_years_ago_date) - pd.Timedelta(days=7)
     
     # --- FETCH BENCHMARK RETURNS ---
@@ -302,11 +284,9 @@ def run_pipeline():
         print("   > Fetched Benchmark Data from Yahoo Finance")
     except Exception as e:
         print(f"Yahoo Connection Error: {e}")
-        import traceback
         traceback.print_exc()
 
     # --- CALCULATE COMPOSITE BENCHMARK ---
-    # Calculate Composite Benchmark for Performance History Chart and Table
     print(f"   > 2b. Calculating Composite Benchmark: {SELECTED_COMP_BENCHMARK_KEY}")
     main_benchmark_series = calculate_composite_benchmark_return(bench_returns_df, main_benchmark_weights)
     chart_data = prepare_chart_data(daily_history, main_benchmark_series, benchmark_name=SELECTED_COMP_BENCHMARK_KEY)
@@ -319,7 +299,6 @@ def run_pipeline():
     })
     
     # --- CALCULATE BENCHMARK PERIODS ---
-    # Get standard calendar windows (1M, 3M, YTD, 1Y, 3Y, 5Y)
     bench_windows, _ = calculate_period_returns(bench_nav_df, report_date)
     
     # Match the exact Portfolio dates for 'Quarter' and 'Inception'
@@ -342,10 +321,9 @@ def run_pipeline():
             bench_windows['Inception'] = get_exact_ret(portfolio_inception_date, rd_date)
 
     # --- CALCULATE RISK METRICS ---
-    print(f"   > 2c. Calculating Risk Profile (Horizon: {RISK_TIME_HORIZON or 'Full'} Yrs) ---")
+    print(f"   > 2c. Calculating Risk Profile (Horizon: Since Inception) ---")
     try:
-        # Custom metrics: Idiosynchratic Risk, Factors
-        risk_metrics = calculate_portfolio_risk(daily_history, main_benchmark_series, lookback_years=RISK_TIME_HORIZON)
+        risk_metrics = calculate_portfolio_risk(daily_history, main_benchmark_series)
         
         # Merge clean Inception CSV metrics
         if isinstance(inception_risk_measures, dict) and inception_risk_measures:
@@ -353,7 +331,6 @@ def run_pipeline():
             
     except Exception as e:
         print(f"Risk Calculation Error: {e}")
-        import traceback
         traceback.print_exc()
         risk_metrics = {}
 
@@ -444,8 +421,154 @@ def run_pipeline():
 
     except Exception as e:
         print(f"Failed to write PDF: {e}")
-        import traceback
         traceback.print_exc()
+
+
+#  ==========================================
+#   MAIN PIPELINE
+#  ==========================================
+def run_pipeline():
+    # --- PATHS SETUP ---
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(script_dir)
+    output_dir = os.path.join(project_root, "output")
+    
+    # ---------------------------------------------------------
+    # 0. Fetch & Decrypt Files from IBKR
+    # ---------------------------------------------------------
+    raw_download_dir = os.path.join(project_root, "data", "raw_encrypted_downloads")
+    decrypted_dir = os.path.join(project_root, "data", "raw_downloads")
+    
+    decrypted_results = {'inception': [], 'quarterly': [], 'other': []}
+    
+    print("\n === 0. Fetching Data from Remote Server ===")
+    try:
+        downloaded_files = fetch_files_via_sftp(
+            host=IB_SFTP_HOST, 
+            username=IB_USERNAME, 
+            ssh_key_path=SSH_PRIVATE_KEY_PATH, 
+            ssh_public_key_path=SSH_PUBLIC_KEY_PATH,  
+            remote_dir=REMOTE_STATEMENT_DIR, 
+            local_download_dir=raw_download_dir
+        )
+        
+        if downloaded_files:
+            decrypted_results = decrypt_pgp_files(
+                pgp_private_key_path=PGP_PRIVATE_KEY_PATH,
+                pgp_public_key_path=PGP_PUBLIC_KEY_PATH,  
+                encrypted_files=downloaded_files,
+                output_dir=decrypted_dir,
+                pgp_passphrase=PGP_PASSPHRASE
+            )
+    except Exception as e:
+        print(f"Warning: Failed to fetch/decrypt new data. Proceeding with existing local files. Error: {e}")
+    
+    # ---------------------------------------------------------
+    # 0b. Discover Accounts & Pair CSVs by Account ID
+    # ---------------------------------------------------------
+    print("\n === 0b. Discovering & Pairing Accounts ===")
+    account_pairs = discover_and_pair_accounts(decrypted_results)
+    
+    if not account_pairs:
+        print("   > No accounts discovered from SFTP downloads.")
+        print("   > Tip: Ensure Inception and/or Quarterly Flex Query deliveries are configured in IBKR.")
+        return
+    
+    # Print discovery summary
+    for acct_id, info in account_pairs.items():
+        status = []
+        status.append("Quarterly ✓" if info['quarterly'] else "Quarterly ✗")
+        status.append("Inception ✓" if info['inception'] else "Inception ✗")
+        print(f"   > {info['name']} ({acct_id}): {', '.join(status)}")
+    
+    # Separate accounts into ready (both files) vs incomplete
+    ready_accounts = {k: v for k, v in account_pairs.items() 
+                      if v['inception'] and v['quarterly']}
+    inception_only = {k: v for k, v in account_pairs.items() 
+                      if v['inception'] and not v['quarterly']}
+    quarterly_only = {k: v for k, v in account_pairs.items() 
+                      if v['quarterly'] and not v['inception']}
+    
+    if inception_only:
+        print(f"\n   > {len(inception_only)} account(s) skipped — missing Quarterly file:")
+        for acct_id, info in inception_only.items():
+            print(f"     - {info['name']} ({acct_id})")
+    
+    if quarterly_only:
+        print(f"\n   > {len(quarterly_only)} account(s) skipped — missing Inception file:")
+        for acct_id, info in quarterly_only.items():
+            print(f"     - {info['name']} ({acct_id})")
+    
+    if not ready_accounts:
+        print("\n   > No accounts have both Quarterly and Inception files. Cannot generate reports.")
+        print("   > Ensure both Flex Query deliveries (Inception + Quarterly) are configured in IBKR.")
+        return
+    
+    print(f"\n   > {len(ready_accounts)} account(s) ready for report generation")
+    
+    # ---------------------------------------------------------
+    # 0c. Load Shared Resources (once for all accounts)
+    # ---------------------------------------------------------
+    INFO_FILE = os.path.join(project_root, "data", "info_for_pdf.xlsx")
+    LOGO_FILE = os.path.join(project_root, "data", "pdf_resources", "logos", "gaard_logo.png")
+    TEXT_LOGO_FILE = os.path.join(project_root, "data", "pdf_resources", "logos", "gaard_text_logo.png")
+    
+    pdf_info = {}
+    if os.path.exists(INFO_FILE):
+        print("   > SETUP: Loading PDF Info Sheet...")
+        try:
+            info_df = pd.read_excel(INFO_FILE, header=2)
+            info_df.columns = [c.strip() if isinstance(c, str) else c for c in info_df.columns]
+            if 'key' in info_df.columns and 'value' in info_df.columns:
+                pdf_info = dict(zip(info_df['key'].dropna(), info_df['value'].dropna()))
+            else:
+                print(f"Warning: Expected columns 'key' and 'value' not found. Found: {info_df.columns.to_list()}")
+        except Exception as e:
+            print(f"Warning: Could not load Info File for PDF: {e}")
+    
+    shared = {
+        'output_dir': output_dir,
+        'pdf_info': pdf_info,
+        'logo_file': LOGO_FILE,
+        'text_logo_file': TEXT_LOGO_FILE,
+    }
+    
+    # ---------------------------------------------------------
+    # 1-3. Loop: Generate Report for Each Paired Account
+    # ---------------------------------------------------------
+    success_count = 0
+    fail_count = 0
+    
+    for i, (acct_id, info) in enumerate(ready_accounts.items(), 1):
+        print(f"\n{'='*70}")
+        print(f"  PROCESSING ACCOUNT {i}/{len(ready_accounts)}: {info['name']} ({acct_id})")
+        print(f"  Quarterly:  {os.path.basename(info['quarterly'])}")
+        print(f"  Inception:  {os.path.basename(info['inception'])}")
+        print(f"{'='*70}")
+        
+        try:
+            generate_report_for_account(
+                quarter_csv=info['quarterly'],
+                inception_csv=info['inception'],
+                shared=shared
+            )
+            success_count += 1
+        except Exception as e:
+            print(f"ERROR generating report for {info['name']} ({acct_id}): {e}")
+            traceback.print_exc()
+            fail_count += 1
+            continue
+    
+    # --- FINAL SUMMARY ---
+    print(f"\n{'='*70}")
+    print(f"  PIPELINE COMPLETE")
+    print(f"  Reports Generated: {success_count}")
+    if fail_count:
+        print(f"  Failed: {fail_count}")
+    if inception_only:
+        print(f"  Skipped (no Quarterly): {len(inception_only)}")
+    print(f"{'='*70}\n")
+
 
 if __name__ == "__main__":
     run_pipeline()
