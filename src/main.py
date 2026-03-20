@@ -38,7 +38,7 @@ COMPOSITE_BENCHMARK_CONFIG = {
 
 BENCHMARK_CONFIG = {
     'U.S. Equities':            ['SPY'],  
-    'International Equities':   ['ACWI'], 
+    'International Equities':   ['ACWX'], 
     'Fixed Income':             ['AGG'],
     'Alternative Assets':       ['QAI'],
     'Cash':                     ['BIL'],
@@ -46,7 +46,7 @@ BENCHMARK_CONFIG = {
 
 BENCHMARK_NAMES = {
     'SPY': 'S&P 500',
-    'ACWI': 'MSCI ACWI',
+    'ACWX': 'MSCI ACWI ex US',
     'AGG': 'US Aggregate Bond',
     'QAI': 'NYLI Hedge Multi-Strategy',
     'BIL': '1-3 Month T-Bills',
@@ -64,8 +64,9 @@ IGNORE_STARTSWITH = [
     '912797PN1',  # Treasury Bond Series
 ]
 
-SELECTED_COMP_BENCHMARK_KEY = '60/40 SPY/AGG'                                                           # SEE CONFIGURATION ABOVE FOR OPTIONS
+SELECTED_COMP_BENCHMARK_KEY = '60/40 SPY/AGG'                                           # SEE CONFIGURATION ABOVE FOR OPTIONS
 RISK_TIME_HORIZON = None                                                                # Since Inception (full history)
+USE_TEST_DATA = True                                                                    # True = bypass SFTP, use data/test_data/
 
 
 #  ==========================================
@@ -127,6 +128,155 @@ def discover_and_pair_accounts(decrypted_results):
             existing = accounts[account_id][category]
             if existing is None or os.path.getmtime(csv_path) > os.path.getmtime(existing):
                 accounts[account_id][category] = csv_path
+    
+    return accounts
+
+
+# --- TEST DATA HELPERS ---
+def extract_csv_metadata(csv_path):
+    """Reads a CSV's Introduction row to extract account ID, name, and analysis end date."""
+    try:
+        with open(csv_path, 'r', encoding='utf-8-sig') as f:
+            reader = csv.reader(f)
+            for row in reader:
+                if len(row) >= 8 and row[0].strip() == 'Introduction' and row[1].strip() == 'Data':
+                    account_id = row[3].strip()
+                    account_name = row[2].strip()
+                    analysis_period = row[7].strip()
+                    
+                    end_date = None
+                    if ' to ' in analysis_period:
+                        end_part = analysis_period.split(' to ')[1]
+                        paren_idx = end_part.find('(')
+                        if paren_idx > 0:
+                            end_part = end_part[:paren_idx].strip()
+                        try:
+                            end_date = pd.to_datetime(end_part).strftime('%Y-%m-%d')
+                        except Exception:
+                            pass
+                    
+                    return account_id, account_name, end_date
+    except Exception:
+        pass
+    return None, None, None
+
+
+def scan_test_data_folder(test_data_dir):
+    """Scans a test_data folder for pre-decrypted CSVs organized in subdirectories.
+    Classifies subdirectories as 'inception' or 'quarterly' based on folder name.
+    
+    Returns: { 'inception': [csv_paths], 'quarterly': [csv_paths], 'other': [] }
+    """
+    results = {'inception': [], 'quarterly': [], 'other': []}
+    
+    if not os.path.exists(test_data_dir):
+        print(f"   > Test data directory not found: {test_data_dir}")
+        return results
+    
+    for entry in sorted(os.listdir(test_data_dir)):
+        entry_path = os.path.join(test_data_dir, entry)
+        
+        if not os.path.isdir(entry_path):
+            continue
+        
+        category = 'inception' if 'inception' in entry.lower() else 'quarterly'
+        csv_count = 0
+        
+        for filename in os.listdir(entry_path):
+            if filename.endswith('.csv'):
+                results[category].append(os.path.join(entry_path, filename))
+                csv_count += 1
+        
+        print(f"   > [{category.upper():>9}] {entry}: {csv_count} CSV(s)")
+    
+    return results
+
+
+def discover_and_pair_accounts_by_date(decrypted_results):
+    """Date-aware account pairing. Pairs inception + quarterly CSVs by account ID,
+    preferring inception files whose end date matches the quarterly end date.
+    
+    Returns: { account_id: { 'name': str, 'inception': path|None, 'quarterly': path|None } }
+    """
+    inventory = {'inception': [], 'quarterly': []}
+    
+    for category in ['inception', 'quarterly']:
+        for csv_path in decrypted_results.get(category, []):
+            if not csv_path.endswith('.csv'):
+                continue
+            account_id, account_name, end_date = extract_csv_metadata(csv_path)
+            if not account_id:
+                print(f"   > Warning: Could not read metadata from {os.path.basename(csv_path)}")
+                continue
+            inventory[category].append({
+                'path': csv_path, 'account_id': account_id,
+                'name': account_name, 'end_date': end_date
+            })
+    
+    # Group quarterly by account_id (keep newest end_date per account)
+    quarterly_by_account = {}
+    for item in inventory['quarterly']:
+        acct = item['account_id']
+        if acct not in quarterly_by_account or (
+            item['end_date'] and (quarterly_by_account[acct]['end_date'] is None or
+            item['end_date'] > quarterly_by_account[acct]['end_date'])
+        ):
+            quarterly_by_account[acct] = item
+    
+    # Group inception by account_id (keep ALL candidates for date matching)
+    inception_by_account = {}
+    for item in inventory['inception']:
+        acct = item['account_id']
+        if acct not in inception_by_account:
+            inception_by_account[acct] = []
+        inception_by_account[acct].append(item)
+    
+    # Pair by account ID with date-aware inception selection
+    accounts = {}
+    all_ids = set(list(quarterly_by_account.keys()) + list(inception_by_account.keys()))
+    
+    for account_id in sorted(all_ids):
+        q = quarterly_by_account.get(account_id)
+        i_candidates = inception_by_account.get(account_id, [])
+        
+        name = q['name'] if q else (i_candidates[0]['name'] if i_candidates else 'Unknown')
+        quarterly_path = q['path'] if q else None
+        q_end = q['end_date'] if q else None
+        inception_path = None
+        
+        if i_candidates:
+            if q_end:
+                # 1st: exact end-date match
+                exact = [c for c in i_candidates if c['end_date'] == q_end]
+                if exact:
+                    inception_path = exact[0]['path']
+                    print(f"   > {name} ({account_id}): Date match ✓ — both end {q_end}")
+                else:
+                    # 2nd: inception whose end_date covers the quarterly end (closest >=)
+                    covering = sorted(
+                        [c for c in i_candidates if c['end_date'] and c['end_date'] >= q_end],
+                        key=lambda c: c['end_date']
+                    )
+                    if covering:
+                        chosen = covering[0]
+                        inception_path = chosen['path']
+                        print(f"   > {name} ({account_id}): No exact date match — "
+                              f"Quarterly ends {q_end}, using Inception ending {chosen['end_date']}")
+                    else:
+                        # 3rd: newest inception file (end date < quarterly — data gap warning)
+                        fallback = sorted(i_candidates, key=lambda c: c['end_date'] or '', reverse=True)
+                        inception_path = fallback[0]['path']
+                        print(f"   > WARNING: {name} ({account_id}): Inception ends "
+                              f"{fallback[0]['end_date']} — BEFORE quarterly end {q_end}")
+            else:
+                fallback = sorted(i_candidates, key=lambda c: c['end_date'] or '', reverse=True)
+                inception_path = fallback[0]['path']
+        
+        accounts[account_id] = {
+            'name': name,
+            'quarterly': quarterly_path,
+            'inception': inception_path
+        }
     
     return accounts
 
@@ -433,41 +583,55 @@ def run_pipeline():
     project_root = os.path.dirname(script_dir)
     output_dir = os.path.join(project_root, "output")
     
-    # ---------------------------------------------------------
-    # 0. Fetch & Decrypt Files from IBKR
-    # ---------------------------------------------------------
-    raw_download_dir = os.path.join(project_root, "data", "raw_encrypted_downloads")
-    decrypted_dir = os.path.join(project_root, "data", "raw_downloads")
-    
-    decrypted_results = {'inception': [], 'quarterly': [], 'other': []}
-    
-    print("\n === 0. Fetching Data from Remote Server ===")
-    try:
-        downloaded_files = fetch_files_via_sftp(
-            host=IB_SFTP_HOST, 
-            username=IB_USERNAME, 
-            ssh_key_path=SSH_PRIVATE_KEY_PATH, 
-            ssh_public_key_path=SSH_PUBLIC_KEY_PATH,  
-            remote_dir=REMOTE_STATEMENT_DIR, 
-            local_download_dir=raw_download_dir
-        )
+    if USE_TEST_DATA:
+        # ---------------------------------------------------------
+        # 0. TEST DATA MODE — Bypass SFTP, scan local test_data
+        # ---------------------------------------------------------
+        test_data_dir = os.path.join(project_root, "data", "test_data")
+        print("\n === 0. TEST DATA MODE — Scanning local test_data folder ===")
+        print(f"   > Source: {test_data_dir}")
+        decrypted_results = scan_test_data_folder(test_data_dir)
         
-        if downloaded_files:
-            decrypted_results = decrypt_pgp_files(
-                pgp_private_key_path=PGP_PRIVATE_KEY_PATH,
-                pgp_public_key_path=PGP_PUBLIC_KEY_PATH,  
-                encrypted_files=downloaded_files,
-                output_dir=decrypted_dir,
-                pgp_passphrase=PGP_PASSPHRASE
-            )
-    except Exception as e:
-        print(f"Warning: Failed to fetch/decrypt new data. Proceeding with existing local files. Error: {e}")
+        # Date-aware account pairing
+        print("\n === 0b. Discovering & Pairing Accounts (Date-Aware) ===")
+        account_pairs = discover_and_pair_accounts_by_date(decrypted_results)
     
-    # ---------------------------------------------------------
-    # 0b. Discover Accounts & Pair CSVs by Account ID
-    # ---------------------------------------------------------
-    print("\n === 0b. Discovering & Pairing Accounts ===")
-    account_pairs = discover_and_pair_accounts(decrypted_results)
+    else:
+        # ---------------------------------------------------------
+        # 0. Fetch & Decrypt Files from IBKR
+        # ---------------------------------------------------------
+        raw_download_dir = os.path.join(project_root, "data", "raw_encrypted_downloads")
+        decrypted_dir = os.path.join(project_root, "data", "raw_downloads")
+        
+        decrypted_results = {'inception': [], 'quarterly': [], 'other': []}
+        
+        print("\n === 0. Fetching Data from Remote Server ===")
+        try:
+            downloaded_files = fetch_files_via_sftp(
+                host=IB_SFTP_HOST, 
+                username=IB_USERNAME, 
+                ssh_key_path=SSH_PRIVATE_KEY_PATH, 
+                ssh_public_key_path=SSH_PUBLIC_KEY_PATH,  
+                remote_dir=REMOTE_STATEMENT_DIR, 
+                local_download_dir=raw_download_dir
+            )
+            
+            if downloaded_files:
+                decrypted_results = decrypt_pgp_files(
+                    pgp_private_key_path=PGP_PRIVATE_KEY_PATH,
+                    pgp_public_key_path=PGP_PUBLIC_KEY_PATH,  
+                    encrypted_files=downloaded_files,
+                    output_dir=decrypted_dir,
+                    pgp_passphrase=PGP_PASSPHRASE
+                )
+        except Exception as e:
+            print(f"Warning: Failed to fetch/decrypt new data. Proceeding with existing local files. Error: {e}")
+        
+        # ---------------------------------------------------------
+        # 0b. Discover Accounts & Pair CSVs by Account ID
+        # ---------------------------------------------------------
+        print("\n === 0b. Discovering & Pairing Accounts ===")
+        account_pairs = discover_and_pair_accounts(decrypted_results)
     
     if not account_pairs:
         print("   > No accounts discovered from SFTP downloads.")
