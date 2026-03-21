@@ -400,8 +400,18 @@ def parse_since_inception_csv(since_inception_stmt_csv: str) -> SinceInceptionDa
         processed_risk['Standard Deviation'] = _coerce_float(val_map.get('Standard Deviation', 0))
         processed_risk['Downside Deviation'] = _coerce_float(val_map.get('Downside Deviation', 0))
         processed_risk['Mean Return'] = _coerce_float(val_map.get('Mean Return', 0))
-        # Keep text-based fields as strings 
-        processed_risk['Peak-To-Valley'] = str(val_map.get('Peak-To-Valley', ''))
+        # Peak-To-Valley: convert date range (e.g. "20260226 - 20260313") to day count
+        ptv_raw = str(val_map.get('Peak-To-Valley', '')).strip()
+        ptv_days = None
+        if ' - ' in ptv_raw:
+            parts = [p.strip() for p in ptv_raw.split(' - ')]
+            try:
+                d_start = pd.to_datetime(parts[0], format='%Y%m%d')
+                d_end = pd.to_datetime(parts[1], format='%Y%m%d')
+                ptv_days = (d_end - d_start).days
+            except Exception:
+                pass
+        processed_risk['Peak-To-Valley'] = ptv_days
         processed_risk['Recovery'] = str(val_map.get('Recovery', ''))
         processed_risk['Positive Periods'] = str(val_map.get('Positive Periods', ''))
         processed_risk['Negative Periods'] = str(val_map.get('Negative Periods', ''))   

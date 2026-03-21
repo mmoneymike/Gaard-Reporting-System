@@ -114,3 +114,86 @@ def calculate_portfolio_risk(daily_nav_df, benchmark_series, rf_rate=None):
         print(f"   > Warning: Factor calculation failed: {e}")
 
     return metrics
+
+
+def calculate_descriptive_risk_stats(daily_nav_df, rf_rate=None):
+    """Recalculates IBKR-style descriptive risk metrics from a raw daily NAV series.
+    
+    Used for aggregate reports where IBKR per-account values cannot be combined directly.
+    Expects daily_nav_df with columns 'date' and 'nav'.
+    """
+    result = {}
+    
+    if daily_nav_df.empty or 'nav' not in daily_nav_df.columns:
+        return result
+    
+    if rf_rate is None:
+        rf_rate = get_live_risk_free_rate(default_rate=0.04)
+    
+    df = daily_nav_df.copy()
+    df['date'] = pd.to_datetime(df['date'])
+    df = df.sort_values('date').reset_index(drop=True)
+    
+    nav = df['nav'].values
+    daily_returns = pd.Series(nav).pct_change().dropna()
+    
+    if len(daily_returns) < 2:
+        return result
+    
+    result['Ending VAMI'] = (nav[-1] / nav[0]) * 1000
+    
+    mean_daily = daily_returns.mean()
+    result['Mean Return'] = mean_daily * 100
+    
+    std_daily = daily_returns.std()
+    result['Standard Deviation'] = std_daily * np.sqrt(252) * 100
+    
+    negative_returns = daily_returns[daily_returns < 0]
+    if len(negative_returns) > 0:
+        downside_dev = negative_returns.std() * np.sqrt(252) * 100
+    else:
+        downside_dev = 0.0
+    result['Downside Deviation'] = downside_dev
+    
+    # Max Drawdown and Peak-To-Valley
+    cumulative = (1 + daily_returns).cumprod()
+    running_max = cumulative.cummax()
+    drawdown = (cumulative / running_max) - 1
+    max_dd = drawdown.min()
+    result['Max Drawdown'] = max_dd * 100
+    
+    if max_dd < 0:
+        trough_idx = drawdown.idxmin()
+        peak_idx = cumulative.iloc[:trough_idx + 1].idxmax()
+        peak_date = df['date'].iloc[peak_idx + 1] if (peak_idx + 1) < len(df) else df['date'].iloc[0]
+        trough_date = df['date'].iloc[trough_idx + 1] if (trough_idx + 1) < len(df) else df['date'].iloc[-1]
+        result['Peak-To-Valley'] = (trough_date - peak_date).days
+    else:
+        result['Peak-To-Valley'] = None
+    
+    if max_dd < 0:
+        trough_idx = drawdown.idxmin()
+        post_trough = drawdown.iloc[trough_idx:]
+        recovered = post_trough[post_trough >= 0]
+        result['Recovery'] = 'Yes' if len(recovered) > 0 else 'No'
+    else:
+        result['Recovery'] = 'N/A'
+    
+    # Sharpe Ratio (annualized)
+    rf_daily = rf_rate / 252
+    if std_daily > 0:
+        result['Sharpe Ratio'] = ((mean_daily - rf_daily) / std_daily) * np.sqrt(252)
+    else:
+        result['Sharpe Ratio'] = 0.0
+    
+    # Sortino Ratio (annualized)
+    downside_std_daily = negative_returns.std() if len(negative_returns) > 0 else 0.0
+    if downside_std_daily > 0:
+        result['Sortino Ratio'] = ((mean_daily - rf_daily) / downside_std_daily) * np.sqrt(252)
+    else:
+        result['Sortino Ratio'] = 0.0
+    
+    result['Positive Periods'] = str(int((daily_returns > 0).sum()))
+    result['Negative Periods'] = str(int((daily_returns < 0).sum()))
+    
+    return result

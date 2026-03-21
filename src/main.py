@@ -1,8 +1,10 @@
 import pandas as pd
 import os
+import re
 import csv
 import datetime
 import traceback
+from collections import defaultdict
 
 # --- IMPORTS ---
 from ib_connector import fetch_files_via_sftp, decrypt_pgp_files
@@ -11,7 +13,7 @@ from yf_loader import fetch_benchmark_returns_yf, fetch_security_names_yf
 from return_metrics import*
 from pdf_writer import write_portfolio_report
 from excel_writer import write_portfolio_report_xlsx
-from risk_metrics import calculate_portfolio_risk
+from risk_metrics import calculate_portfolio_risk, calculate_descriptive_risk_stats
 
 
 #  ==========================================
@@ -90,6 +92,24 @@ def auto_classify_asset(ticker: str, security_name: str) -> str:
 
     # 3. If no keywords found, classify as US Equity
     return 'U.S. Equities'
+
+
+def extract_base_person_name(account_name: str) -> str:
+    """Derives the base person name from an IBKR account name.
+    
+    Strips IRA/trust suffixes like " IRA, Interactive Brokers LLC Custodian",
+    " Roth IRA, ...", " Inherited IRA of  , ..." to group accounts by individual.
+    NOTE: May need refinement for edge cases as new account types appear.
+    """
+    name = str(account_name).strip()
+    patterns = [
+        r'\s+Inherited IRA.*$',
+        r'\s+Roth IRA.*$',
+        r'\s+IRA.*$',
+    ]
+    for pat in patterns:
+        name = re.sub(pat, '', name, flags=re.IGNORECASE)
+    return name.strip()
 
 
 def extract_account_info(csv_path):
@@ -285,12 +305,16 @@ def discover_and_pair_accounts_by_date(decrypted_results):
 #   PER-ACCOUNT REPORT GENERATION
 #  ==========================================
 def generate_report_for_account(quarter_csv, inception_csv, shared):
-    """Generates a single PDF report for one account.
+    """Generates a single PDF report for one account and returns intermediate data
+    for use in aggregate report generation.
     
     Parameters:
         quarter_csv:   Path to the quarterly statement CSV
         inception_csv: Path to the since-inception statement CSV
         shared:        Dict with shared config/resources
+        
+    Returns:
+        dict with intermediate data for aggregation, or None on failure.
     """
     output_dir       = shared['output_dir']
     pdf_info         = shared['pdf_info']
@@ -301,7 +325,7 @@ def generate_report_for_account(quarter_csv, inception_csv, shared):
     print(f"\n === 1. Ingesting Portfolio (Internal) ===")
     if not os.path.exists(quarter_csv):
         print(f"CRITICAL ERROR: Could not find Quarterly file at: {quarter_csv}")
-        return
+        return None
     
     try:
         # === 1a. Load Quarter Statement ===
@@ -393,7 +417,7 @@ def generate_report_for_account(quarter_csv, inception_csv, shared):
     except ValueError as e:
         print(f"Error unpacking data: {e}")
         traceback.print_exc()
-        return
+        return None
 
     # === 2. Fetch Market Data from YF ===
     print("\n=== 2. Fetching Market Data (External) ===")
@@ -572,6 +596,308 @@ def generate_report_for_account(quarter_csv, inception_csv, shared):
     except Exception as e:
         print(f"Failed to write PDF: {e}")
         traceback.print_exc()
+    
+    # Return intermediate data for aggregate report generation
+    return {
+        'account_title': account_title,
+        'report_date': report_date,
+        'quarter_start_date': quarter_start_date,
+        'key_stats': key_stats,
+        'holdings': holdings,
+        'daily_history': daily_history,
+        'total_nav': total_nav,
+        'legal_notes': legal_notes,
+        'window_returns': window_returns,
+        'quarter_label': quarter_label,
+        'bench_returns_df': bench_returns_df,
+        'bench_growth_period': bench_growth_period,
+        'main_benchmark_series': main_benchmark_series,
+        'bench_windows': bench_windows,
+    }
+
+
+#  ==========================================
+#   AGGREGATE REPORT GENERATION
+#  ==========================================
+def aggregate_account_data(account_data_list):
+    """Aggregates intermediate data from multiple accounts belonging to the same person.
+    
+    Combines holdings, key statistics, and daily NAV history using dollar-weighted compositing.
+    Returns a dict with the same structure as generate_report_for_account's return value.
+    """
+    if not account_data_list:
+        return None
+    
+    # Use the first account's dates and benchmarks as the reference
+    ref = account_data_list[0]
+    report_date = ref['report_date']
+    quarter_start_date = ref['quarter_start_date']
+    quarter_label = ref['quarter_label']
+    bench_returns_df = ref['bench_returns_df']
+    bench_growth_period = ref['bench_growth_period']
+    main_benchmark_series = ref['main_benchmark_series']
+    bench_windows = ref['bench_windows']
+    
+    # --- 1. AGGREGATE HOLDINGS ---
+    all_holdings = pd.concat([d['holdings'] for d in account_data_list], ignore_index=True)
+    
+    agg_holdings = all_holdings.groupby('ticker', as_index=False).agg({
+        'description': 'first',
+        'official_name': 'first',
+        'asset_class': 'first',
+        'raw_value': 'sum',
+        'avg_cost': 'sum',
+        'total_dividends': 'sum',
+        'realized_pl': 'sum',
+    })
+    
+    # Recalculate cumulative_return from aggregated cost/value/divs/realized
+    agg_holdings['cumulative_return'] = agg_holdings.apply(
+        lambda r: (((r['raw_value'] - r['avg_cost']) + r['total_dividends'] + r['realized_pl']) / r['avg_cost']) 
+                  if r['avg_cost'] != 0 else 0.0, axis=1
+    )
+    
+    total_value = agg_holdings['raw_value'].sum()
+    agg_holdings['weight'] = (agg_holdings['raw_value'] / total_value).fillna(0.0) if total_value else 0.0
+    
+    # --- 2. AGGREGATE KEY STATISTICS ---
+    agg_key_stats = {}
+    sum_fields = [
+        'BeginningNAV', 'EndingNAV', 'MTM', 'Deposits & Withdrawals',
+        'Dividends', 'Interest', 'Fees & Commissions', 'Other',
+        'ChangeInNAV', 'ChangeInInterestAccruals'
+    ]
+    for field in sum_fields:
+        agg_key_stats[field] = sum(d['key_stats'].get(field, 0.0) for d in account_data_list)
+    
+    # --- 3. AGGREGATE DAILY NAV HISTORY (Dollar-Weighted Composite) ---
+    rd_date = pd.to_datetime(report_date)
+    qs_date = pd.to_datetime(quarter_start_date)
+    
+    dollar_nav_series = []
+    for d in account_data_list:
+        dh = d['daily_history']
+        if dh.empty or 'nav' not in dh.columns:
+            continue
+        
+        dh_copy = dh[['date', 'nav']].copy()
+        dh_copy = dh_copy.sort_values('date').set_index('date')
+        
+        # Scale the 100-based wealth index to actual dollar NAV
+        ending_nav = d['key_stats'].get('EndingNAV', 0.0)
+        last_wi = dh_copy['nav'].iloc[-1]
+        scale = ending_nav / last_wi if last_wi != 0 else 0.0
+        
+        dh_copy['dollar_nav'] = dh_copy['nav'] * scale
+        dollar_nav_series.append(dh_copy[['dollar_nav']])
+    
+    # Combine into aggregate NAV
+    agg_daily_history = pd.DataFrame()
+    if dollar_nav_series:
+        combined = pd.concat(dollar_nav_series, axis=1, join='outer')
+        combined = combined.sort_index()
+        combined = combined.ffill().fillna(0.0)
+        combined['agg_nav'] = combined.sum(axis=1)
+        
+        agg_daily_history = pd.DataFrame({
+            'date': combined.index,
+            'nav': combined['agg_nav'].values
+        }).reset_index(drop=True)
+        
+        # Filter to report date
+        agg_daily_history = agg_daily_history[agg_daily_history['date'] <= rd_date].copy()
+    
+    # Recalculate CumulativeReturn from aggregate NAV
+    if not agg_daily_history.empty:
+        first_nav = agg_daily_history['nav'].iloc[0]
+        last_nav = agg_daily_history['nav'].iloc[-1]
+        agg_key_stats['CumulativeReturn'] = (last_nav / first_nav) - 1.0 if first_nav != 0 else 0.0
+    else:
+        agg_key_stats['CumulativeReturn'] = 0.0
+    
+    # --- 4. AGGREGATE LEGAL NOTES ---
+    all_notes = [d['legal_notes'] for d in account_data_list if d['legal_notes'] is not None and not d['legal_notes'].empty]
+    if all_notes:
+        agg_legal_notes = pd.concat(all_notes, ignore_index=True).drop_duplicates()
+    else:
+        agg_legal_notes = pd.DataFrame()
+    
+    return {
+        'holdings': agg_holdings,
+        'key_stats': agg_key_stats,
+        'daily_history': agg_daily_history,
+        'report_date': report_date,
+        'quarter_start_date': quarter_start_date,
+        'quarter_label': quarter_label,
+        'legal_notes': agg_legal_notes,
+        'bench_returns_df': bench_returns_df,
+        'bench_growth_period': bench_growth_period,
+        'main_benchmark_series': main_benchmark_series,
+        'bench_windows': bench_windows,
+        'total_nav': agg_key_stats.get('EndingNAV', 0.0),
+    }
+
+
+def generate_aggregate_report(person_name, account_data_list, shared):
+    """Generates a consolidated PDF report for a person with multiple accounts.
+    
+    Parameters:
+        person_name:       Base person name (e.g. "Paula C Hurley")
+        account_data_list: List of intermediate data dicts from generate_report_for_account
+        shared:            Dict with shared config/resources
+    """
+    output_dir = shared['output_dir']
+    pdf_info = shared['pdf_info']
+    LOGO_FILE = shared['logo_file']
+    TEXT_LOGO_FILE = shared['text_logo_file']
+    
+    account_names = [d['account_title'] for d in account_data_list]
+    print(f"\n   > Aggregating {len(account_data_list)} accounts: {account_names}")
+    
+    # --- 1. AGGREGATE ---
+    agg = aggregate_account_data(account_data_list)
+    if agg is None:
+        print(f"   > WARNING: Aggregation failed for {person_name}")
+        return
+    
+    holdings = agg['holdings']
+    key_stats = agg['key_stats']
+    daily_history = agg['daily_history']
+    report_date = agg['report_date']
+    quarter_start_date = agg['quarter_start_date']
+    quarter_label = agg['quarter_label']
+    legal_notes = agg['legal_notes']
+    bench_returns_df = agg['bench_returns_df']
+    bench_growth_period = agg['bench_growth_period']
+    main_benchmark_series = agg['main_benchmark_series']
+    bench_windows = agg['bench_windows']
+    
+    rd_date = pd.to_datetime(report_date)
+    qs_date = pd.to_datetime(quarter_start_date)
+    
+    # --- 2. CALCULATE PERIOD RETURNS ---
+    window_returns, _ = calculate_period_returns(daily_history, rd_date)
+    window_returns['Quarter'] = key_stats.get('CumulativeReturn', 0.0)
+    
+    if not daily_history.empty:
+        first_val = daily_history['nav'].iloc[0]
+        last_val = daily_history['nav'].iloc[-1]
+        window_returns['Inception'] = (last_val / first_val) - 1.0 if first_val != 0 else 0.0
+    
+    # Recalculate benchmark Inception to match the aggregate inception date
+    if not daily_history.empty and not main_benchmark_series.empty:
+        bench_nav_df = pd.DataFrame({
+            'date': main_benchmark_series.index,
+            'nav': (1 + main_benchmark_series).cumprod() * 100
+        })
+        if not bench_nav_df.empty:
+            nav_s = bench_nav_df.set_index('date')['nav']
+            portfolio_inception_date = pd.to_datetime(daily_history['date'].min())
+            val_start = nav_s.asof(portfolio_inception_date)
+            val_end = nav_s.asof(rd_date)
+            if not pd.isna(val_start) and not pd.isna(val_end) and val_start != 0:
+                bench_windows = bench_windows.copy() if isinstance(bench_windows, dict) else {}
+                bench_windows['Inception'] = (val_end / val_start) - 1.0
+    
+    # --- 3. CHART DATA ---
+    chart_data = prepare_chart_data(daily_history, main_benchmark_series, benchmark_name=SELECTED_COMP_BENCHMARK_KEY)
+    
+    # --- 4. RISK METRICS ---
+    print(f"   > Calculating Aggregate Risk Profile...")
+    try:
+        risk_metrics = calculate_portfolio_risk(daily_history, main_benchmark_series)
+        
+        # Recalculate descriptive stats from the composite NAV (replaces IBKR values)
+        descriptive_stats = calculate_descriptive_risk_stats(daily_history)
+        risk_metrics.update(descriptive_stats)
+    except Exception as e:
+        print(f"   > Aggregate Risk Calculation Error: {e}")
+        traceback.print_exc()
+        risk_metrics = {}
+    
+    # --- 5. BUILD SUMMARY DF ---
+    grand_cost = holdings['avg_cost'].sum()
+    grand_value = holdings['raw_value'].sum()
+    grand_divs = holdings['total_dividends'].sum()
+    grand_realized = holdings['realized_pl'].sum()
+    
+    metrics = {
+        'return': ((grand_value - grand_cost) + grand_divs + grand_realized) / grand_cost if grand_cost != 0 else 0.0,
+        'value': grand_value
+    }
+    
+    summary_rows = []
+    my_buckets = holdings['asset_class'].unique()
+    
+    sorted_buckets = [b for b in BENCHMARK_CONFIG if b in my_buckets]
+    for b in my_buckets:
+        if b not in sorted_buckets: sorted_buckets.append(b)
+    
+    for bucket in sorted_buckets:
+        bucket_data = holdings[holdings['asset_class'] == bucket]
+        b_mv = bucket_data['raw_value'].sum()
+        b_cost = bucket_data['avg_cost'].sum()
+        b_divs = bucket_data['total_dividends'].sum()
+        b_realized = bucket_data['realized_pl'].sum()
+        
+        summary_rows.append({
+            'Type': 'Bucket',
+            'Name': bucket,
+            'MarketValue': b_mv,
+            'Allocation': b_mv / grand_value if grand_value else 0.0,
+            'Return': ((b_mv - b_cost) + b_divs + b_realized) / b_cost if b_cost != 0 else 0.0,
+            'IsCash': (bucket == 'Cash')
+        })
+        
+        for b_ticker in BENCHMARK_CONFIG.get(bucket, []):
+            b_val = 0.0
+            if not bench_growth_period.empty and b_ticker in bench_growth_period.columns:
+                b_val = get_cumulative_return(bench_growth_period[b_ticker], 'INCEPTION')
+            
+            summary_rows.append({
+                'Type': 'Benchmark',
+                'Name': BENCHMARK_NAMES.get(b_ticker, b_ticker),
+                'MarketValue': None,
+                'Allocation': None,
+                'Return': b_val,
+                'IsCash': False
+            })
+    
+    summary_df = pd.DataFrame(summary_rows)
+    
+    # --- 6. WRITE PDF ---
+    account_title = f"{person_name} (Consolidated)"
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
+    PDF_FILE = os.path.join(output_dir, f"{account_title}_Quarter_Portfolio_Report_{timestamp}.pdf")
+    
+    try:
+        write_portfolio_report(
+            account_title=account_title,
+            report_date=report_date,
+            summary_df=summary_df,
+            key_statistics=key_stats,
+            holdings_df=holdings,
+            total_metrics=metrics,
+            main_benchmark_tckr=SELECTED_COMP_BENCHMARK_KEY,
+            
+            performance_windows=window_returns,
+            benchmark_performance_windows=bench_windows,
+            performance_chart_data=chart_data,
+            quarter_label=quarter_label,
+            
+            risk_metrics=risk_metrics,
+            risk_time_horizon=RISK_TIME_HORIZON,
+            
+            legal_notes=legal_notes,
+            pdf_info=pdf_info,
+            text_logo_path=TEXT_LOGO_FILE,
+            logo_path=LOGO_FILE,
+            output_path=PDF_FILE,
+        )
+        print(f"* DONE! Aggregate Report Generated: {os.path.basename(PDF_FILE)} *")
+    except Exception as e:
+        print(f"Failed to write aggregate PDF: {e}")
+        traceback.print_exc()
 
 
 #  ==========================================
@@ -702,6 +1028,7 @@ def run_pipeline():
     # ---------------------------------------------------------
     success_count = 0
     fail_count = 0
+    account_results = {}
     
     for i, (acct_id, info) in enumerate(ready_accounts.items(), 1):
         print(f"\n{'='*70}")
@@ -711,11 +1038,13 @@ def run_pipeline():
         print(f"{'='*70}")
         
         try:
-            generate_report_for_account(
+            result = generate_report_for_account(
                 quarter_csv=info['quarterly'],
                 inception_csv=info['inception'],
                 shared=shared
             )
+            if result is not None:
+                account_results[acct_id] = result
             success_count += 1
         except Exception as e:
             print(f"ERROR generating report for {info['name']} ({acct_id}): {e}")
@@ -723,12 +1052,52 @@ def run_pipeline():
             fail_count += 1
             continue
     
+    # ---------------------------------------------------------
+    # 4. Generate Aggregate Reports (per person with 2+ accounts)
+    # ---------------------------------------------------------
+    agg_success = 0
+    agg_fail = 0
+    
+    if account_results:
+        # Group accounts by base person name
+        person_groups = defaultdict(list)
+        for acct_id, data in account_results.items():
+            base_name = extract_base_person_name(data['account_title'])
+            person_groups[base_name].append(data)
+        
+        # Only generate aggregates for persons with multiple accounts
+        multi_account_persons = {name: data_list for name, data_list in person_groups.items() 
+                                 if len(data_list) >= 2}
+        
+        if multi_account_persons:
+            print(f"\n{'='*70}")
+            print(f"  AGGREGATE REPORT GENERATION")
+            print(f"  {len(multi_account_persons)} person(s) with multiple accounts")
+            print(f"{'='*70}")
+            
+            for person_name, data_list in multi_account_persons.items():
+                print(f"\n{'='*70}")
+                print(f"  AGGREGATING: {person_name} ({len(data_list)} accounts)")
+                print(f"{'='*70}")
+                
+                try:
+                    generate_aggregate_report(person_name, data_list, shared)
+                    agg_success += 1
+                except Exception as e:
+                    print(f"ERROR generating aggregate report for {person_name}: {e}")
+                    traceback.print_exc()
+                    agg_fail += 1
+    
     # --- FINAL SUMMARY ---
     print(f"\n{'='*70}")
     print(f"  PIPELINE COMPLETE")
-    print(f"  Reports Generated: {success_count}")
+    print(f"  Individual Reports Generated: {success_count}")
+    if agg_success:
+        print(f"  Aggregate Reports Generated: {agg_success}")
     if fail_count:
-        print(f"  Failed: {fail_count}")
+        print(f"  Individual Failed: {fail_count}")
+    if agg_fail:
+        print(f"  Aggregate Failed: {agg_fail}")
     if inception_only:
         print(f"  Skipped (no Quarterly): {len(inception_only)}")
     print(f"{'='*70}\n")
