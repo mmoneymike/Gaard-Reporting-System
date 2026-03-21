@@ -1,5 +1,6 @@
 import pandas as pd
 import altair as alt
+import re
 from fpdf import FPDF
 from fpdf.fonts import FontFace
 import os
@@ -85,6 +86,14 @@ class PortfolioPDF(FPDF):
         display_num = self.page_no()
         self.cell(0, 5, f'Page {display_num}', align='C')
         
+
+def clean_display_name(name: str) -> str:
+    """Strips custodian boilerplate from IBKR account names for PDF display."""
+    n = str(name).strip()
+    n = re.sub(r',?\s*Interactive Brokers LLC Custodian$', '', n, flags=re.IGNORECASE)
+    n = re.sub(r'\s+of\s*$', '', n)
+    return n.strip().rstrip(',').strip()
+
 
 #  === IPS COMPLIANCE TABLE DATA ===
 def get_ips_table_data(pdf_info, summary_df):
@@ -396,6 +405,9 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
     # COMMON STYLES
     header_style = FontFace(size_pt=12, emphasis="BOLD", color=C_WHITE, fill_color=C_BLUE_LOGO)
     
+    
+    # Clean the account title for PDF display (strip custodian boilerplate)
+    account_title = clean_display_name(account_title)
     
     # Use statement-derived account title (Introduction -> Name) for front/back cover pages.
     # Keep pdf_info fallback only if statement data is missing or generic.
@@ -1062,7 +1074,9 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
     left_rows.append(("Ending VAMI", risk_metrics.get('Ending VAMI', 0.0), "float", False))
     left_rows.append(("Mean Return", risk_metrics.get('Mean Return', 0.0), "percent", False))
     left_rows.append(("Max Drawdown", risk_metrics.get('Max Drawdown', 0.0), "percent", False))
-    left_rows.append(("Peak-To-Valley", risk_metrics.get('Peak-To-Valley', 'N/A'), "string", False))
+    ptv_val = risk_metrics.get('Peak-To-Valley')
+    ptv_display = f"{ptv_val} Days" if ptv_val is not None else "N/A"
+    left_rows.append(("Peak-To-Valley", ptv_display, "string", False))
     left_rows.append(("Recovery", risk_metrics.get('Recovery', 'N/A'), "string", False))
     # left_rows.append(("Positive Periods", risk_metrics.get('Positive Periods', 'N/A'), "string", False))
     # left_rows.append(("Negative Periods", risk_metrics.get('Negative Periods', 'N/A'), "string", False))
@@ -1163,7 +1177,7 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
                     bg_color = C_WHITE
                     font_style = ""
                     
-                    if fmt == 'percent': val_str = f"{val:.2%}"
+                    if fmt == 'percent': val_str = f"{val:.2f}%"
                     elif fmt == 'float': val_str = f"{val:.2f}"
                     else: val_str = str(val)
 
