@@ -670,7 +670,7 @@ def aggregate_account_data(account_data_list):
     for field in sum_fields:
         agg_key_stats[field] = sum(d['key_stats'].get(field, 0.0) for d in account_data_list)
     
-    # --- 3. AGGREGATE DAILY NAV HISTORY (Dollar-Weighted Composite) ---
+    # --- 3. AGGREGATE DAILY NAV HISTORY (Chain-Linked Composite) ---
     rd_date = pd.to_datetime(report_date)
     qs_date = pd.to_datetime(quarter_start_date)
     
@@ -691,23 +691,54 @@ def aggregate_account_data(account_data_list):
         dh_copy['dollar_nav'] = dh_copy['nav'] * scale
         dollar_nav_series.append(dh_copy[['dollar_nav']])
     
-    # Combine into aggregate NAV
+    # Build aggregate wealth index using GIPS aggregate method:
+    # Accounts opening on a given day are treated as external cash flows
+    # and excluded from that day's composite return. They begin contributing
+    # the following day, weighted by their dollar NAV.
     agg_daily_history = pd.DataFrame()
     if dollar_nav_series:
         combined = pd.concat(dollar_nav_series, axis=1, join='outer')
         combined = combined.sort_index()
-        combined = combined.ffill().fillna(0.0)
-        combined['agg_nav'] = combined.sum(axis=1)
+        combined.columns = [f'acct_{i}' for i in range(combined.shape[1])]
+        
+        # Forward-fill mid-series gaps (weekends/holidays).
+        # Leading NaN (before an account's inception) stays NaN.
+        combined = combined.ffill()
+        
+        # Compute daily composite returns: only accounts active on BOTH
+        # the previous and current day contribute to the return.
+        dates = combined.index
+        daily_returns = pd.Series(0.0, index=dates)
+        
+        for i in range(1, len(dates)):
+            prev_row = combined.iloc[i - 1]
+            curr_row = combined.iloc[i]
+            
+            prev_total = 0.0
+            curr_continuing = 0.0
+            
+            for col in combined.columns:
+                was_active = pd.notna(prev_row[col])
+                is_active = pd.notna(curr_row[col])
+                
+                if was_active and is_active:
+                    prev_total += prev_row[col]
+                    curr_continuing += curr_row[col]
+            
+            if prev_total > 0:
+                daily_returns.iloc[i] = (curr_continuing / prev_total) - 1.0
+        
+        # Chain-link daily returns into a wealth index (starts at 100)
+        agg_wealth = (1 + daily_returns).cumprod() * 100
         
         agg_daily_history = pd.DataFrame({
-            'date': combined.index,
-            'nav': combined['agg_nav'].values
+            'date': agg_wealth.index,
+            'nav': agg_wealth.values
         }).reset_index(drop=True)
         
-        # Filter to report date
         agg_daily_history = agg_daily_history[agg_daily_history['date'] <= rd_date].copy()
     
-    # Recalculate CumulativeReturn from aggregate NAV
+    # CumulativeReturn from composite wealth index (inception return)
     if not agg_daily_history.empty:
         first_nav = agg_daily_history['nav'].iloc[0]
         last_nav = agg_daily_history['nav'].iloc[-1]
@@ -777,9 +808,20 @@ def generate_aggregate_report(person_name, account_data_list, shared):
     
     # --- 2. CALCULATE PERIOD RETURNS ---
     window_returns, _ = calculate_period_returns(daily_history, rd_date)
-    window_returns['Quarter'] = key_stats.get('CumulativeReturn', 0.0)
     
+    # Quarter and Inception returns from the composite wealth index
     if not daily_history.empty:
+        nav_by_date = daily_history.set_index('date')['nav']
+        
+        # Quarter: wealth index at quarter start vs. report date
+        qs_nav = nav_by_date.asof(qs_date)
+        rd_nav = nav_by_date.asof(rd_date)
+        if pd.notna(qs_nav) and pd.notna(rd_nav) and qs_nav != 0:
+            window_returns['Quarter'] = (rd_nav / qs_nav) - 1.0
+        else:
+            window_returns['Quarter'] = 0.0
+        
+        # Inception: first NAV vs. last NAV
         first_val = daily_history['nav'].iloc[0]
         last_val = daily_history['nav'].iloc[-1]
         window_returns['Inception'] = (last_val / first_val) - 1.0 if first_val != 0 else 0.0
