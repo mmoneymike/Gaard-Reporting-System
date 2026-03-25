@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pandas as pd
 
+_IBKR_ACCOUNT_RE = re.compile(r'^U\d+$')
+
 SECTION_HEADER = "Header"
 SECTION_DATA = "Data"
 SECTION_META = "MetaInfo"
@@ -318,7 +320,15 @@ def get_portfolio_holdings(quarterly_stmt_csv: str, benchmark_default_date: str)
     sections = build_statement_sections(quarterly_stmt_csv)
     meta = extract_metadata(sections)
     
-    account_title = meta.name if meta.name else "Total Portfolio"
+    is_flex_query = not _IBKR_ACCOUNT_RE.match((meta.account or '').strip())
+    if is_flex_query and meta.name:
+        base_name = re.sub(r'\s+(Quarterly|Inception)$', '', meta.name.strip(), flags=re.IGNORECASE).strip()
+        if (meta.account or '').strip().lower() == 'consolidated':
+            account_title = f"{base_name} (Consolidated)"
+        else:
+            account_title = base_name
+    else:
+        account_title = meta.name if meta.name else "Total Portfolio"
     
     # 1. Report End Date (from 'Analysis Period'). Temporarily assigned PORTFOLIO_FALLBACK_DATA in main.py
     report_date = benchmark_default_date
