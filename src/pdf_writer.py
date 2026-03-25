@@ -395,6 +395,23 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
             return str(date_str) # Fallback if parsing fails
     # --------------------------------------------------------------------------------------
     
+    # --- HELPER 3: PERFORMANCE DISCLOSURE AT BOTTOM OF PAGE ---
+    def render_performance_disclosure(pdf_obj, benchmark_label):
+        """Renders a small light-grey disclosure paragraph at the bottom of the current page."""
+        disclosure = (
+            "Portfolio and account performance is net of fees, while class, segment, and asset performance is "
+            "gross of fees. This communication is for informational purposes only and should not be regarded "
+            "as an official statement of the sender. Account values and performance information may be "
+            "unreconciled, unaudited and/or provided from outside sources. Please refer to monthly account "
+            "statements for finalized information. Past performance is no assurance of future results. "
+            f"The {benchmark_label} composite index is used for portfolio benchmark returns."
+        )
+        pdf_obj.set_y(-30)
+        pdf_obj.set_font('Carlito', '', 8)
+        pdf_obj.set_text_color(180, 180, 180)
+        pdf_obj.multi_cell(w=pdf_obj.w - 24, h=3, text=disclosure, align='L')
+    # --------------------------------------------------------------------------------------
+    
     # 1. *** SETUP ***
     pdf = PortfolioPDF(orientation='L', unit='mm', format='A4')
     pdf.set_auto_page_break(auto=True, margin=20)
@@ -732,9 +749,21 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
                 r = table.row()
                 r.cell(display_name, style=style_row)
                 r.cell(f"${val:,.0f}", style=style_row)
-       
-       
-       
+
+        # Disclosure at bottom of page
+        nav_disclosure = (
+            "Net Additions include deposits, withdrawals, transfers, and foreign tax withholding, while "
+            "Management Fees are included in Net Gain. This communication is for informational purposes "
+            "only and should not be regarded as an official statement of the sender. Account values and "
+            "performance information may be unreconciled, unaudited and/or provided from outside sources. "
+            "Please refer to monthly account statements for finalized information. Past performance is no "
+            "assurance of future results."
+        )
+        pdf.set_y(-30)
+        pdf.set_font('Carlito', '', 8)
+        pdf.set_text_color(180, 180, 180)
+        pdf.multi_cell(w=pdf.w - 24, h=3, text=nav_disclosure, align='L')
+
     #  ==========================================
     #   PAGE 6: PORTFOLIO OVERVIEW
     #  ==========================================
@@ -765,7 +794,7 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
     table_start_x = (pdf.w - table_width) / 2
     
     # 3. Table Title
-    pdf.set_y(start_y + 120)
+    pdf.set_y(start_y + 110)
     pdf.set_x(table_start_x)  # Moves title to start of table
     pdf.set_font('Carlito', 'B', 12)
     pdf.set_text_color(0,0,0)
@@ -823,6 +852,8 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
                 val = benchmark_performance_windows.get(k)
                 b_style = "RIGHT" if k != "Inception" else "NONE"
                 row_bench.cell(f"{val:.2%}" if val is not None else "-", style=p5_bench_style, align="RIGHT", border=b_style)
+
+    render_performance_disclosure(pdf, main_benchmark_tckr)
 
     #  ==========================================
     #   PAGE 7: PORTFOLIO PERFORMANCE BY ALLOCATION
@@ -936,7 +967,8 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
                 r.cell("", style=bench_style, border="RIGHT") 
                 r.cell("", style=bench_style, border="RIGHT") 
                 r.cell(f"{row['Return']:.2%}", style=bench_style)
-        
+
+    render_performance_disclosure(pdf, main_benchmark_tckr)
         
     #  ==========================================
     #   PAGE 8+: EXPANDED INVESTMENT PERFORMANCE BY ALLOCATION
@@ -1057,7 +1089,8 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
                 r.cell(f"${pos['raw_value']:,.0f}", style=reg_data_style, border="RIGHT")
                 r.cell(ret_str, style=reg_data_style)
 
-    
+    render_performance_disclosure(pdf, main_benchmark_tckr)
+
     #  ==========================================
     #   PAGE 9: RISK ANALYTICS
     #  ==========================================
@@ -1295,7 +1328,7 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
         
         notes_df = legal_notes.copy()
             
-        with pdf.table(col_widths=(30, 240),
+        with pdf.table(col_widths=(50, 220),
                        text_align=("LEFT", "LEFT"),
                        borders_layout="HORIZONTAL_LINES",
                        align="LEFT",
@@ -1319,8 +1352,52 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
                 
                 r.cell(type_val, style=note_style)
                 r.cell(note_val, style=note_style)
-                
-                
+
+    # -- RISK METRIC DEFINITIONS --
+    pdf.ln(6)
+    pdf.set_font('Carlito', 'B', 10)
+    pdf.set_text_color(0, 0, 0)
+    pdf.cell(0, 5, "Risk Metric Definitions", new_x="LMARGIN", new_y="NEXT", align='L')
+    pdf.ln(2)
+
+    risk_definitions = [
+        ("Ending VAMI", "Value Added Monthly Index; growth of a hypothetical $1,000 investment since inception."),
+        ("Mean Return", "Average daily return over the analysis period, annualized."),
+        ("Max Drawdown", "Largest peak-to-trough decline in portfolio value."),
+        ("Peak-To-Valley", "Number of trading days from the peak to the trough of the maximum drawdown."),
+        ("Recovery", "Number of trading days from the trough back to a new high, or 'Ongoing' if not yet recovered."),
+        ("Standard Deviation", "Annualized measure of total return volatility (both up and down)."),
+        ("Downside Deviation", "Annualized volatility of negative returns only, measuring downside risk."),
+        ("Sharpe Ratio", "Risk-adjusted return: excess return over the risk-free rate per unit of total volatility."),
+        ("Sortino Ratio", "Risk-adjusted return: excess return over the risk-free rate per unit of downside volatility."),
+        ("Idiosyncratic Risk", "Annualized portfolio volatility not explained by the benchmark (residual risk)."),
+        ("R-Squared", "Proportion of portfolio return variance explained by the benchmark (0 to 1)."),
+        ("Beta: Size (IWM)", "Sensitivity of portfolio returns to the small-cap factor (Russell 2000)."),
+        ("Beta: Value (IWD)", "Sensitivity of portfolio returns to the value factor (Russell 1000 Value)."),
+        ("Beta: Quality (QUAL)", "Sensitivity of portfolio returns to the quality factor (MSCI USA Quality)."),
+        ("Beta: Momentum (MTUM)", "Sensitivity of portfolio returns to the momentum factor (MSCI USA Momentum)."),
+    ]
+
+    pdf.set_font('Carlito', '', 8)
+    risk_def_header_style = FontFace(size_pt=8, emphasis="BOLD", color=C_WHITE, fill_color=C_BLUE_LOGO)
+    risk_def_style = FontFace(size_pt=8, emphasis="", color=(0,0,0), fill_color=C_WHITE)
+
+    with pdf.table(col_widths=(50, 220),
+                   text_align=("LEFT", "LEFT"),
+                   borders_layout="HORIZONTAL_LINES",
+                   align="LEFT",
+                   width=270,
+                   line_height=4) as table:
+
+        h = table.row()
+        h.cell("Metric", style=risk_def_header_style)
+        h.cell("Definition", style=risk_def_header_style)
+
+        for metric, definition in risk_definitions:
+            r = table.row()
+            r.cell(metric, style=risk_def_style)
+            r.cell(definition, style=risk_def_style)
+
     #  ==========================================
     #   END COVER PAGE
     #  ==========================================            
