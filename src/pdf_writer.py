@@ -14,6 +14,70 @@ C_GREY_BORDER  = (200, 200, 200)
 C_TEXT_GREY    = (100, 100, 100)
 C_WHITE        = (255, 255, 255)  
 
+# --- PAGE DISCLOSURES (edit text here — referenced by page rendering below) ---
+DISCLOSURE_NAV = (
+    "Net Asset Value (NAV): Reflects Mark-to-Market (MTM) valuations, deposits, withdrawals, "
+    "and dividends. MTM represents the current market value of assets. Interest includes earned "
+    "income; Change in Interest Accruals reflects interest earned but not yet settled. Fees include "
+    "management fees and third-party execution commissions via Interactive Brokers."
+)
+
+DISCLOSURE_PERFORMANCE = (
+    "Performance is net of management fees and third-party commissions. The Composite Benchmark "
+    "is comprised of 60% SPDR S&P 500 ETF Trust and 40% iShares Core U.S. Aggregate Bond ETF. "
+    "Benchmarks are net of fund Expense Ratios and do not include trading costs. See disclosures "
+    "for full descriptions. Information is for educational purposes, not an official statement. "
+    "Data may be unaudited; refer to monthly custodial statements for finalized records. "
+    "Past performance is no guarantee of future results."
+)
+
+DISCLOSURE_ALLOCATION = (
+    "Portfolio and account performance are net of management fees and third-party commissions, while "
+    "class, allocation, and asset-level performance are gross of fees. Benchmarks are net of fund Expense Ratios "
+    "and do not include trading costs. See disclosures for full descriptions. Information is for " 
+    "educational purposes, not an official statement. Data may be unaudited; refer to monthly custodial statements "
+    "for finalized records. Past performance is no guarantee of future results."
+)
+
+DISCLOSURE_RISK = (
+    "Portfolio and account performance Risk metrics are net of management fees and third-party commissions. "
+    "Risk metrics are reported Since Inception. Relative risk and factor coefficients are statistical estimates "
+    "based on historical data and should not be viewed as absolute predictors of future exposure or performance."
+)
+
+DISCLOSURE_RISK_METRICS = (
+    "Risk metrics are net of management fees and third-party commissions, and are reported on a Since Inception basis. "
+    "Relative risk and factor coefficients are statistical estimates based on historical data and should not be viewed "
+    "as absolute predictors of future exposure or performance."
+)
+
+BENCHMARK_DEFINITIONS = [
+    ("SPDR S&P 500 ETF Trust (SPY)",
+     "A market-capitalization-weighted index designed to track the 500 leading companies in leading "
+     "industries of the U.S. economy. It represents approximately 80% coverage of available market "
+     "capitalization. (Expense Ratio: 0.09%)"),
+
+    ("iShares Core U.S. Aggregate Bond Index (AGG)",
+     "A market-capitalization-weighted index representing a broad range of U.S. investment-grade "
+     "fixed-income securities, including government, corporate, and mortgage-backed bonds. "
+     "(Expense Ratio: 0.03%)"),
+
+    ("iShares MSCI ACWI ex U.S. ETF (ACWX)",
+     "Captures large- and mid-cap representation across 22 of 23 developed markets (excluding the "
+     "U.S.) and 23 emerging markets countries. This index covers approximately 85% of the global "
+     "equity opportunity set outside the United States. (Expense Ratio: 0.33%)"),
+
+    ("IQ Hedge Multi-Strategy Tracker ETF (QAI)",
+     "Designed to track the risk and return characteristics of multiple hedge fund investment "
+     "styles -- including long/short equity, global macro, and fixed-income arbitrage -- using a "
+     "rules-based, transparent methodology. (Expense Ratio: 0.76%)"),
+
+    ("SPDR Bloomberg 1-3 Month T-Bill ETF (BIL)",
+     "Tracks the market for U.S. Treasury Bills with a remaining maturity between one and three "
+     "months. These securities are issued by the U.S. government and are considered among the "
+     "highest-quality fixed-income assets. (Expense Ratio: 0.14%)"),
+]
+
 class PortfolioPDF(FPDF):
     def __init__(self, orientation='P', unit='mm', format='A4'):
         super().__init__(orientation, unit, format)
@@ -240,12 +304,12 @@ def generate_line_chart(comparison_df):
     # We expect 'Series' column to contain ['Portfolio', 'YOUR_BENCHMARK_NAME']
     series_names = source['Series'].unique().tolist()
     
-    # Ensure 'Portfolio' is first in the list so it gets the Blue color (#5978F7)
+    # Rename any non-Portfolio series to "Benchmark" for display
     if 'Portfolio' in series_names:
         series_names.remove('Portfolio')
-        # The remaining name Composite Benchmark
-        bench_name = series_names[0] if series_names else "Benchmark"
-        domain = ['Portfolio', bench_name]
+        original_bench_name = series_names[0] if series_names else "Benchmark"
+        source['Series'] = source['Series'].replace(original_bench_name, 'Benchmark')
+        domain = ['Portfolio', 'Benchmark']
     else:
         domain = series_names
 
@@ -395,21 +459,13 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
             return str(date_str) # Fallback if parsing fails
     # --------------------------------------------------------------------------------------
     
-    # --- HELPER 3: PERFORMANCE DISCLOSURE AT BOTTOM OF PAGE ---
-    def render_performance_disclosure(pdf_obj, benchmark_label):
+    # --- HELPER 3: DISCLOSURE AT BOTTOM OF PAGE ---
+    def render_page_disclosure(pdf_obj, text):
         """Renders a small light-grey disclosure paragraph at the bottom of the current page."""
-        disclosure = (
-            "Portfolio and account performance is net of fees, while class, segment, and asset performance is "
-            "gross of fees. This communication is for informational purposes only and should not be regarded "
-            "as an official statement of the sender. Account values and performance information may be "
-            "unreconciled, unaudited and/or provided from outside sources. Please refer to monthly account "
-            "statements for finalized information. Past performance is no assurance of future results. "
-            f"The {benchmark_label} composite index is used for portfolio benchmark returns."
-        )
         pdf_obj.set_y(-30)
         pdf_obj.set_font('Carlito', '', 8)
         pdf_obj.set_text_color(180, 180, 180)
-        pdf_obj.multi_cell(w=pdf_obj.w - 24, h=3, text=disclosure, align='L')
+        pdf_obj.multi_cell(w=pdf_obj.w - 24, h=3, text=text, align='L')
     # --------------------------------------------------------------------------------------
     
     # 1. *** SETUP ***
@@ -750,19 +806,7 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
                 r.cell(display_name, style=style_row)
                 r.cell(f"${val:,.0f}", style=style_row)
 
-        # Disclosure at bottom of page
-        nav_disclosure = (
-            "Net Additions include deposits, withdrawals, transfers, and foreign tax withholding, while "
-            "Management Fees are included in Net Gain. This communication is for informational purposes "
-            "only and should not be regarded as an official statement of the sender. Account values and "
-            "performance information may be unreconciled, unaudited and/or provided from outside sources. "
-            "Please refer to monthly account statements for finalized information. Past performance is no "
-            "assurance of future results."
-        )
-        pdf.set_y(-30)
-        pdf.set_font('Carlito', '', 8)
-        pdf.set_text_color(180, 180, 180)
-        pdf.multi_cell(w=pdf.w - 24, h=3, text=nav_disclosure, align='L')
+        render_page_disclosure(pdf, DISCLOSURE_NAV)
 
     #  ==========================================
     #   PAGE 6: PORTFOLIO OVERVIEW
@@ -845,15 +889,14 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
         if benchmark_performance_windows:
             row_bench = table.row()
             p5_bench_style = FontFace(size_pt=12, emphasis="ITALICS", color=C_TEXT_GREY, fill_color=C_WHITE)
-            bench_label = main_benchmark_tckr
-            row_bench.cell(f"Benchmark: {bench_label}", style=p5_bench_style)
+            row_bench.cell("Benchmark", style=p5_bench_style)
             
             for i, k in enumerate(keys): 
                 val = benchmark_performance_windows.get(k)
                 b_style = "RIGHT" if k != "Inception" else "NONE"
                 row_bench.cell(f"{val:.2%}" if val is not None else "-", style=p5_bench_style, align="RIGHT", border=b_style)
 
-    render_performance_disclosure(pdf, main_benchmark_tckr)
+    render_page_disclosure(pdf, DISCLOSURE_PERFORMANCE)
 
     #  ==========================================
     #   PAGE 7: PORTFOLIO PERFORMANCE BY ALLOCATION
@@ -968,7 +1011,7 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
                 r.cell("", style=bench_style, border="RIGHT") 
                 r.cell(f"{row['Return']:.2%}", style=bench_style)
 
-    render_performance_disclosure(pdf, main_benchmark_tckr)
+    render_page_disclosure(pdf, DISCLOSURE_ALLOCATION)
         
     #  ==========================================
     #   PAGE 8+: EXPANDED INVESTMENT PERFORMANCE BY ALLOCATION
@@ -1089,17 +1132,13 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
                 r.cell(f"${pos['raw_value']:,.0f}", style=reg_data_style, border="RIGHT")
                 r.cell(ret_str, style=reg_data_style)
 
-    render_performance_disclosure(pdf, main_benchmark_tckr)
+    render_page_disclosure(pdf, DISCLOSURE_ALLOCATION)
 
     #  ==========================================
     #   PAGE 9: RISK ANALYTICS
     #  ==========================================
     pdf.show_standard_header = True; pdf.header_text = "Risk Analysis"; pdf.add_page()
     
-    # 1. SETUP DATA & LABELS
-    # horizon_label = f"{risk_time_horizon} Year" if risk_time_horizon else "Full History" # functionality to dynamically pull Risk Time Horizon
-    horizon_label = "Since Inception"
-        
     # --- TABLE 1 (LEFT): Profile & Volatility (Pulled from Inception CSV) ---
     left_rows = []
     
@@ -1167,7 +1206,7 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
     pdf.set_x(table1_start_x)
     pdf.set_font('Carlito', 'B', 12)
     pdf.set_text_color(0, 0, 0)
-    pdf.cell(0, 5, f"Risk Profile ({horizon_label})", new_x="LMARGIN", new_y="NEXT", align='L')
+    pdf.cell(0, 5, f"Risk Profile", new_x="LMARGIN", new_y="NEXT", align='L')
 
     # Reporting Date Footer 
     pdf.set_x(table1_start_x)
@@ -1226,6 +1265,8 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
     
     # Reset margin to avoid breaking subsequent pages
     pdf.set_left_margin(original_l_margin)
+
+    render_page_disclosure(pdf, DISCLOSURE_RISK)
         
         
     #  ==========================================
@@ -1303,16 +1344,45 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
     #   PAGE 13: IMPORTANT INFO AND DISCLOSURES
     #  ==========================================
     pdf.show_standard_header = True; pdf.header_text = "Important Information and Disclosures"; pdf.add_page()
-    pdf.set_y(15)
-    
-    pdf.ln(10)
-    
-    # Body Text
-    disclaimer_text = clean_text(pdf_info.get('page_2_disclaimer', 'No disclosures provided.'))
-    
-    pdf.set_font('Carlito', '', 12)
-    pdf.set_text_color(40, 40, 40)
-    pdf.multi_cell(0, 6, disclaimer_text)     # Multi_cell allows text wrapping
+    pdf.set_y(15); pdf.ln(5)
+
+    discl_header_style = FontFace(size_pt=9, emphasis="BOLD", color=C_WHITE, fill_color=C_BLUE_LOGO)
+    discl_row_style = FontFace(size_pt=9, emphasis="", color=(0, 0, 0), fill_color=C_WHITE)
+
+    # --- 1. GENERAL DISCLOSURES (from info_for_pdf.xlsx) ---
+    extra_disclaimer = pdf_info.get('page_2_disclaimer', '')
+    if extra_disclaimer:
+        pdf.set_font('Carlito', 'B', 12)
+        pdf.set_text_color(0, 0, 0)
+        pdf.cell(0, 6, "General Disclosures", new_x="LMARGIN", new_y="NEXT", align='L')
+        pdf.ln(2)
+        pdf.set_font('Carlito', '', 10)
+        pdf.set_text_color(40, 40, 40)
+        pdf.multi_cell(0, 5, clean_text(extra_disclaimer))
+        pdf.ln(6)
+
+    # --- 2. BENCHMARK DEFINITIONS ---
+    pdf.set_font('Carlito', 'B', 12)
+    pdf.set_text_color(0, 0, 0)
+    pdf.cell(0, 6, "Benchmark Definitions", new_x="LMARGIN", new_y="NEXT", align='L')
+    pdf.ln(2)
+
+    pdf.set_font('Carlito', '', 9)
+    with pdf.table(col_widths=(70, 200),
+                   text_align=("LEFT", "LEFT"),
+                   borders_layout="HORIZONTAL_LINES",
+                   align="LEFT",
+                   width=270,
+                   line_height=4) as table:
+        h = table.row()
+        h.cell("Benchmark", style=discl_header_style)
+        h.cell("Description", style=discl_header_style)
+
+        for bench_name, bench_desc in BENCHMARK_DEFINITIONS:
+            r = table.row()
+            r.cell(bench_name, style=discl_row_style)
+            r.cell(bench_desc, style=discl_row_style)
+
                 
                 
     #  ==========================================
