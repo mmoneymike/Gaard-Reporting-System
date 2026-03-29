@@ -382,7 +382,7 @@ def generate_report_for_account(quarter_csv, inception_csv, shared):
             first_val = daily_history['nav'].iloc[0]
             last_val = daily_history['nav'].iloc[-1]
             window_returns['Inception'] = (last_val / first_val) - 1.0 if first_val != 0 else 0.0
-            
+
         # *** OUTPUT FILE NAME ***
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
         PDF_FILE = os.path.join(output_dir, f"{account_title}_Quarter_Portfolio_Report_{timestamp}.pdf")
@@ -434,7 +434,14 @@ def generate_report_for_account(quarter_csv, inception_csv, shared):
         portfolio_inception_date = pd.to_datetime(daily_history['date'].min())
     else:
         portfolio_inception_date = qs_date
-    
+
+    # Null out returns for periods where account hasn't been held long enough
+    data_span_days = (rd_date - portfolio_inception_date).days
+    if data_span_days < 365:
+        window_returns['1Y'] = None
+    if data_span_days < 365 * 3:
+        window_returns['3Y'] = None
+
     five_years_ago_date = rd_date - pd.DateOffset(years=5)
     fetched_start_date = min(portfolio_inception_date, five_years_ago_date) - pd.Timedelta(days=7)
     
@@ -492,6 +499,12 @@ def generate_report_for_account(quarter_csv, inception_csv, shared):
         # Calculate benchmark return for the exact Lifetime of the account
         if not daily_history.empty:
             bench_windows['Inception'] = get_exact_ret(portfolio_inception_date, rd_date)
+
+    # Mirror account nulls: benchmark should dash where account dashes
+    if data_span_days < 365:
+        bench_windows['1Y'] = None
+    if data_span_days < 365 * 3:
+        bench_windows['3Y'] = None
 
     # --- CALCULATE RISK METRICS ---
     print(f"   > 2c. Calculating Risk Profile (Horizon: Since Inception) ---")
@@ -589,6 +602,7 @@ def generate_report_for_account(quarter_csv, inception_csv, shared):
             text_logo_path=TEXT_LOGO_FILE,
             logo_path=LOGO_FILE, 
             output_path=PDF_FILE,
+            portfolio_inception_date=portfolio_inception_date,
         )
         print(f"* DONE! Report Generated: {os.path.basename(PDF_FILE)} *")
 

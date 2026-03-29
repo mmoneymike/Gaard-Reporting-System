@@ -19,36 +19,33 @@ DISCLOSURE_NAV = (
     "Net Asset Value (NAV): Reflects Mark-to-Market (MTM) valuations, deposits, withdrawals, "
     "and dividends. MTM represents the current market value of assets. Interest includes earned "
     "income; Change in Interest Accruals reflects interest earned but not yet settled. Fees include "
-    "management fees and third-party execution commissions via Interactive Brokers."
+    "management fees and third-party execution commissions via Interactive Brokers LLC. "
+    "Please see disclosures for full descriptions. Past performance is no guarantee of future results."
 )
 
 DISCLOSURE_PERFORMANCE = (
-    "Performance is net of management fees and third-party commissions. The Composite Benchmark "
-    "is comprised of 60% SPDR S&P 500 ETF Trust and 40% iShares Core U.S. Aggregate Bond ETF. "
-    "Benchmarks are net of fund Expense Ratios and do not include trading costs. See disclosures "
-    "for full descriptions. Information is for educational purposes, not an official statement. "
-    "Data may be unaudited; refer to monthly custodial statements for finalized records. "
-    "Past performance is no guarantee of future results."
+    "Performance is net of management fees and third-party commissions. The Benchmark "
+    "is comprised of 60% SPDR S&P 500 ETF Trust / 40% iShares Core U.S. Aggregate Bond ETF. "
+    "Benchmarks are net of fund expense and do not include trading costs. Please see disclosures "
+    "for full descriptions. Account values and performance information may be unreconciled, unaudited "
+    "and/or provided from outside sources. Please refer to monthly account statements for finalized information. "
+    "Returns greater than one year are annualized. Past performance is no guarantee of future results."
 )
 
 DISCLOSURE_ALLOCATION = (
     "Portfolio and account performance are net of management fees and third-party commissions, while "
-    "class, allocation, and asset-level performance are gross of fees. Benchmarks are net of fund Expense Ratios "
-    "and do not include trading costs. See disclosures for full descriptions. Information is for " 
-    "educational purposes, not an official statement. Data may be unaudited; refer to monthly custodial statements "
-    "for finalized records. Past performance is no guarantee of future results."
-)
-
-DISCLOSURE_RISK = (
-    "Portfolio and account performance Risk metrics are net of management fees and third-party commissions. "
-    "Risk metrics are reported Since Inception. Relative risk and factor coefficients are statistical estimates "
-    "based on historical data and should not be viewed as absolute predictors of future exposure or performance."
+    "class, allocation, and asset-level performance are gross of fees. Benchmarks are net of fund expense "
+    "and do not include trading costs. Please see disclosures for full descriptions. Account values and performance information "
+    "may be unreconciled, unaudited and/or provided from outside sources. Please refer to monthly account statements for finalized information. "
+    "Past performance is no guarantee of future results."
 )
 
 DISCLOSURE_RISK_METRICS = (
-    "Risk metrics are net of management fees and third-party commissions, and are reported on a Since Inception basis. "
-    "Relative risk and factor coefficients are statistical estimates based on historical data and should not be viewed "
-    "as absolute predictors of future exposure or performance."
+    "Portfolio and account performance are net of management fees and third-party commissions. Risk metrics are reported since inception. "
+    "The Benchmark is comprised of 60% SPDR S&P 500 ETF Trust / 40% iShares Core U.S. "
+    "Aggregate Bond ETF. Benchmarks are net of fund expense and do not include trading costs. "
+    "Relative risk and factor coefficients are statistical estimates based on historical data and should not be viewed as absolute predictors of future "
+    "exposure or performance. Please see disclosures for full descriptions. Past performance is no guarantee of future results."
 )
 
 BENCHMARK_DEFINITIONS = [
@@ -411,7 +408,7 @@ def generate_donut_chart(summary_df):
 #  ==========================================
 def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metrics, risk_metrics, report_date, output_path, account_title="Total Portfolio",
                            performance_windows=None, benchmark_performance_windows=None, performance_chart_data=None, quarter_label="Quarter", main_benchmark_tckr="SPY", risk_time_horizon=1,
-                           legal_notes=None, pdf_info=None, text_logo_path=None, logo_path=None):
+                           legal_notes=None, pdf_info=None, text_logo_path=None, logo_path=None, portfolio_inception_date=None):
     
     print(f"   > Generating PDF Report: {output_path}")
     if pdf_info is None: pdf_info = {}
@@ -558,8 +555,8 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
     pdf.show_standard_header = True; pdf.header_text = "Table of Contents"; pdf.add_page()
     
     toc_items = [
-        "Endowment Goals and Objectives",
-        "Endowment Target Allocations",
+        "Goals and Objectives",
+        "Target Allocations",
         "Change in Portfolio Value",
         "Portfolio Overview",
         "Portfolio Performance by Allocation",
@@ -610,9 +607,9 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
         
         
     #  ==========================================
-    #   PAGE 3: ENDOWMENT GOALS & OBJECTIVES
+    #   PAGE 3: GOALS & OBJECTIVES
     #  ==========================================
-    pdf.show_standard_header = True; pdf.header_text = "Endowment Goals and Objectives"; pdf.add_page()
+    pdf.show_standard_header = True; pdf.header_text = "Goals and Objectives"; pdf.add_page()
     pdf.set_y(15); pdf.ln(10)
     
     # Body Text
@@ -640,9 +637,9 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
     pdf.multi_cell(text_block_width, line_height, ips_text)
     
     #  ==========================================
-    #   PAGE 4: ENDOWMENT TARGET ALLOCATIONS
+    #   PAGE 4: TARGET ALLOCATIONS
     #  ==========================================
-    pdf.show_standard_header = True; pdf.header_text = "Endowment Target Allocations"; pdf.add_page()
+    pdf.show_standard_header = True; pdf.header_text = "Target Allocations"; pdf.add_page()
     pdf.ln(2) 
     
     reg_name_style = FontFace(size_pt=12, emphasis=None, color=(0,0,0), fill_color=C_WHITE)
@@ -813,14 +810,27 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
     #  ==========================================
     pdf.show_standard_header = True; pdf.header_text = "Portfolio Overview"; pdf.add_page()
     pdf.set_font('Carlito', '', 10); pdf.set_text_color(*C_TEXT_GREY); pdf.cell(0, 1, f"Reportings as of {data_rep_date}", new_x="LMARGIN", new_y="NEXT"); 
-    pdf.ln(3); start_y = pdf.get_y()       
+    pdf.ln(3); start_y = pdf.get_y()
+
+    # --- DATA SUFFICIENCY FLAGS ---
+    has_1y = True
+    has_3y = True
+    show_footnotes = False
+    if portfolio_inception_date is not None:
+        data_span = (pd.to_datetime(report_date) - pd.to_datetime(portfolio_inception_date)).days
+        has_1y = data_span >= 365
+        has_3y = data_span >= 365 * 3
+        show_footnotes = not has_1y or not has_3y
 
     # --- 1. PERFORMANCE AND ALLOCATION CHARTS ---
     if performance_chart_data is not None:
         try:
             line_chart_img = generate_line_chart(performance_chart_data)
-            if line_chart_img: 
-                pdf.set_font('Carlito', 'B', 12); pdf.set_text_color(0, 0, 0); pdf.cell(0, 9, f"Endowment Performance vs Benchmark", new_x="LMARGIN", new_y="NEXT")
+            if line_chart_img:
+                chart_title = "PortfolioPerformance vs Benchmark"
+                if show_footnotes:
+                    chart_title += "\u00B9"
+                pdf.set_font('Carlito', 'B', 12); pdf.set_text_color(0, 0, 0); pdf.cell(0, 9, chart_title, new_x="LMARGIN", new_y="NEXT")
                 pdf.set_y(start_y+10); pdf.image(line_chart_img, w=165); os.remove(line_chart_img)
         except Exception as e:
             print(f"Performance Chart Error: {e}")
@@ -838,7 +848,7 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
     table_start_x = (pdf.w - table_width) / 2
     
     # 3. Table Title
-    pdf.set_y(start_y + 110)
+    pdf.set_y(start_y + 107)
     pdf.set_x(table_start_x)  # Moves title to start of table
     pdf.set_font('Carlito', 'B', 12)
     pdf.set_text_color(0,0,0)
@@ -857,6 +867,19 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
 
     col_widths = (60, 24, 24, 24, 24, 24)
     alignments = ("LEFT", "RIGHT", "RIGHT", "RIGHT", "RIGHT", "RIGHT")
+
+    # Helper: format cell value with conditional em-dash + superscripts
+    def _perf_cell_text(key, val):
+        if val is None:
+            if key == "3Y" and not has_3y:
+                return "\u2014\u00B9 \u00B2"
+            if key == "1Y" and not has_1y:
+                return "\u2014\u00B9 \u00B2"
+            return "\u2014"
+        text = f"{val:.2%}"
+        if key == "Inception" and show_footnotes:
+            text += "\u00B9"
+        return text
 
     # Render Table
     with pdf.table(col_widths=col_widths, 
@@ -883,9 +906,9 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
         for i, k in enumerate(keys): 
             val = performance_windows.get(k) if performance_windows else None
             b_style = "RIGHT" if k != "Inception" else "NONE"
-            row.cell(f"{val:.2%}" if val is not None else "-", style=p5_style, align="RIGHT", border=b_style)
+            row.cell(_perf_cell_text(k, val), style=p5_style, align="RIGHT", border=b_style)
 
-        # --- ROW 2: BENCHMARK DATA (NEW) ---
+        # --- ROW 2: BENCHMARK DATA ---
         if benchmark_performance_windows:
             row_bench = table.row()
             p5_bench_style = FontFace(size_pt=12, emphasis="ITALICS", color=C_TEXT_GREY, fill_color=C_WHITE)
@@ -894,7 +917,15 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
             for i, k in enumerate(keys): 
                 val = benchmark_performance_windows.get(k)
                 b_style = "RIGHT" if k != "Inception" else "NONE"
-                row_bench.cell(f"{val:.2%}" if val is not None else "-", style=p5_bench_style, align="RIGHT", border=b_style)
+                row_bench.cell(_perf_cell_text(k, val), style=p5_bench_style, align="RIGHT", border=b_style)
+
+    # --- FOOTNOTES (above disclosure, bottom-left) ---
+    if show_footnotes:
+        pdf.set_y(-37)
+        pdf.set_font('Carlito', '', 7)
+        pdf.set_text_color(0, 0, 0)
+        pdf.cell(0, 3, "1. Annualized Return", new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(0, 3, "2. Not held for entire period")
 
     render_page_disclosure(pdf, DISCLOSURE_PERFORMANCE)
 
@@ -1003,7 +1034,7 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
                 r.cell(row['Name'], style=bucket_style)
                 r.cell(f"{row['Allocation']:.2%}", style=bucket_style, border="RIGHT")
                 r.cell(f"${row['MarketValue']:,.0f}", style=bucket_style, border="RIGHT")
-                r.cell("---" if row.get('IsCash') else f"{row['Return']:.2%}", style=bucket_style)
+                r.cell("\u2014" if row.get('IsCash') else f"{row['Return']:.2%}", style=bucket_style)
             elif row['Type'] == 'Benchmark':
                 r = table.row()
                 r.cell(f"Benchmark: {row['Name']}", style=bench_style)
@@ -1109,11 +1140,11 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
                 if raw_ticker == "USD":
                     display_ticker = "USD"
                     name_str = "Settled Cash"
-                    ret_str = "---"
+                    ret_str = "\u2014"
                 elif raw_ticker == "ACCRUALS":
                     display_ticker = "Accruals"
                     name_str = "Interest Accruals"
-                    ret_str = "---"
+                    ret_str = "\u2014"
                 else:
                     display_ticker = raw_ticker
                     ret_str = f"{pos['cumulative_return']:.2%}"
@@ -1162,7 +1193,7 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
     # --- TABLE 2 (RIGHT): Relative Risk & Factors (Manually Calculated)---
     right_rows = []
     
-    right_rows.append((f"Relative Risk vs {main_benchmark_tckr}", None, None, True))
+    right_rows.append(("Relative Risk vs Benchmark", None, None, True))
     right_rows.append(("Idiosyncratic Risk", risk_metrics.get('Idiosyncratic Risk', 0.0), "percent", False))
     right_rows.append(("R-Squared", risk_metrics.get('R-Squared (vs Bench)', 0.0), "float", False))
     
@@ -1266,7 +1297,7 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
     # Reset margin to avoid breaking subsequent pages
     pdf.set_left_margin(original_l_margin)
 
-    render_page_disclosure(pdf, DISCLOSURE_RISK)
+    render_page_disclosure(pdf, DISCLOSURE_RISK_METRICS)
         
         
     #  ==========================================
