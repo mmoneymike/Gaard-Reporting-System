@@ -565,7 +565,6 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
         "Financial Statistics",
         "Market Review",
         "Important Information and Disclosures",
-        "Statement Notes"
     ]
     
     # 1. Dimensions
@@ -827,9 +826,7 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
         try:
             line_chart_img = generate_line_chart(performance_chart_data)
             if line_chart_img:
-                chart_title = "PortfolioPerformance vs Benchmark"
-                if show_footnotes:
-                    chart_title += "\u00B9"
+                chart_title = "Portfolio Performance vs Benchmark"
                 pdf.set_font('Carlito', 'B', 12); pdf.set_text_color(0, 0, 0); pdf.cell(0, 9, chart_title, new_x="LMARGIN", new_y="NEXT")
                 pdf.set_y(start_y+10); pdf.image(line_chart_img, w=165); os.remove(line_chart_img)
         except Exception as e:
@@ -1372,34 +1369,52 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
         
     
     #  ==========================================
-    #   PAGE 13: IMPORTANT INFO AND DISCLOSURES
+    #   IMPORTANT INFORMATION AND DISCLOSURES
     #  ==========================================
     pdf.show_standard_header = True; pdf.header_text = "Important Information and Disclosures"; pdf.add_page()
-    pdf.set_y(15); pdf.ln(5)
+    pdf.ln(1)
 
-    discl_header_style = FontFace(size_pt=9, emphasis="BOLD", color=C_WHITE, fill_color=C_BLUE_LOGO)
-    discl_row_style = FontFace(size_pt=9, emphasis="", color=(0, 0, 0), fill_color=C_WHITE)
+    discl_header_style = FontFace(size_pt=8, emphasis="BOLD", color=C_WHITE, fill_color=C_BLUE_LOGO)
+    discl_row_style = FontFace(size_pt=8, emphasis="", color=(0, 0, 0), fill_color=C_WHITE)
 
-    # --- 1. GENERAL DISCLOSURES (from info_for_pdf.xlsx) ---
+    def _discl_section_heading(title):
+        pdf.set_font('Carlito', 'B', 11)
+        pdf.set_text_color(*C_BLUE_LOGO)
+        pdf.cell(0, 6, title, new_x="LMARGIN", new_y="NEXT", align='L')
+        pdf.set_draw_color(*C_BLUE_LOGO)
+        pdf.set_line_width(0.3)
+        line_y = pdf.get_y()
+        pdf.line(pdf.l_margin, line_y, pdf.w - 12, line_y)
+        pdf.ln(3)
+
+    # --- 1. GENERAL DISCLOSURES ---
     extra_disclaimer = pdf_info.get('page_2_disclaimer', '')
     if extra_disclaimer:
-        pdf.set_font('Carlito', 'B', 12)
-        pdf.set_text_color(0, 0, 0)
-        pdf.cell(0, 6, "General Disclosures", new_x="LMARGIN", new_y="NEXT", align='L')
-        pdf.ln(2)
-        pdf.set_font('Carlito', '', 10)
+        _discl_section_heading("General Disclosures")
+        pdf.set_font('Carlito', '', 9)
         pdf.set_text_color(40, 40, 40)
-        pdf.multi_cell(0, 5, clean_text(extra_disclaimer))
-        pdf.ln(6)
+        pdf.multi_cell(pdf.w - 24, 4, clean_text(extra_disclaimer))
+        pdf.ln(5)
 
-    # --- 2. BENCHMARK DEFINITIONS ---
-    pdf.set_font('Carlito', 'B', 12)
-    pdf.set_text_color(0, 0, 0)
-    pdf.cell(0, 6, "Benchmark Definitions", new_x="LMARGIN", new_y="NEXT", align='L')
-    pdf.ln(2)
+    # --- 2. CAPITAL MARKET ASSUMPTIONS ---
+    _discl_section_heading("Capital Market Assumptions")
+    pdf.set_font('Carlito', 'I', 9)
+    pdf.set_text_color(120, 120, 120)
+    pdf.cell(0, 4, "(Millcreek placeholder)", new_x="LMARGIN", new_y="NEXT", align='L')
+    pdf.ln(5)
 
-    pdf.set_font('Carlito', '', 9)
-    with pdf.table(col_widths=(70, 200),
+    # --- 3. FORWARD LOOKING STATEMENTS ---
+    _discl_section_heading("Forward Looking Statements")
+    pdf.set_font('Carlito', 'I', 9)
+    pdf.set_text_color(120, 120, 120)
+    pdf.cell(0, 4, "(Millcreek placeholder)", new_x="LMARGIN", new_y="NEXT", align='L')
+    pdf.ln(5)
+
+    # --- 4. BENCHMARK DEFINITIONS ---
+    _discl_section_heading("Benchmark Definitions")
+
+    pdf.set_font('Carlito', '', 8)
+    with pdf.table(col_widths=(60, 210),
                    text_align=("LEFT", "LEFT"),
                    borders_layout="HORIZONTAL_LINES",
                    align="LEFT",
@@ -1414,90 +1429,106 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
             r.cell(bench_name, style=discl_row_style)
             r.cell(bench_desc, style=discl_row_style)
 
-                
-                
-    #  ==========================================
-    #   PAGE 14+: STATMENT NOTES & DEFINITIONS
-    #  ==========================================
-    pdf.show_standard_header = True; pdf.header_text = "Statement Notes"; pdf.add_page()
-    pdf.ln(2) 
-    
-    # -- LEGAL NOTES TABLE --
-    if legal_notes is not None and not legal_notes.empty:
-        # Reset Font to Regular BEFORE the table just in case
+    pdf.ln(5)
+
+    # --- 5. RISK METRIC DEFINITIONS & CALCULATIONS (Two-Column Layout) ---
+    _discl_section_heading("Risk Metric Definitions & Calculations")
+
+    # (Metric, Definition, Calculation) — blank calculation where none applies
+    risk_definitions = [
+        ("Ending VAMI", "Growth of a hypothetical $1,000 investment since inception.", "Ending value / starting value, scaled to $1,000"),
+        ("Mean Return", "Average daily return over the analysis period, annualized.", "Average of daily returns, annualized"),
+        ("Max Drawdown", "Largest peak-to-trough decline in portfolio value.", "Lowest point vs. prior peak"),
+        ("Peak-To-Valley", "Trading days from peak to trough of the maximum drawdown.", ""),
+        ("Recovery", "Trading days from trough back to a new high, or 'Ongoing'.", ""),
+        ("Std. Deviation", "Annualized total return volatility (both up and down).", "Daily return standard deviation, annualized"),
+        ("Downside Dev.", "Annualized volatility of negative returns only.", "Negative return standard deviation, annualized"),
+        ("Sharpe Ratio", "Excess return over risk-free rate per unit of total volatility.", "(Return - Risk-Free) / Volatility, ann."),
+        ("Sortino Ratio", "Excess return over risk-free rate per unit of downside volatility.", "(Return - Risk-Free) / Downside Vol., ann."),
+        ("Idiosyncratic Risk", "Portfolio volatility not explained by the benchmark.", "Regression residual standard deviation, annualized"),
+        ("R-Squared", "Portfolio return variance explained by the benchmark (0 to 1).", "Squared correlation from regression"),
+        ("Beta: Size (IWM)", "Sensitivity to the small-cap factor (Russell 2000).", "Regression slope vs. factor"),
+        ("Beta: Value (IWD)", "Sensitivity to the value factor (Russell 1000 Value).", "Regression slope vs. factor"),
+        ("Beta: Quality (QUAL)", "Sensitivity to the quality factor (MSCI USA Quality).", "Regression slope vs. factor"),
+        ("Beta: Momentum (MTUM)", "Sensitivity to the momentum factor (MSCI USA Momentum).", "Regression slope vs. factor"),
+    ]
+
+    mid = (len(risk_definitions) + 1) // 2
+    col_left = risk_definitions[:mid]
+    col_right = risk_definitions[mid:]
+
+    risk_col_width = 133
+    risk_gap = 10
+    total_risk_width = (risk_col_width * 2) + risk_gap
+    risk_col1_x = (pdf.w - total_risk_width) / 2
+    risk_col2_x = risk_col1_x + risk_col_width + risk_gap
+
+    risk_def_header_style = FontFace(size_pt=8, emphasis="BOLD", color=C_WHITE, fill_color=C_BLUE_LOGO)
+    risk_def_style = FontFace(size_pt=8, emphasis="", color=(0, 0, 0), fill_color=C_WHITE)
+    risk_calc_style = FontFace(size_pt=7, emphasis="ITALICS", color=(80, 80, 80), fill_color=C_WHITE)
+
+    locked_risk_y = pdf.get_y()
+    original_margin = pdf.l_margin
+
+    def _render_risk_col(defs, start_x):
+        pdf.set_left_margin(start_x)
+        pdf.set_y(locked_risk_y)
         pdf.set_font('Carlito', '', 8)
-        
+        pdf.set_text_color(0, 0, 0)
+        with pdf.table(col_widths=(30, 60, 43),
+                       text_align=("LEFT", "LEFT", "LEFT"),
+                       borders_layout="HORIZONTAL_LINES",
+                       align="LEFT",
+                       width=risk_col_width,
+                       line_height=4) as table:
+            h = table.row()
+            h.cell("Metric", style=risk_def_header_style)
+            h.cell("Definition", style=risk_def_header_style)
+            h.cell("Calculation", style=risk_def_header_style)
+            for metric, definition, calc in defs:
+                r = table.row()
+                r.cell(metric, style=risk_def_style)
+                r.cell(definition, style=risk_def_style)
+                r.cell(calc, style=risk_calc_style)
+
+    _render_risk_col(col_left, risk_col1_x)
+    _render_risk_col(col_right, risk_col2_x)
+    pdf.set_left_margin(original_margin)
+
+    pdf.ln(5)
+
+    # --- 6. IBKR ACCOUNT & TRADING NOTES ---
+    if legal_notes is not None and not legal_notes.empty:
+        below_risk_y = max(pdf.get_y(), locked_risk_y + (max(len(col_left), len(col_right)) + 1) * 4 + 8)
+        pdf.set_y(below_risk_y)
+
+        _discl_section_heading("Account & Trading Notes")
+
         notes_df = legal_notes.copy()
-            
+        pdf.set_font('Carlito', '', 8)
+
         with pdf.table(col_widths=(50, 220),
                        text_align=("LEFT", "LEFT"),
                        borders_layout="HORIZONTAL_LINES",
                        align="LEFT",
                        width=270,
-                       line_height=4) as table: 
-            
-            # Header Style
-            legalnotes_header_style = FontFace(size_pt=8, emphasis="BOLD", color=C_WHITE, fill_color=C_BLUE_LOGO)
+                       line_height=4) as table:
             h = table.row()
-            h.cell("Type", style=legalnotes_header_style)
-            h.cell("Note", style=legalnotes_header_style)
-            
-            # Data Style
-            note_style = FontFace(size_pt=8, emphasis="", color=(0,0,0), fill_color=C_WHITE)
-            
+            h.cell("Type", style=discl_header_style)
+            h.cell("Note", style=discl_header_style)
+
+            note_style = FontFace(size_pt=8, emphasis="", color=(0, 0, 0), fill_color=C_WHITE)
             for _, row in notes_df.iterrows():
                 r = table.row()
-                
-                type_val = str(row.get('Type', ''))
-                note_val = str(row.get('Note', ''))
-                
-                r.cell(type_val, style=note_style)
-                r.cell(note_val, style=note_style)
+                r.cell(str(row.get('Type', '')), style=note_style)
+                r.cell(str(row.get('Note', '')), style=note_style)
 
-    # -- RISK METRIC DEFINITIONS --
-    pdf.ln(6)
-    pdf.set_font('Carlito', 'B', 10)
-    pdf.set_text_color(0, 0, 0)
-    pdf.cell(0, 5, "Risk Metric Definitions", new_x="LMARGIN", new_y="NEXT", align='L')
-    pdf.ln(2)
-
-    risk_definitions = [
-        ("Ending VAMI", "Value Added Monthly Index; growth of a hypothetical $1,000 investment since inception."),
-        ("Mean Return", "Average daily return over the analysis period, annualized."),
-        ("Max Drawdown", "Largest peak-to-trough decline in portfolio value."),
-        ("Peak-To-Valley", "Number of trading days from the peak to the trough of the maximum drawdown."),
-        ("Recovery", "Number of trading days from the trough back to a new high, or 'Ongoing' if not yet recovered."),
-        ("Standard Deviation", "Annualized measure of total return volatility (both up and down)."),
-        ("Downside Deviation", "Annualized volatility of negative returns only, measuring downside risk."),
-        ("Sharpe Ratio", "Risk-adjusted return: excess return over the risk-free rate per unit of total volatility."),
-        ("Sortino Ratio", "Risk-adjusted return: excess return over the risk-free rate per unit of downside volatility."),
-        ("Idiosyncratic Risk", "Annualized portfolio volatility not explained by the benchmark (residual risk)."),
-        ("R-Squared", "Proportion of portfolio return variance explained by the benchmark (0 to 1)."),
-        ("Beta: Size (IWM)", "Sensitivity of portfolio returns to the small-cap factor (Russell 2000)."),
-        ("Beta: Value (IWD)", "Sensitivity of portfolio returns to the value factor (Russell 1000 Value)."),
-        ("Beta: Quality (QUAL)", "Sensitivity of portfolio returns to the quality factor (MSCI USA Quality)."),
-        ("Beta: Momentum (MTUM)", "Sensitivity of portfolio returns to the momentum factor (MSCI USA Momentum)."),
-    ]
-
+    # --- COPYRIGHT ---
+    pdf.ln(8)
     pdf.set_font('Carlito', '', 8)
-    risk_def_header_style = FontFace(size_pt=8, emphasis="BOLD", color=C_WHITE, fill_color=C_BLUE_LOGO)
-    risk_def_style = FontFace(size_pt=8, emphasis="", color=(0,0,0), fill_color=C_WHITE)
-
-    with pdf.table(col_widths=(50, 220),
-                   text_align=("LEFT", "LEFT"),
-                   borders_layout="HORIZONTAL_LINES",
-                   align="LEFT",
-                   width=270,
-                   line_height=4) as table:
-
-        h = table.row()
-        h.cell("Metric", style=risk_def_header_style)
-        h.cell("Definition", style=risk_def_header_style)
-
-        for metric, definition in risk_definitions:
-            r = table.row()
-            r.cell(metric, style=risk_def_style)
-            r.cell(definition, style=risk_def_style)
+    pdf.set_text_color(120, 120, 120)
+    pdf.cell(0, 4, "\u00A9 2026 All rights reserved. Gaard Capital LLC. May not be used or reproduced without express permission.",
+             new_x="LMARGIN", new_y="NEXT", align='C')
 
     #  ==========================================
     #   END COVER PAGE
