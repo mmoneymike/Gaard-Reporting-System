@@ -67,7 +67,7 @@ IGNORE_STARTSWITH = [
 
 SELECTED_COMP_BENCHMARK_KEY = '60% SPY / 40% AGG'                                           # SEE CONFIGURATION ABOVE FOR OPTIONS
 RISK_TIME_HORIZON = None                                                                # Since Inception (full history)
-USE_TEST_DATA = True                                                                    # True = bypass SFTP, use data/test_data/
+USE_TEST_DATA = False                                                                   # True = bypass SFTP, use data/test_data/
 
 
 #  ==========================================
