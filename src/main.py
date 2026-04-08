@@ -16,63 +16,109 @@ from risk_metrics import calculate_portfolio_risk
 
 
 #  ==========================================
-#   CONFIGURATION
+#   SWITCHBOARD — Change these settings to control report generation
 #  ==========================================
-# SFTP & PGP CONFIGURATION
+
+# --- 1. PAGE VISIBILITY ---
+# Toggle individual report pages on/off (True = include, False = skip)
+show_page_cover                     = True
+show_page_table_of_contents         = True
+show_page_goals_and_objectives      = True
+show_page_target_allocations        = True
+show_page_breakdown_of_accounts     = True   # only applies to consolidated reports
+show_page_change_in_portfolio_value = True
+show_page_portfolio_overview        = True
+show_page_portfolio_performance     = True
+show_page_expanded_performance      = True
+show_page_risk_analysis             = True
+show_page_financial_statistics      = False
+show_page_macro_views               = False
+show_page_market_review             = True
+show_page_disclosures               = True
+show_page_end_cover                 = True
+
+# --- 2. PER-CLIENT BENCHMARK ALLOCATION ---
+# Override the default composite benchmark ratio (SPY/AGG) for specific clients.
+# Keys are matched against account names (case-insensitive substring).
+# Values are (SPY_weight, AGG_weight) tuples — must sum to 1.0.
+CLIENT_BENCHMARK_OVERRIDES = {
+    'John Mattox':       (0.60, 0.40),   # 60% SPY / 40% AGG
+    'Paula C Hurley':      (0.30, 0.70),   # 30% SPY / 70% AGG
+    'Jonathan Brogaard': (0.30, 0.70),   # 30% SPY / 70% AGG
+}
+DEFAULT_BENCHMARK_RATIO = (0.60, 0.40)   # fallback when no override matches
+
+# --- 3. REPORT TYPE FILTER ---
+# Which account types to generate: 'both', 'individual', or 'consolidated'
+REPORT_TYPE = 'both'
+
+# --- 4. DATA SOURCE ---
+# True = bypass SFTP, use pre-downloaded CSVs in data/test_data/
+USE_TEST_DATA = False
+
+# --- 5. SFTP & PGP CONNECTION ---
 IB_SFTP_HOST = 'ftp2.interactivebrokers.com'
 IB_USERNAME = 'gaardcapital'
 REMOTE_STATEMENT_DIR = 'outgoing'
 
-# MM KEY PATHS
 SSH_PRIVATE_KEY_PATH = '/Users/michaelmolenaar/Desktop/BROGAARD/Gaard/Gaard Reporting System/data/Gaard_Keys/IB_SSH_Private.txt'
 SSH_PUBLIC_KEY_PATH  = '/Users/michaelmolenaar/Desktop/BROGAARD/Gaard/Gaard Reporting System/data/Gaard_Keys/IB_SSH_Public.txt'
 PGP_PRIVATE_KEY_PATH = '/Users/michaelmolenaar/Desktop/BROGAARD/Gaard/Gaard Reporting System/data/Gaard_Keys/IB_PGP_Private.txt'
 PGP_PUBLIC_KEY_PATH  = '/Users/michaelmolenaar/Desktop/BROGAARD/Gaard/Gaard Reporting System/data/Gaard_Keys/IB_PGP_Public.txt'
 PGP_PASSPHRASE = None
 
-COMPOSITE_BENCHMARK_CONFIG = {
-    'SPY':              {'SPY': 1.0},
-    'AGG':              {'AGG': 1.0},
-    '60% SPY / 40% AGG':    {'SPY': 0.6, 'AGG': 0.4},
-    '40% SPY / 60% AGG':    {'SPY': 0.4, 'AGG': 0.6},
-} # Options for SELECTED_COMP_KEY
-
+# --- 6. BENCHMARK DEFINITIONS ---
+# Per-asset-class benchmark ETFs used in allocation tables
 BENCHMARK_CONFIG = {
-    'U.S. Equities':            ['SPY'],  
-    'International Equities':   ['ACWX'], 
+    'U.S. Equities':            ['SPY'],
+    'International Equities':   ['ACWX'],
     'Fixed Income':             ['AGG'],
     'Alternative Assets':       ['QAI'],
     'Cash':                     ['BIL'],
-} # Chosen Benchmark Tickers
+}
 
+# Display names for benchmark tickers
 BENCHMARK_NAMES = {
     'SPY': 'S&P 500',
     'ACWX': 'MSCI ACWI ex US',
     'AGG': 'US Aggregate Bond',
     'QAI': 'NYLI Hedge Multi-Strategy',
     'BIL': '1-3 Month T-Bills',
-} # Chosen Benchmark Names
+}
 
-# Ignore Specific Holdings
-# 1. Exact Matches: Tickers to remove if they match exactly (Case Insensitive)
+# --- 7. TICKER FILTERS ---
+# Tickers to exclude from holdings (case-insensitive exact match)
 IGNORE_EXACT = [
     'CASH',
     'TOTAL CASH',
 ]
 
-# 2. Starts With: Useful for weird bonds, expired options, or specific series.
+# Tickers to exclude if they start with these prefixes
 IGNORE_STARTSWITH = [
     '912797PN1',  # Treasury Bond Series
 ]
-
-SELECTED_COMP_BENCHMARK_KEY = '60% SPY / 40% AGG'                                           # SEE CONFIGURATION ABOVE FOR OPTIONS
-RISK_TIME_HORIZON = None                                                                # Since Inception (full history)
-USE_TEST_DATA = False                                                                   # True = bypass SFTP, use data/test_data/
 
 
 #  ==========================================
 #   HELPERS
 #  ==========================================
+
+def resolve_benchmark_for_account(account_name):
+    """Returns (benchmark_key, weights_dict) for a given account name.
+
+    Matches CLIENT_BENCHMARK_OVERRIDES keys as case-insensitive substrings.
+    Falls back to DEFAULT_BENCHMARK_RATIO when no override matches.
+    """
+    name_lower = str(account_name).lower()
+    for client_name, (spy_w, agg_w) in CLIENT_BENCHMARK_OVERRIDES.items():
+        if client_name.lower() in name_lower:
+            key = f"{int(spy_w*100)}% SPY / {int(agg_w*100)}% AGG"
+            return key, {'SPY': spy_w, 'AGG': agg_w}
+    spy_w, agg_w = DEFAULT_BENCHMARK_RATIO
+    key = f"{int(spy_w*100)}% SPY / {int(agg_w*100)}% AGG"
+    return key, {'SPY': spy_w, 'AGG': agg_w}
+
+
 # --- LOCAL AUTO-CLASSIFY ---
 def auto_classify_asset(ticker: str, security_name: str) -> str:
     t = str(ticker).upper().strip()
@@ -304,21 +350,30 @@ def discover_and_pair_accounts_by_date(decrypted_results):
 #  ==========================================
 #   PER-ACCOUNT REPORT GENERATION
 #  ==========================================
-def generate_report_for_account(quarter_csv, inception_csv, shared):
+def generate_report_for_account(quarter_csv, inception_csv, shared,
+                                benchmark_key=None, benchmark_weights=None):
     """Generates a single PDF report for one account.
     
     Parameters:
-        quarter_csv:   Path to the quarterly statement CSV
-        inception_csv: Path to the since-inception statement CSV
-        shared:        Dict with shared config/resources
+        quarter_csv:        Path to the quarterly statement CSV
+        inception_csv:      Path to the since-inception statement CSV
+        shared:             Dict with shared config/resources (incl. page_visibility)
+        benchmark_key:      Label like '60% SPY / 40% AGG' (resolved per-client)
+        benchmark_weights:  Dict like {'SPY': 0.6, 'AGG': 0.4} (resolved per-client)
         
     Returns:
         True on success, None on failure.
     """
+    if benchmark_key is None:
+        benchmark_key = f"{int(DEFAULT_BENCHMARK_RATIO[0]*100)}% SPY / {int(DEFAULT_BENCHMARK_RATIO[1]*100)}% AGG"
+    if benchmark_weights is None:
+        benchmark_weights = {'SPY': DEFAULT_BENCHMARK_RATIO[0], 'AGG': DEFAULT_BENCHMARK_RATIO[1]}
+
     output_dir       = shared['output_dir']
     pdf_info         = shared['pdf_info']
     LOGO_FILE        = shared['logo_file']
     TEXT_LOGO_FILE   = shared['text_logo_file']
+    page_visibility  = shared.get('page_visibility', {})
     
     # === 1. Load Data from Statements ===
     print(f"\n === 1. Ingesting Portfolio (Internal) ===")
@@ -421,8 +476,7 @@ def generate_report_for_account(quarter_csv, inception_csv, shared):
     # === 2. Fetch Market Data from YF ===
     print("\n=== 2. Fetching Market Data (External) ===")
     
-    # Get User Selection for Main Benchmark
-    main_benchmark_weights = COMPOSITE_BENCHMARK_CONFIG.get(SELECTED_COMP_BENCHMARK_KEY, {'SPY': 1.0})
+    main_benchmark_weights = benchmark_weights
     main_bench_constituents = list(main_benchmark_weights.keys())
     
     # Gather ALL benchmarks needed (Standard + Main Constituents)
@@ -467,9 +521,9 @@ def generate_report_for_account(quarter_csv, inception_csv, shared):
         traceback.print_exc()
 
     # --- CALCULATE COMPOSITE BENCHMARK ---
-    print(f"   > 2b. Calculating Composite Benchmark: {SELECTED_COMP_BENCHMARK_KEY}")
+    print(f"   > 2b. Calculating Composite Benchmark: {benchmark_key}")
     main_benchmark_series = calculate_composite_benchmark_return(bench_returns_df, main_benchmark_weights)
-    chart_data = prepare_chart_data(daily_history, main_benchmark_series, benchmark_name=SELECTED_COMP_BENCHMARK_KEY)
+    chart_data = prepare_chart_data(daily_history, main_benchmark_series, benchmark_name=benchmark_key)
     print(f"   > Performance Chart: Prepared {len(chart_data)} daily data points.")
 
     # Calculate Benchmark Windows
@@ -587,7 +641,7 @@ def generate_report_for_account(quarter_csv, inception_csv, shared):
             key_statistics=key_stats,
             holdings_df=holdings,
             total_metrics=metrics,
-            main_benchmark_tckr=SELECTED_COMP_BENCHMARK_KEY,
+            main_benchmark_key=benchmark_key,
             
             performance_windows=window_returns,
             benchmark_performance_windows=bench_windows,
@@ -595,7 +649,6 @@ def generate_report_for_account(quarter_csv, inception_csv, shared):
             quarter_label=quarter_label,
             
             risk_metrics=risk_metrics,
-            risk_time_horizon=RISK_TIME_HORIZON,
             
             legal_notes=legal_notes,
             pdf_info=pdf_info,
@@ -603,6 +656,9 @@ def generate_report_for_account(quarter_csv, inception_csv, shared):
             logo_path=LOGO_FILE, 
             output_path=PDF_FILE,
             portfolio_inception_date=portfolio_inception_date,
+            consolidated_breakdown_rows=list(portfolio_data.consolidated_breakdown_rows)
+            if portfolio_data.consolidated_breakdown_rows else None,
+            page_visibility=page_visibility,
         )
         print(f"* DONE! Report Generated: {os.path.basename(PDF_FILE)} *")
 
@@ -669,8 +725,8 @@ def run_pipeline():
         # ---------------------------------------------------------
         # 0b. Discover Accounts & Pair CSVs by Account ID
         # ---------------------------------------------------------
-        print("\n === 0b. Discovering & Pairing Accounts ===")
-        account_pairs = discover_and_pair_accounts(decrypted_results)
+        print("\n === 0b. Discovering & Pairing Accounts (Date-Aware) ===")
+        account_pairs = discover_and_pair_accounts_by_date(decrypted_results)
     
     if not account_pairs:
         print("   > No accounts discovered from SFTP downloads.")
@@ -707,7 +763,18 @@ def run_pipeline():
         print("   > Ensure both Flex Query deliveries (Inception + Quarterly) are configured in IBKR.")
         return
     
-    print(f"\n   > {len(ready_accounts)} account(s) ready for report generation")
+    # Apply REPORT_TYPE filter
+    if REPORT_TYPE == 'individual':
+        ready_accounts = {k: v for k, v in ready_accounts.items() if not k.startswith('CONSOL_')}
+    elif REPORT_TYPE == 'consolidated':
+        ready_accounts = {k: v for k, v in ready_accounts.items() if k.startswith('CONSOL_')}
+    # 'both' keeps everything
+
+    if not ready_accounts:
+        print(f"\n   > No accounts match REPORT_TYPE='{REPORT_TYPE}'. Nothing to generate.")
+        return
+    
+    print(f"\n   > {len(ready_accounts)} account(s) ready for report generation (filter: {REPORT_TYPE})")
     
     # ---------------------------------------------------------
     # 0c. Load Shared Resources (once for all accounts)
@@ -729,11 +796,30 @@ def run_pipeline():
         except Exception as e:
             print(f"Warning: Could not load Info File for PDF: {e}")
     
+    page_visibility = {
+        'cover':                     show_page_cover,
+        'table_of_contents':         show_page_table_of_contents,
+        'goals_and_objectives':      show_page_goals_and_objectives,
+        'target_allocations':        show_page_target_allocations,
+        'breakdown_of_accounts':     show_page_breakdown_of_accounts,
+        'change_in_portfolio_value': show_page_change_in_portfolio_value,
+        'portfolio_overview':        show_page_portfolio_overview,
+        'portfolio_performance':     show_page_portfolio_performance,
+        'expanded_performance':      show_page_expanded_performance,
+        'risk_analysis':             show_page_risk_analysis,
+        'financial_statistics':      show_page_financial_statistics,
+        'macro_views':               show_page_macro_views,
+        'market_review':             show_page_market_review,
+        'disclosures':               show_page_disclosures,
+        'end_cover':                 show_page_end_cover,
+    }
+
     shared = {
         'output_dir': output_dir,
         'pdf_info': pdf_info,
         'logo_file': LOGO_FILE,
         'text_logo_file': TEXT_LOGO_FILE,
+        'page_visibility': page_visibility,
     }
     
     # ---------------------------------------------------------
@@ -748,17 +834,23 @@ def run_pipeline():
         is_consolidated = acct_id.startswith('CONSOL_')
         label = "CONSOLIDATED" if is_consolidated else "INDIVIDUAL"
         
+        # Resolve per-client benchmark ratio
+        bench_key, bench_weights = resolve_benchmark_for_account(info['name'])
+        
         print(f"\n{'='*70}")
         print(f"  [{label}] PROCESSING {i}/{len(ready_accounts)}: {info['name']} ({acct_id})")
         print(f"  Quarterly:  {os.path.basename(info['quarterly'])}")
         print(f"  Inception:  {os.path.basename(info['inception'])}")
+        print(f"  Benchmark:  {bench_key}")
         print(f"{'='*70}")
         
         try:
             result = generate_report_for_account(
                 quarter_csv=info['quarterly'],
                 inception_csv=info['inception'],
-                shared=shared
+                shared=shared,
+                benchmark_key=bench_key,
+                benchmark_weights=bench_weights,
             )
             if result is not None:
                 if is_consolidated:

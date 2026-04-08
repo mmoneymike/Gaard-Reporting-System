@@ -121,10 +121,12 @@ def decrypt_pgp_files(pgp_private_key_path, pgp_public_key_path, encrypted_files
             status = gpg.decrypt_file(f, passphrase=pgp_passphrase, output=temp_file_path)
             
         if status.ok:
-            # 2. Classify: zip files → inception or quarterly; everything else → other
+            # 2. Classify by keyword: inception or quarterly (zip and csv); everything else → other
             lower_name = decrypted_name.lower()
-            if decrypted_name.endswith('.zip'):
-                category = 'inception' if 'inception' in lower_name else 'quarterly'
+            if 'inception' in lower_name:
+                category = 'inception'
+            elif 'quarterly' in lower_name:
+                category = 'quarterly'
             else:
                 category = 'other'
             
