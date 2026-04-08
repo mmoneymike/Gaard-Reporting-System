@@ -12,6 +12,17 @@ SECTION_HEADER = "Header"
 SECTION_DATA = "Data"
 SECTION_META = "MetaInfo"
 
+
+@dataclass(frozen=True)
+class ConsolidatedBreakdownRow:
+    """One row from flex-query Breakdown of Accounts (consolidated reports)."""
+    account_number: str
+    type_label: str  # Individual | Inherited IRA | IRA | Roth IRA
+    beginning_nav: float
+    ending_nav: float
+    return_pct: float  # IBKR percent points (e.g. 1.44 == 1.44%)
+
+
 @dataclass(frozen=True)
 class PortfolioData:
     """Strict definition of this portfolio data contract."""
@@ -24,6 +35,7 @@ class PortfolioData:
     settled_cash: float             
     legal_notes: pd.DataFrame       
     daily_history: pd.DataFrame     # From Inception CSV section: Cumulative Performance Statistics
+    consolidated_breakdown_rows: tuple[ConsolidatedBreakdownRow, ...] = ()
 
 @dataclass(frozen=True)
 class QuarterStatementMetadata:
@@ -164,6 +176,56 @@ def extract_key_statistics(sections: QuarterStatementSections) -> dict:
     stats['ChangeInInterestAccruals'] = stats.get('Other', 0.0)
             
     return stats
+
+
+def _clean_account_display_name(name: str) -> str:
+    """Match pdf_writer.clean_display_name — strip IBKR custodian suffix for display."""
+    n = str(name).strip()
+    n = re.sub(r",?\s*Interactive Brokers LLC Custodian$", "", n, flags=re.IGNORECASE)
+    n = re.sub(r"\s+of\s*$", "", n)
+    return n.strip().rstrip(",").strip()
+
+
+def breakdown_type_label_from_cleaned_name(cleaned_name: str) -> str:
+    """Map IBKR account title to a short type for the consolidated breakdown table."""
+    u = cleaned_name.upper()
+    if "ROTH IRA" in u:
+        return "Roth IRA"
+    if "INHERITED IRA" in u:
+        return "Inherited IRA"
+    if re.search(r"\bIRA\b", u):
+        return "IRA"
+    return "Individual"
+
+
+def extract_consolidated_breakdown_rows(sections: QuarterStatementSections) -> tuple[ConsolidatedBreakdownRow, ...]:
+    """Data rows from flex-query section Breakdown of Accounts."""
+    df = sections.raw_sections.get("Breakdown of Accounts", pd.DataFrame())
+    if df.empty:
+        return ()
+    needed = ("Account", "Name", "Beginning NAV", "Ending NAV", "Return")
+    if not all(c in df.columns for c in needed):
+        return ()
+
+    out: list[ConsolidatedBreakdownRow] = []
+    for _, r in df.iterrows():
+        acct = str(r["Account"]).strip() if pd.notna(r["Account"]) else ""
+        if not acct:
+            continue
+        raw_name = str(r["Name"]).strip() if pd.notna(r["Name"]) else ""
+        cleaned = _clean_account_display_name(raw_name) if raw_name else ""
+        label_src = cleaned or raw_name
+        type_label = breakdown_type_label_from_cleaned_name(label_src)
+        out.append(
+            ConsolidatedBreakdownRow(
+                account_number=acct,
+                type_label=type_label,
+                beginning_nav=_coerce_float(r["Beginning NAV"]),
+                ending_nav=_coerce_float(r["Ending NAV"]),
+                return_pct=_coerce_float(r["Return"]),
+            )
+        )
+    return tuple(out)
 
 
 def extract_settled_cash(sections: QuarterStatementSections):
@@ -353,6 +415,10 @@ def get_portfolio_holdings(quarterly_stmt_csv: str, benchmark_default_date: str)
     
     # 4. Extract Cash
     settled_cash = extract_settled_cash(sections)
+
+    breakdown_rows: tuple[ConsolidatedBreakdownRow, ...] = ()
+    if is_flex_query and (meta.account or "").strip().lower() == "consolidated":
+        breakdown_rows = extract_consolidated_breakdown_rows(sections)
     
     return PortfolioData(
         holdings=holdings_df, 
@@ -363,7 +429,8 @@ def get_portfolio_holdings(quarterly_stmt_csv: str, benchmark_default_date: str)
         key_statistics=key_stats,
         settled_cash=settled_cash,
         legal_notes=sections.legal_notes, 
-        daily_history=pd.DataFrame() 
+        daily_history=pd.DataFrame(),
+        consolidated_breakdown_rows=breakdown_rows,
     )
     
     
