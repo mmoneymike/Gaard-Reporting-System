@@ -9,9 +9,10 @@ import datetime
 # --- CONSTANTS & COLORS ---
 C_BLUE_PRIMARY = (89, 120, 247)   # #5978F7
 C_BLUE_LOGO    = (73, 106, 154)    # #496A94
-C_GREY_LIGHT   = (245, 247, 255)  
+C_LIGHT_BG   = (245, 247, 255)  
 C_GREY_BORDER  = (200, 200, 200)
-C_TEXT_GREY    = (100, 100, 100)
+C_TEXT_LIGHT_GREY = (180, 180, 180) # Footnotes, bottom-of-page disclosures
+C_TEXT_GREY = (100, 100, 100) # Benchmark rows, "Reportings as of …" lines
 C_WHITE        = (255, 255, 255)  
 
 # --- PAGE DISCLOSURES ---
@@ -26,10 +27,18 @@ DISCLOSURE_NAV = (
 DISCLOSURE_ALLOCATION = (
     "Portfolio and account performance are net of management fees and third-party commissions, while "
     "class, allocation, and asset-level performance are gross of fees. Returns shown are actual, not asset-weighted. "
-    "Benchmarks are net of fund expense "
-    "and do not include trading costs. Please see disclosures for full descriptions. Account values and performance information "
-    "may be unreconciled, unaudited and/or provided from outside sources. Please refer to monthly account statements for finalized information. "
+    "Allocation percentages and market values reflect total portfolio positions. "
+    "Benchmarks are net of fund expense and do not include trading costs. Please see disclosures for full descriptions. "
+    "Account values and performance information may be unreconciled, unaudited and/or provided from outside sources. Please refer to monthly account statements for finalized information. "
     "Past performance is no guarantee of future results."
+)
+
+DISCLOSURE_BREAKDOWN = (
+    "Portfolio and account performance are net of management fees and third-party commissions. "
+    "The total row reflects the consolidated net return across all underlying accounts. "
+    "Account values and performance information may be unreconciled, unaudited and/or "
+    "provided from outside sources. Please refer to monthly account statements for "
+    "finalized information. Past performance is no guarantee of future results."
 )
 
 # Full ETF names for building dynamic benchmark descriptions in disclosures
@@ -200,51 +209,28 @@ def get_ips_table_data(pdf_info, summary_df):
     us_cur = get_current('U.S. Equities')
     rows.append(('US Equities', us_min, us_max, us_tgt, us_cur))
 
-    # 2. International Equities (Dev + EM)
-    dev_min = get_val('page_4_ips_non_us_equity_dev_range_min')
-    dev_max = get_val('page_4_ips_non_us_equity_dev_range_max')
-    dev_tgt = get_val('page_4_ips_non_us_equity_dev_target')
-    
-    em_min  = get_val('page_4_ips_non_us_equity_em_range_min')
-    em_max  = get_val('page_4_ips_non_us_equity_em_range_max')
-    em_tgt  = get_val('page_4_ips_non_us_equity_em_target')
-    
-    intl_min = dev_min + em_min
-    intl_max = dev_max + em_max
-    intl_tgt = dev_tgt + em_tgt
+    # 2. International Equities (single band from info_for_pdf.xlsx)
+    intl_min = get_val('page_4_ips_non_us_equity_range_min')
+    intl_max = get_val('page_4_ips_non_us_equity_range_max')
+    intl_tgt = get_val('page_4_ips_non_us_equity_target')
     intl_cur = get_current('International Equities')
     rows.append(('International Equities', intl_min, intl_max, intl_tgt, intl_cur))
 
-    # # 3. Total Equities
-    # total_eq_min = us_min + intl_min
-    # total_eq_max = us_max + intl_max
-    # total_eq_tgt = us_tgt + intl_tgt
-    # total_eq_cur = us_cur + intl_cur
-    # rows.append(('Total Equities', total_eq_min, total_eq_max, total_eq_tgt, total_eq_cur))
-
-    # 4. Fixed Income (US + Global)
-    us_fi_min = get_val('page_4_ips_us_fixed_income_range_min')
-    us_fi_max = get_val('page_4_ips_us_fixed_income_range_max')
-    us_fi_tgt = get_val('page_4_ips_us_fixed_income_target')
-    
-    gl_fi_min = get_val('page_4_ips_non_us_fixed_income_global_range_min')
-    gl_fi_max = get_val('page_4_ips_non_us_fixed_income_global_range_max')
-    gl_fi_tgt = get_val('page_4_ips_non_us_fixed_income_global_target')
-    
-    fi_min = us_fi_min + gl_fi_min
-    fi_max = us_fi_max + gl_fi_max
-    fi_tgt = us_fi_tgt + gl_fi_tgt
+    # 3. Fixed Income (single band)
+    fi_min = get_val('page_4_ips_fixed_income_range_min')
+    fi_max = get_val('page_4_ips_fixed_income_range_max')
+    fi_tgt = get_val('page_4_ips_fixed_income_target')
     fi_cur = get_current('Fixed Income')
     rows.append(('Fixed Income', fi_min, fi_max, fi_tgt, fi_cur))
 
-    # 5. Alternatives
+    # 4. Alternatives
     alt_min = get_val('page_4_ips_alternatives_range_min')
     alt_max = get_val('page_4_ips_alternatives_range_max')
     alt_tgt = get_val('page_4_ips_alternatives_target')
     alt_cur = get_current('Alternative Assets')
     rows.append(('Alternatives', alt_min, alt_max, alt_tgt, alt_cur))
 
-    # 6. Cash
+    # 5. Cash
     cash_min = get_val('page_4_ips_cash_range_min')
     cash_max = get_val('page_4_ips_cash_range_max')
     cash_tgt = get_val('page_4_ips_cash_target')
@@ -493,12 +479,19 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
     # --------------------------------------------------------------------------------------
     
     # --- HELPER 3: DISCLOSURE AT BOTTOM OF PAGE ---
+    def _disclosure_single_paragraph(text):
+        """Turns disclosure copy into one flowing paragraph (no hard line breaks from source)."""
+        if not isinstance(text, str):
+            text = str(text)
+        text = text.replace('\xa0', ' ')
+        return re.sub(r'\s+', ' ', text).strip()
+
     def render_page_disclosure(pdf_obj, text):
         """Renders a small light-grey disclosure paragraph at the bottom of the current page."""
         pdf_obj.set_y(-30)
         pdf_obj.set_font('Carlito', '', 8)
-        pdf_obj.set_text_color(180, 180, 180)
-        pdf_obj.multi_cell(w=pdf_obj.w - 24, h=3, text=text, align='L')
+        pdf_obj.set_text_color(C_TEXT_LIGHT_GREY)
+        pdf_obj.multi_cell(w=pdf_obj.w - 24, h=3, text=_disclosure_single_paragraph(text), align='L')
     # --------------------------------------------------------------------------------------
     
     # 1. *** SETUP ***
@@ -556,6 +549,7 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
         final_y = pdf.get_y() + 6
         pdf.line(line_start_x, final_y, line_end_x, final_y)
 
+
     #  ==========================================
     #   COVER PAGE
     #  ==========================================
@@ -566,7 +560,7 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
     
     
     #  ==========================================
-    #   PAGE 2: TABLE OF CONTENTS (CENTERED)
+    #   PAGE 2: TABLE OF CONTENTS
     #  ==========================================
     if vis('table_of_contents'):
         pdf.show_standard_header = True; pdf.header_text = "Table of Contents"; pdf.add_page()
@@ -627,6 +621,7 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
         pdf.set_y(start_y)
         pdf.set_x(side_margin)
         pdf.multi_cell(text_block_width, line_height, ips_text)
+    
     
     #  ==========================================
     #   PAGE 4: TARGET ALLOCATIONS
@@ -695,6 +690,7 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
         except Exception as e:
             print(f"IPS Chart Error: {e}")
         
+        
     #  ==========================================
     #   CONSOLIDATED ONLY: BREAKDOWN OF ACCOUNTS (after Target Allocations)
     #  ==========================================
@@ -706,7 +702,7 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
         line_height = 8
         col_widths = (30, 44, 36, 36, 30)
         table_width = sum(col_widths)
-        n = len(consolidated_breakdown_rows)
+        n = len(consolidated_breakdown_rows) + (1 if key_statistics else 0)
         table_h = line_height * (1 + n)
         table_start_x = (pdf.w - table_width) / 2
         table_start_y = (pdf.h - table_h) / 2
@@ -750,6 +746,16 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
                 row.cell(f"${br.beginning_nav:,.0f}", style=reg_data_style)
                 row.cell(f"${br.ending_nav:,.0f}", style=reg_data_style)
                 row.cell(f"{br.return_pct:.2f}%", style=reg_data_style)
+            if key_statistics:
+                total_style = FontFace(emphasis="BOLD", size_pt=12, fill_color=C_LIGHT_BG)
+                total_row = table.row()
+                total_row.cell("Total", style=total_style)
+                total_row.cell("", style=total_style)
+                total_row.cell(f"${key_statistics.get('BeginningNAV', 0.0):,.0f}", style=total_style)
+                total_row.cell(f"${key_statistics.get('EndingNAV', 0.0):,.0f}", style=total_style)
+                total_row.cell(f"{key_statistics.get('CumulativeReturn', 0.0) * 100:.2f}%", style=total_style)
+        render_page_disclosure(pdf, DISCLOSURE_BREAKDOWN)
+
 
     #  ==========================================
     #   PAGE 5: CHANGE IN PORTFOLIO VALUE
@@ -804,12 +810,13 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
                     val = breakdown.get(key, 0.0)
                     is_bold = key in ["Starting Value", "Ending Value"]
                     display_name = key if is_bold else f"      {key}"
-                    bg_color = C_GREY_LIGHT if is_bold else C_WHITE
+                    bg_color = C_LIGHT_BG if is_bold else C_WHITE
                     style_row = FontFace(emphasis="BOLD" if is_bold else "", size_pt=12, fill_color=bg_color)
                     r = table.row()
                     r.cell(display_name, style=style_row)
                     r.cell(f"${val:,.0f}", style=style_row)
             render_page_disclosure(pdf, DISCLOSURE_NAV)
+
 
     #  ==========================================
     #   PAGE 6: PORTFOLIO OVERVIEW
@@ -874,7 +881,7 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
                 row1.cell(headers_map.get(k, k), style=header_style, align="RIGHT")
             row = table.row()
             acct_str = account_title[:38] + "..." if len(account_title) > 40 else account_title
-            p5_style = FontFace(size_pt=12, fill_color=C_GREY_LIGHT)
+            p5_style = FontFace(size_pt=12, fill_color=C_LIGHT_BG)
             row.cell(acct_str, style=p5_style, align="LEFT")
             for i, k in enumerate(keys): 
                 val = performance_windows.get(k) if performance_windows else None
@@ -892,11 +899,12 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
         if show_footnotes:
             pdf.set_y(-37)
             pdf.set_font('Carlito', '', 7)
-            pdf.set_text_color(0, 0, 0)
+            pdf.set_text_color(C_TEXT_LIGHT_GREY)
             pdf.cell(0, 3, "1. Annualized Return", new_x="LMARGIN", new_y="NEXT")
             pdf.cell(0, 3, "2. Not held for entire period")
 
         render_page_disclosure(pdf, disclosure_performance)
+
 
     #  ==========================================
     #   PAGE 7: PORTFOLIO PERFORMANCE BY ALLOCATION
@@ -959,14 +967,14 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
         pdf.cell(0, 4, f"Reportings as of {data_rep_date}", new_x="LMARGIN", new_y="NEXT", align='L')
         pdf.ln(3)
         pdf.set_y(table_start_y)
-        bucket_style = FontFace(size_pt=12, emphasis="BOLD", color=(0,0,0), fill_color=C_GREY_LIGHT)
+        bucket_style = FontFace(size_pt=12, emphasis="BOLD", color=(0,0,0), fill_color=C_LIGHT_BG)
         bench_style = FontFace(size_pt=12, emphasis="ITALICS", color=C_TEXT_GREY, fill_color=C_WHITE)
         with pdf.table(col_widths=(60, 25, 30, 25), text_align=("LEFT", "RIGHT", "RIGHT", "RIGHT"), 
                        borders_layout="NONE", align="CENTER", width=table_width, line_height=8) as table:
             header = table.row()
             header.cell("Asset Class", style=header_style, align="LEFT")
             header.cell("Allocation", style=header_style, align="RIGHT")
-            header.cell("Market Value", style=header_style, align="RIGHT")
+            header.cell("Ending Value", style=header_style, align="RIGHT")
             header.cell(return_header, style=header_style, align="RIGHT")
             pdf.set_draw_color(*C_GREY_BORDER)
             for _, row in summary_df.iterrows():
@@ -983,6 +991,7 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
                     r.cell("", style=bench_style, border="RIGHT") 
                     r.cell(f"{row['Return']:.2%}", style=bench_style)
         render_page_disclosure(pdf, DISCLOSURE_ALLOCATION)
+        
         
     #  ==========================================
     #   PAGE 8+: EXPANDED INVESTMENT PERFORMANCE BY ALLOCATION
@@ -1003,10 +1012,10 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
             if row['Type'] == 'Bucket': current_bucket = row['Name']
             elif row['Type'] == 'Benchmark' and current_bucket: bucket_bench_map[current_bucket] = (row['Name'], row['Return'])
 
-        col_widths = (25, 130, 25, 35, 35, 25)
+        col_widths = (25, 145, 30, 45, 30)
         header_style = FontFace(size_pt=12, emphasis="BOLD", color=C_WHITE, fill_color=C_BLUE_LOGO)
-        bucket_name_style = FontFace(size_pt=12, emphasis="BOLD", color=(0,0,0), fill_color=C_GREY_LIGHT)
-        bucket_data_style = FontFace(size_pt=12, emphasis="BOLD", color=(0,0,0), fill_color=C_GREY_LIGHT)
+        bucket_name_style = FontFace(size_pt=12, emphasis="BOLD", color=(0,0,0), fill_color=C_LIGHT_BG)
+        bucket_data_style = FontFace(size_pt=12, emphasis="BOLD", color=(0,0,0), fill_color=C_LIGHT_BG)
         bench_name_style  = FontFace(size_pt=12, emphasis="ITALICS", color=C_TEXT_GREY, fill_color=C_WHITE)
         bench_data_style  = FontFace(size_pt=12, emphasis="ITALICS", color=C_TEXT_GREY, fill_color=C_WHITE)
         reg_name_style = FontFace(size_pt=12, emphasis=None, color=(0,0,0), fill_color=C_WHITE)
@@ -1014,31 +1023,34 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
         pdf.set_font('Carlito', '', 12)
         
         with pdf.table(col_widths=col_widths, 
-                       text_align=("LEFT", "LEFT", "RIGHT", "RIGHT", "RIGHT", "RIGHT"),
+                       text_align=("LEFT", "LEFT", "RIGHT", "RIGHT", "RIGHT"),
                        borders_layout="NONE", align="LEFT", width=275) as table:
             h_row = table.row()
-            headers = ["Ticker", "Name", "Allocation", "Cost Basis", "Value", return_header]
+            headers = ["Ticker", "Name", "Allocation", "Ending Value", return_header] # Add back "Cost Basis" here
             for h in headers: h_row.cell(h, style=header_style)
             for bucket in unique_buckets:
                 subset = sorted_holdings[sorted_holdings['asset_class'] == bucket]
-                sum_cost = subset['avg_cost'].sum()
                 sum_value = subset['raw_value'].sum()
                 sum_alloc = subset['weight'].sum()
                 bk_row = summary_df[(summary_df['Type']=='Bucket') & (summary_df['Name']==bucket)]
                 sum_ret = bk_row['Return'].iloc[0] if not bk_row.empty else 0.0
+                is_cash_bucket = (
+                    bool(bk_row['IsCash'].iloc[0])
+                    if not bk_row.empty and 'IsCash' in bk_row.columns
+                    else (bucket == 'Cash')
+                )
+                bucket_ret_str = "\u2014" if is_cash_bucket else f"{sum_ret:.2%}"
                 s_row = table.row()
                 s_row.cell(bucket, colspan=2, style=bucket_name_style, align="LEFT")
                 pdf.set_draw_color(*C_GREY_BORDER)
                 s_row.cell(f"{sum_alloc:.2%}", style=bucket_data_style, border="RIGHT")
-                s_row.cell(f"${sum_cost:,.0f}", style=bucket_data_style, border="RIGHT")
                 s_row.cell(f"${sum_value:,.0f}", style=bucket_data_style, border="RIGHT")
-                s_row.cell(f"{sum_ret:.2%}", style=bucket_data_style)
+                s_row.cell(bucket_ret_str, style=bucket_data_style)
                 bench_info = bucket_bench_map.get(bucket)
                 if bench_info:
                     b_name, b_ret = bench_info
                     b_row = table.row()
                     b_row.cell(b_name, colspan=2, style=bench_name_style, align="LEFT")
-                    b_row.cell("", style=bench_data_style, border="RIGHT")
                     b_row.cell("", style=bench_data_style, border="RIGHT")
                     b_row.cell("", style=bench_data_style, border="RIGHT")
                     b_row.cell(f"{b_ret:.2%}", style=bench_data_style)
@@ -1057,10 +1069,10 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
                     r.cell(display_ticker, style=reg_name_style)
                     r.cell(name_str, style=reg_name_style)
                     r.cell(f"{pos['weight']:.2%}", style=reg_data_style, border="RIGHT")
-                    r.cell(f"${pos['avg_cost']:,.0f}", style=reg_data_style, border="RIGHT")
                     r.cell(f"${pos['raw_value']:,.0f}", style=reg_data_style, border="RIGHT")
                     r.cell(ret_str, style=reg_data_style)
         render_page_disclosure(pdf, DISCLOSURE_ALLOCATION)
+
 
     #  ==========================================
     #   PAGE 9: RISK ANALYTICS
@@ -1127,7 +1139,7 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
                 header.cell("Value", style=header_style)
                 for label, val, fmt, is_header in rows:
                     if is_header:
-                        display_name = label; val_str = ""; bg_color = C_GREY_LIGHT; font_style = "BOLD"
+                        display_name = label; val_str = ""; bg_color = C_LIGHT_BG; font_style = "BOLD"
                     else:
                         display_name = f"      {label}"; bg_color = C_WHITE; font_style = ""
                         if fmt == 'percent': val_str = f"{val:.2f}%"
@@ -1167,42 +1179,102 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
         pdf.show_standard_header = True; pdf.header_text = f"Market Review: {quarter_label}"; pdf.add_page()
         raw_text = clean_text(pdf_info.get('page_11_macro_market_recap', 'No macro views provided.'))
         paragraphs = [p.replace('\xa0', ' ').strip() for p in raw_text.split('\n') if p.strip()]
-        col1_paras = []
-        col2_paras = []
-        total_char_count = sum(len(p) for p in paragraphs)
-        current_count = 0
-        target_count = total_char_count / 2
-        for p in paragraphs:
-            if current_count < target_count:
-                col1_paras.append(p)
-                current_count += len(p)
-            else:
-                col2_paras.append(p)
+
         side_margin = 20
         col_gap = 10
         col_width = (pdf.w - (side_margin * 2) - col_gap) / 2
+        col2_x = side_margin + col_width + col_gap
+        line_h = 6
+        para_gap = 2
+        footer_clearance = 18  # mm above page bottom to stop a column
+
         pdf.set_font('Carlito', '', 12)
         pdf.set_text_color(40, 40, 40)
-        start_y = pdf.get_y() + 1
-        pdf.set_y(start_y)
-        for p in col1_paras:
-            pdf.set_x(side_margin)
-            pdf.multi_cell(col_width, 6, p)
-            pdf.ln(2) 
-        pdf.set_y(start_y)      
-        col2_x = side_margin + col_width + col_gap
-        for p in col2_paras:
-            pdf.set_x(col2_x) 
-            pdf.multi_cell(col_width, 6, p)
-            pdf.ln(2)
+
+        def _para_height(text):
+            """Estimate rendered height of a paragraph using fpdf's own line-wrap logic."""
+            lines = pdf.multi_cell(col_width, line_h, text, dry_run=True, output="LINES")
+            return len(lines) * line_h + para_gap
+
+        def _col_max_y():
+            return pdf.h - footer_clearance
+
+        def _new_market_page():
+            pdf.show_standard_header = True
+            pdf.header_text = f"Market Review: {quarter_label}"
+            pdf.add_page()
+            pdf.set_font('Carlito', '', 12)
+            pdf.set_text_color(40, 40, 40)
+            return pdf.get_y() + 1
+
+        # Assign paragraphs to (page, col) slots based on estimated heights
+        # so we know before rendering whether a new page is needed.
+        slots = []          # list of (col_x, start_y, [paragraphs])
+        current_paras = []
+        current_height = 0
+        col_idx = 0         # 0=left, 1=right
+
+        page_start_y = pdf.get_y() + 1
+        col_max_y = _col_max_y()
+        # Approximate y where content starts on a fresh page (after header + ln)
+        new_page_content_y = 30.0
+
+        for p in paragraphs:
+            h = _para_height(p)
+            effective_start_y = page_start_y if page_start_y is not None else new_page_content_y
+            if current_height + h > (col_max_y - effective_start_y) and current_paras:
+                # Flush current slot
+                x = side_margin if col_idx == 0 else col2_x
+                slots.append((x, page_start_y, current_paras))
+                current_paras = []
+                current_height = 0
+                if col_idx == 0:
+                    col_idx = 1          # move to right column, same page
+                    # Right column shares the same page_start_y — no change needed
+                else:
+                    col_idx = 0          # move to left column, new page
+                    page_start_y = None  # sentinel: add a new page when rendering
+            current_paras.append(p)
+            current_height += h
+
+        if current_paras:
+            x = side_margin if col_idx == 0 else col2_x
+            slots.append((x, page_start_y, current_paras))
+
+        # Render slots.
+        # `sy is None` means "this slot lives on a page that hasn't been added yet".
+        # Both the left AND right column of a new page carry sy=None, so we must
+        # add the page exactly once (when the left column is encountered) and reuse
+        # that same start_y for the matching right column.
+        current_page_start_y = None  # actual y after the last _new_market_page() call
+
+        for x, sy, paras in slots:
+            if sy is None:
+                if current_page_start_y is None:
+                    # Left column of a new page — add the page now
+                    current_page_start_y = _new_market_page()
+                # Both left and right column slots for this new page use the same y
+                sy = current_page_start_y
+            else:
+                # First page: sy is already the real start y; no new page needed
+                current_page_start_y = None
+
+            pdf.set_y(sy)
+            for p in paras:
+                pdf.set_x(x)
+                pdf.multi_cell(col_width, line_h, p)
+                pdf.ln(para_gap)
+
+            # After the right column is finished, reset so the next left column
+            # will correctly trigger a new page on its next iteration
+            if x == col2_x:
+                current_page_start_y = None
+    
     
     #  ==========================================
     #   IMPORTANT INFORMATION AND DISCLOSURES
     #  ==========================================
     if vis('disclosures'):
-        pdf.show_standard_header = True; pdf.header_text = "Important Information and Disclosures"; pdf.add_page()
-        pdf.ln(1)
-
         discl_header_style = FontFace(size_pt=8, emphasis="BOLD", color=C_WHITE, fill_color=C_BLUE_LOGO)
         discl_row_style = FontFace(size_pt=8, emphasis="", color=(0, 0, 0), fill_color=C_WHITE)
 
@@ -1216,18 +1288,28 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
             pdf.line(pdf.l_margin, line_y, pdf.w - 12, line_y)
             pdf.ln(3)
 
+        def _disclosures_new_page():
+            pdf.show_standard_header = True
+            pdf.header_text = "Important Information and Disclosures"
+            pdf.add_page()
+            pdf.ln(1)
+
         extra_disclaimer = pdf_info.get('page_2_disclaimer', '')
         if extra_disclaimer:
+            _disclosures_new_page()
             _discl_section_heading("General Disclosures")
             pdf.set_font('Carlito', '', 9); pdf.set_text_color(40, 40, 40)
-            pdf.multi_cell(pdf.w - 24, 4, clean_text(extra_disclaimer))
+            pdf.multi_cell(pdf.w - 24, 4, _disclosure_single_paragraph(clean_text(extra_disclaimer)))
             pdf.ln(5)
-        _discl_section_heading("Capital Market Assumptions")
-        pdf.set_font('Carlito', 'I', 9); pdf.set_text_color(120, 120, 120)
-        pdf.cell(0, 4, "(Millcreek placeholder)", new_x="LMARGIN", new_y="NEXT", align='L'); pdf.ln(5)
-        _discl_section_heading("Forward Looking Statements")
-        pdf.set_font('Carlito', 'I', 9); pdf.set_text_color(120, 120, 120)
-        pdf.cell(0, 4, "(Millcreek placeholder)", new_x="LMARGIN", new_y="NEXT", align='L'); pdf.ln(5)
+        else:
+            # Start disclosures on its own page only when there is no General Disclosures block above.
+            _disclosures_new_page()
+        # _discl_section_heading("Capital Market Assumptions")
+        # pdf.set_font('Carlito', 'I', 9); pdf.set_text_color(120, 120, 120)
+        # pdf.cell(0, 4, "(Millcreek placeholder)", new_x="LMARGIN", new_y="NEXT", align='L'); pdf.ln(5)
+        # _discl_section_heading("Forward Looking Statements")
+        # pdf.set_font('Carlito', 'I', 9); pdf.set_text_color(120, 120, 120)
+        # pdf.cell(0, 4, "(Millcreek placeholder)", new_x="LMARGIN", new_y="NEXT", align='L'); pdf.ln(5)
         _discl_section_heading("Benchmark Definitions")
         pdf.set_font('Carlito', '', 8)
         with pdf.table(col_widths=(60, 210), text_align=("LEFT", "LEFT"), borders_layout="HORIZONTAL_LINES",
@@ -1243,8 +1325,8 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
             ("Ending VAMI", "Growth of a hypothetical $1,000 investment since inception.", "Ending value / starting value, scaled to $1,000"),
             ("Mean Return", "Average daily return over the analysis period, annualized.", "Average of daily returns, annualized"),
             ("Max Drawdown", "Largest peak-to-trough decline in portfolio value.", "Lowest point vs. prior peak"),
-            ("Peak-To-Valley", "Trading days from peak to trough of the maximum drawdown.", ""),
-            ("Recovery", "Trading days from trough back to a new high, or 'Ongoing'.", ""),
+            ("Peak-To-Valley", "Calendar days from peak to trough of the maximum drawdown.", "Days elapsed from the maximum drawdown's peak to its bottom."),
+            ("Recovery", "Whether the portfolio has recovered from its maximum drawdown.", "Indicates if the portfolio has regained its prior peak post-drawdown (Yes/No/NA)"),
             ("Std. Deviation", "Annualized total return volatility (both up and down).", "Daily return standard deviation, annualized"),
             ("Downside Dev.", "Annualized volatility of negative returns only.", "Negative return standard deviation, annualized"),
             ("Sharpe Ratio", "Excess return over risk-free rate per unit of total volatility.", "(Return - Risk-Free) / Volatility, ann."),
@@ -1282,6 +1364,7 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
         pdf.set_font('Carlito', '', 8); pdf.set_text_color(120, 120, 120)
         pdf.cell(0, 4, "\u00A9 2026 All rights reserved. Gaard Capital LLC. May not be used or reproduced without express permission.",
                  new_x="LMARGIN", new_y="NEXT", align='C')
+
 
     #  ==========================================
     #   END COVER PAGE

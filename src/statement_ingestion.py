@@ -195,6 +195,8 @@ def breakdown_type_label_from_cleaned_name(cleaned_name: str) -> str:
         return "Inherited IRA"
     if re.search(r"\bIRA\b", u):
         return "IRA"
+    if "TRUST" in u:
+        return "Trust"
     return "Individual"
 
 
@@ -385,10 +387,7 @@ def get_portfolio_holdings(quarterly_stmt_csv: str, benchmark_default_date: str)
     is_flex_query = not _IBKR_ACCOUNT_RE.match((meta.account or '').strip())
     if is_flex_query and meta.name:
         base_name = re.sub(r'\s+(Quarterly|Inception)$', '', meta.name.strip(), flags=re.IGNORECASE).strip()
-        if (meta.account or '').strip().lower() == 'consolidated':
-            account_title = f"{base_name} (Consolidated)"
-        else:
-            account_title = base_name
+        account_title = base_name
     else:
         account_title = meta.name if meta.name else "Total Portfolio"
     

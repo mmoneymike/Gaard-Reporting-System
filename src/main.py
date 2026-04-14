@@ -42,9 +42,9 @@ show_page_end_cover                 = True
 # Keys are matched against account names (case-insensitive substring).
 # Values are (SPY_weight, AGG_weight) tuples — must sum to 1.0.
 CLIENT_BENCHMARK_OVERRIDES = {
-    'John Mattox':       (0.60, 0.40),   # 60% SPY / 40% AGG
-    'Paula C Hurley':      (0.30, 0.70),   # 30% SPY / 70% AGG
-    'Jonathan Brogaard': (0.30, 0.70),   # 30% SPY / 70% AGG
+    'John P Mattox':     (0.60, 0.40),      # 60% SPY / 40% AGG
+    'Paula C Hurley':    (0.30, 0.70),      # 30% SPY / 70% AGG
+    'Brogaard':          (0.30, 0.70),      # 30% SPY / 70% AGG
 }
 DEFAULT_BENCHMARK_RATIO = (0.60, 0.40)   # fallback when no override matches
 
@@ -103,17 +103,56 @@ IGNORE_STARTSWITH = [
 #   HELPERS
 #  ==========================================
 
+_CLIENT_FUZZY_PATTERNS = {
+    'John P Mattox':    [r'\bmattox\b'],
+    'Paula C Hurley':   [r'\bhurley\b'],
+    'Brogaard':         [r'\bbrogaard\b'],
+}
+
+
+def client_tag_matches_account_title(client_tag: str, account_title: str) -> bool:
+    """True if Excel `account` cell should apply to this statement account title.
+
+    Uses case-insensitive substring match, then the same regex patterns as
+    benchmark resolution so tags like 'John P Mattox' match 'John Mattox'.
+    """
+    name_lower = str(account_title).lower()
+    ct = str(client_tag).strip()
+    if not ct:
+        return False
+    if ct.lower() in name_lower:
+        return True
+    for canonical, patterns in _CLIENT_FUZZY_PATTERNS.items():
+        if canonical.lower() == ct.lower():
+            return any(re.search(p, name_lower) for p in patterns)
+    return False
+
+
 def resolve_benchmark_for_account(account_name):
     """Returns (benchmark_key, weights_dict) for a given account name.
 
-    Matches CLIENT_BENCHMARK_OVERRIDES keys as case-insensitive substrings.
+    First tries an exact case-insensitive substring match against
+    CLIENT_BENCHMARK_OVERRIDES keys.  If that fails, falls back to fuzzy
+    keyword patterns in _CLIENT_FUZZY_PATTERNS so that names like
+    'John Mattox' (missing middle initial) or partial titles still resolve
+    to the correct client benchmark.
     Falls back to DEFAULT_BENCHMARK_RATIO when no override matches.
     """
     name_lower = str(account_name).lower()
+
+    # 1. Exact substring match (original behaviour)
     for client_name, (spy_w, agg_w) in CLIENT_BENCHMARK_OVERRIDES.items():
         if client_name.lower() in name_lower:
             key = f"{int(spy_w*100)}% SPY / {int(agg_w*100)}% AGG"
             return key, {'SPY': spy_w, 'AGG': agg_w}
+
+    # 2. Fuzzy keyword match — catches missing middle initials, partial names
+    for client_name, patterns in _CLIENT_FUZZY_PATTERNS.items():
+        if any(re.search(p, name_lower) for p in patterns):
+            spy_w, agg_w = CLIENT_BENCHMARK_OVERRIDES[client_name]
+            key = f"{int(spy_w*100)}% SPY / {int(agg_w*100)}% AGG"
+            return key, {'SPY': spy_w, 'AGG': agg_w}
+
     spy_w, agg_w = DEFAULT_BENCHMARK_RATIO
     key = f"{int(spy_w*100)}% SPY / {int(agg_w*100)}% AGG"
     return key, {'SPY': spy_w, 'AGG': agg_w}
@@ -369,11 +408,12 @@ def generate_report_for_account(quarter_csv, inception_csv, shared,
     if benchmark_weights is None:
         benchmark_weights = {'SPY': DEFAULT_BENCHMARK_RATIO[0], 'AGG': DEFAULT_BENCHMARK_RATIO[1]}
 
-    output_dir       = shared['output_dir']
-    pdf_info         = shared['pdf_info']
-    LOGO_FILE        = shared['logo_file']
-    TEXT_LOGO_FILE   = shared['text_logo_file']
-    page_visibility  = shared.get('page_visibility', {})
+    output_dir          = shared['output_dir']
+    pdf_info_global     = shared['pdf_info']
+    pdf_info_overrides  = shared.get('pdf_info_overrides', {})
+    LOGO_FILE           = shared['logo_file']
+    TEXT_LOGO_FILE      = shared['text_logo_file']
+    page_visibility     = shared.get('page_visibility', {})
     
     # === 1. Load Data from Statements ===
     print(f"\n === 1. Ingesting Portfolio (Internal) ===")
@@ -395,6 +435,15 @@ def generate_report_for_account(quarter_csv, inception_csv, shared,
         total_nav = portfolio_data.total_nav
         legal_notes = portfolio_data.legal_notes
         print(f"   > 1a: Quarter Statement Period Check: {quarter_start_date} to {report_date}")
+
+        # --- RESOLVE PER-CLIENT pdf_info ---
+        # Start from the global dict, then layer on any matching client overrides
+        # (substring on account title, then fuzzy patterns — see client_tag_matches_account_title).
+        pdf_info = dict(pdf_info_global)
+        for client_tag, overrides in pdf_info_overrides.items():
+            if client_tag_matches_account_title(client_tag, account_title):
+                pdf_info.update(overrides)
+                print(f"   > Applied {len(overrides)} pdf_info override(s) for client tag '{client_tag}'.")
         
         # --- SINCE INCEPTION STATEMENT ---
         inception_data = parse_since_inception_csv(inception_csv)
@@ -577,6 +626,11 @@ def generate_report_for_account(quarter_csv, inception_csv, shared,
     # === 3. PREPARE DATA FOR PDF / EXCEL ===
     print("\n=== 3. Generating PDF Report ===")
 
+    # Match PDF: roll accruals ("Other") into Cash for bucket grouping (MV / allocation unchanged in total)
+    if 'asset_class' in holdings.columns:
+        holdings = holdings.copy()
+        holdings.loc[holdings['asset_class'] == 'Other', 'asset_class'] = 'Cash'
+
     # Aggregate Grand Totals
     grand_cost = holdings['avg_cost'].sum()
     grand_value = holdings['raw_value'].sum()
@@ -598,20 +652,23 @@ def generate_report_for_account(quarter_csv, inception_csv, shared,
 
     for bucket in sorted_buckets:
         bucket_data = holdings[holdings['asset_class'] == bucket]
-        
-        # Aggregate bucket-level metrics
+
         b_mv = bucket_data['raw_value'].sum()
-        b_cost = bucket_data['avg_cost'].sum()
-        b_divs = bucket_data['total_dividends'].sum()
-        b_realized = bucket_data['realized_pl'].sum()
-        
+        # Class return: value-weighted average of each line's period return (IBKR / statement)
+        if b_mv and not bucket_data.empty:
+            w = bucket_data['raw_value'] / b_mv
+            r = bucket_data['cumulative_return'].fillna(0.0)
+            bucket_return = float((w * r).sum())
+        else:
+            bucket_return = 0.0
+
         # Add Bucket Row
         summary_rows.append({
             'Type': 'Bucket',         
             'Name': bucket,
             'MarketValue': b_mv,
             'Allocation': b_mv / grand_value if grand_value else 0.0,
-            'Return': ((b_mv - b_cost) + b_divs + b_realized) / b_cost if b_cost != 0 else 0.0,
+            'Return': bucket_return,
             'IsCash': (bucket == 'Cash')
         })
         
@@ -619,7 +676,10 @@ def generate_report_for_account(quarter_csv, inception_csv, shared,
         for b_ticker in BENCHMARK_CONFIG.get(bucket, []):
             b_val = 0.0
             if not bench_growth_period.empty and b_ticker in bench_growth_period.columns:
-                b_val = get_cumulative_return(bench_growth_period[b_ticker], 'INCEPTION')
+                # Divide by 100 (the original start_value) to include the first
+                # trading day's return — get_cumulative_return('INCEPTION') would
+                # divide last/first-compounded-value and silently drop day-1.
+                b_val = (bench_growth_period[b_ticker].iloc[-1] / 100.0) - 1.0
             
             summary_rows.append({
                 'Type': 'Benchmark',     
@@ -783,18 +843,32 @@ def run_pipeline():
     LOGO_FILE = os.path.join(project_root, "data", "pdf_resources", "logos", "gaard_logo.png")
     TEXT_LOGO_FILE = os.path.join(project_root, "data", "pdf_resources", "logos", "gaard_text_logo.png")
     
-    pdf_info = {}
+    pdf_info_global    = {}   # rows with no 'account' value — shared by all reports
+    pdf_info_overrides = {}   # {client_fragment: {key: value}} — per-client overrides
     if os.path.exists(INFO_FILE):
         print("   > SETUP: Loading PDF Info Sheet...")
         try:
             info_df = pd.read_excel(INFO_FILE, header=2)
             info_df.columns = [c.strip() if isinstance(c, str) else c for c in info_df.columns]
-            if 'key' in info_df.columns and 'value' in info_df.columns:
-                pdf_info = dict(zip(info_df['key'].dropna(), info_df['value'].dropna()))
-            else:
+            if 'key' not in info_df.columns or 'value' not in info_df.columns:
                 print(f"Warning: Expected columns 'key' and 'value' not found. Found: {info_df.columns.to_list()}")
+            else:
+                has_account_col = 'account' in info_df.columns
+                for _, row in info_df.dropna(subset=['key']).iterrows():
+                    k = row['key']
+                    v = row['value'] if not pd.isna(row['value']) else None
+                    client_tag = str(row['account']).strip() if has_account_col and not pd.isna(row.get('account', float('nan'))) else ''
+                    if client_tag:
+                        pdf_info_overrides.setdefault(client_tag, {})[k] = v
+                    else:
+                        if v is not None:
+                            pdf_info_global[k] = v
+                n_overrides = sum(len(v) for v in pdf_info_overrides.values())
+                print(f"   > Loaded {len(pdf_info_global)} global keys, {n_overrides} per-client override(s) for {len(pdf_info_overrides)} client(s).")
         except Exception as e:
             print(f"Warning: Could not load Info File for PDF: {e}")
+    # Backwards-compatible alias used throughout this function
+    pdf_info = pdf_info_global
     
     page_visibility = {
         'cover':                     show_page_cover,
@@ -815,11 +889,12 @@ def run_pipeline():
     }
 
     shared = {
-        'output_dir': output_dir,
-        'pdf_info': pdf_info,
-        'logo_file': LOGO_FILE,
-        'text_logo_file': TEXT_LOGO_FILE,
-        'page_visibility': page_visibility,
+        'output_dir':           output_dir,
+        'pdf_info':             pdf_info_global,
+        'pdf_info_overrides':   pdf_info_overrides,
+        'logo_file':            LOGO_FILE,
+        'text_logo_file':       TEXT_LOGO_FILE,
+        'page_visibility':      page_visibility,
     }
     
     # ---------------------------------------------------------
