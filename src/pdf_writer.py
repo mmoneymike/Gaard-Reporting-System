@@ -9,11 +9,11 @@ import datetime
 # --- CONSTANTS & COLORS ---
 C_BLUE_PRIMARY = (89, 120, 247)   # #5978F7
 C_BLUE_LOGO    = (73, 106, 154)    # #496A94
-C_LIGHT_BG   = (245, 247, 255)  
+C_LIGHT_BG     = (245, 247, 255)  # Light background color
 C_GREY_BORDER  = (200, 200, 200)
 C_TEXT_LIGHT_GREY = (180, 180, 180) # Footnotes, bottom-of-page disclosures
-C_TEXT_GREY = (100, 100, 100) # Benchmark rows, "Reportings as of …" lines
-C_WHITE        = (255, 255, 255)  
+C_TEXT_GREY     = (100, 100, 100) # Benchmark rows, "Reportings as of …" lines
+C_WHITE         = (255, 255, 255)  
 
 # --- PAGE DISCLOSURES ---
 DISCLOSURE_NAV = (
@@ -25,8 +25,8 @@ DISCLOSURE_NAV = (
 )
 
 DISCLOSURE_ALLOCATION = (
-    "Portfolio and account performance are net of management fees and third-party commissions, while "
-    "class, allocation, and asset-level performance are gross of fees. Returns shown are actual, not asset-weighted. "
+    "Portfolio and account performance are presented net of management fees and third-party commissions, calculated using the Time-Weighted Return (TWR) method. "
+    "Asset class and allocation-level performance are presented net of fees. Returns shown reflect actual, unweighted performance. "
     "Allocation percentages and market values reflect total portfolio positions. "
     "Benchmarks are net of fund expense and do not include trading costs. Please see disclosures for full descriptions. "
     "Account values and performance information may be unreconciled, unaudited and/or provided from outside sources. Please refer to monthly account statements for finalized information. "
@@ -34,7 +34,7 @@ DISCLOSURE_ALLOCATION = (
 )
 
 DISCLOSURE_BREAKDOWN = (
-    "Portfolio and account performance are net of management fees and third-party commissions. "
+    "Portfolio and account performance are presented net of management fees and third-party commissions and are calculated using the Time-Weighted Return (TWR) method. "
     "The total row reflects the consolidated net return across all underlying accounts. "
     "Account values and performance information may be unreconciled, unaudited and/or "
     "provided from outside sources. Please refer to monthly account statements for "
@@ -60,8 +60,8 @@ def _build_benchmark_description(benchmark_key):
 def _disclosure_performance(benchmark_key):
     bench_desc = _build_benchmark_description(benchmark_key)
     return (
-        "Performance is net of management fees and third-party commissions. The Benchmark "
-        f"is comprised of {bench_desc}. "
+        "Performance is presented net of management fees and third-party commissions and are calculated using the Time-Weighted Return (TWR) method. "
+        f"The Benchmark is comprised of {bench_desc}. "
         "Benchmarks are net of fund expense and do not include trading costs. Please see disclosures "
         "for full descriptions. Account values and performance information may be unreconciled, unaudited "
         "and/or provided from outside sources. Please refer to monthly account statements for finalized information. "
@@ -71,7 +71,8 @@ def _disclosure_performance(benchmark_key):
 def _disclosure_risk_metrics(benchmark_key):
     bench_desc = _build_benchmark_description(benchmark_key)
     return (
-        "Portfolio and account performance are net of management fees and third-party commissions. Risk metrics are reported since inception. "
+        "Portfolio and account performance are presented net of management fees and third-party commissions and are calculated using the Time-Weighted Return (TWR) method. "
+        "Risk metrics are reported since inception. "
         f"The Benchmark is comprised of {bench_desc}. "
         "Benchmarks are net of fund expense and do not include trading costs. "
         "Relative risk and factor coefficients are statistical estimates based on historical data and should not be viewed as absolute predictors of future "
@@ -983,7 +984,7 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
                     r.cell(row['Name'], style=bucket_style)
                     r.cell(f"{row['Allocation']:.2%}", style=bucket_style, border="RIGHT")
                     r.cell(f"${row['MarketValue']:,.0f}", style=bucket_style, border="RIGHT")
-                    r.cell("\u2014" if row.get('IsCash') else f"{row['Return']:.2%}", style=bucket_style)
+                    r.cell(f"{row['Return']:.2%}", style=bucket_style)
                 elif row['Type'] == 'Benchmark':
                     r = table.row()
                     r.cell(row['Name'], style=bench_style)
@@ -1034,12 +1035,7 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
                 sum_alloc = subset['weight'].sum()
                 bk_row = summary_df[(summary_df['Type']=='Bucket') & (summary_df['Name']==bucket)]
                 sum_ret = bk_row['Return'].iloc[0] if not bk_row.empty else 0.0
-                is_cash_bucket = (
-                    bool(bk_row['IsCash'].iloc[0])
-                    if not bk_row.empty and 'IsCash' in bk_row.columns
-                    else (bucket == 'Cash')
-                )
-                bucket_ret_str = "\u2014" if is_cash_bucket else f"{sum_ret:.2%}"
+                bucket_ret_str = f"{sum_ret:.2%}"
                 s_row = table.row()
                 s_row.cell(bucket, colspan=2, style=bucket_name_style, align="LEFT")
                 pdf.set_draw_color(*C_GREY_BORDER)
@@ -1058,7 +1054,10 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
                     r = table.row()
                     raw_ticker = str(pos['ticker'])
                     if raw_ticker == "USD":
-                        display_ticker = "USD"; name_str = "Settled Cash"; ret_str = "\u2014"
+                        display_ticker = "USD"
+                        name_str = "Settled Cash"
+                        c = pos.get("contribution")
+                        ret_str = f"{float(c):.2%}" if c is not None and pd.notna(c) else f"{pos['cumulative_return']:.2%}"
                     elif raw_ticker == "ACCRUALS":
                         display_ticker = "Accruals"; name_str = "Interest Accruals"; ret_str = "\u2014"
                     else:

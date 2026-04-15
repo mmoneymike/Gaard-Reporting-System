@@ -135,10 +135,7 @@ def write_portfolio_report_xlsx(
                 sheet.write(current_row, 2, row['MarketValue'], fmts['mv'])
                 sheet.write(current_row, 3, row['Allocation'], fmts['alloc'])
                 
-                if row.get('IsCash', False):
-                    sheet.write(current_row, 4, "---", fmts['cash'])
-                else:
-                    sheet.write(current_row, 4, row['Return'], fmts['alloc'])
+                sheet.write(current_row, 4, row['Return'], fmts['alloc'])
 
             elif row_type == 'Benchmark':
                 # Use Benchmark formats from current set (Matches Bucket BG)
@@ -264,10 +261,13 @@ def write_portfolio_report_xlsx(
                 details_sheet.write(current_row, 3, pos['raw_value'], fmt_h_mv)
                 details_sheet.write(current_row, 4, pos['weight'], fmt_h_alloc)
                 
-                if pos['ticker'] == 'CASH_BAL':
-                    details_sheet.write(current_row, 5, "---", fmt_h_right)
+                tick = str(pos['ticker']).upper()
+                if tick == "USD" and "contribution" in holdings_df.columns and pd.notna(pos.get("contribution")):
+                    details_sheet.write(current_row, 5, pos["contribution"], fmt_h_alloc)
+                elif pos["ticker"] == "CASH_BAL":
+                    details_sheet.write(current_row, 5, 0.0, fmt_h_alloc)
                 else:
-                    details_sheet.write(current_row, 5, pos['cumulative_return'], fmt_h_alloc)
+                    details_sheet.write(current_row, 5, pos["cumulative_return"], fmt_h_alloc)
                 
                 current_row += 1
             

@@ -631,6 +631,15 @@ def generate_report_for_account(quarter_csv, inception_csv, shared,
         holdings = holdings.copy()
         holdings.loc[holdings['asset_class'] == 'Other', 'asset_class'] = 'Cash'
 
+    # Scale per-holding contributions so asset-class totals add up exactly to the
+    # statement's CumulativeReturn (handles TWR mid-period cash flows, fee lines, rounding).
+    if 'contribution' in holdings.columns:
+        contrib_sum = holdings['contribution'].fillna(0.0).sum()
+        target_return = key_stats.get('CumulativeReturn', 0.0)
+        if contrib_sum != 0.0:
+            scale = target_return / contrib_sum
+            holdings['contribution'] = holdings['contribution'].fillna(0.0) * scale
+
     # Aggregate Grand Totals
     grand_cost = holdings['avg_cost'].sum()
     grand_value = holdings['raw_value'].sum()
@@ -654,11 +663,9 @@ def generate_report_for_account(quarter_csv, inception_csv, shared,
         bucket_data = holdings[holdings['asset_class'] == bucket]
 
         b_mv = bucket_data['raw_value'].sum()
-        # Class return: value-weighted average of each line's period return (IBKR / statement)
-        if b_mv and not bucket_data.empty:
-            w = bucket_data['raw_value'] / b_mv
-            r = bucket_data['cumulative_return'].fillna(0.0)
-            bucket_return = float((w * r).sum())
+        # Class return: sum of Performance-by-Symbol Contribution (same scale as statement CumulativeReturn).
+        if not bucket_data.empty and 'contribution' in bucket_data.columns:
+            bucket_return = float(bucket_data['contribution'].fillna(0.0).sum())
         else:
             bucket_return = 0.0
 

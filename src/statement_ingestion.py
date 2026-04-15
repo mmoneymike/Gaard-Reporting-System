@@ -271,9 +271,33 @@ def is_valid_ticker(ticker: str) -> bool:
     """Valid ticker check."""
     t = str(ticker).upper().strip()
     if not t: return False
-    invalid = ['TOTAL', 'SUBTOTAL', 'STOCKS', 'EQUITY', 'BONDS', 'CASH', 'FUNDS']
+    invalid = ['TOTAL', 'SUBTOTAL', 'STOCKS', 'EQUITY', 'BONDS', 'CASH', 'FUNDS', 'FEES']
     if any(x in t for x in invalid): return False
     return True
+
+
+def _perf_symbol_row_for_contribution(symbol: str) -> bool:
+    """Include Performance-by-Symbol data rows; exclude section subtotals."""
+    t = str(symbol).strip()
+    if not t:
+        return False
+    u = t.upper()
+    if u.startswith("TOTAL"):
+        return False
+    # Match is_valid_ticker aggregate labels, but allow real tickers whose names contain 'CASH'.
+    bad = ("SUBTOTAL", "STOCKS", "EQUITY", "BONDS", "FUNDS")
+    if any(x in u for x in bad):
+        return False
+    if "TOTAL" in u:
+        return False
+    if u == "CASH":
+        return False
+    return True
+
+
+def _contribution_lookup_key(symbol: str) -> str:
+    """Normalize symbol for matching IBKR cash rows (e.g. strip hyphens)."""
+    return re.sub(r"-", "", str(symbol).strip()).upper()
 
 
 # --- INDIVIDUAL ASSET RETURN CALCULATION LOGIC ---
@@ -301,23 +325,39 @@ def process_holdings_from_data(sections: QuarterStatementSections) -> pd.DataFra
         df_div_clean['Amount'] = df_div_clean.get('Amount', pd.Series(dtype=float)).apply(_coerce_float)
         div_map = df_div_clean.groupby('Symbol')['Amount'].sum().to_dict()
 
-    # 3. Clean Performance by Symbol (Realized P&L, Fallback Meta, & Fallback Returns)
+    # 3. Clean Performance by Symbol (Realized P&L, Fallback Meta, Fallback Returns, Contribution)
     real_map = {}
     desc_map = {}
     sector_map = {}
-    ibkr_return_map = {} 
-    
+    ibkr_return_map = {}
+    contrib_raw_by_symkey: dict[str, float] = {}
+
     if not df_perf.empty and 'Symbol' in df_perf.columns:
         df_perf_clean = df_perf[df_perf['Symbol'].apply(is_valid_ticker)].copy()
         df_perf_clean['Realized_P&L'] = df_perf_clean.get('Realized_P&L', pd.Series(dtype=float)).apply(_coerce_float)
-        df_perf_clean['Return'] = df_perf_clean.get('Return', pd.Series(dtype=float)).apply(_coerce_float) 
-        
+        df_perf_clean['Return'] = df_perf_clean.get('Return', pd.Series(dtype=float)).apply(_coerce_float)
+
         real_map = df_perf_clean.groupby('Symbol')['Realized_P&L'].sum().to_dict()
         desc_map = df_perf_clean.set_index('Symbol')['Description'].to_dict()
         sector_map = df_perf_clean.set_index('Symbol')['Sector'].to_dict()
-        
+
         # We divide by 100 because IBKR usually reports 3.07 for 3.07%
         ibkr_return_map = (df_perf_clean.set_index('Symbol')['Return'] / 100).to_dict()
+
+    # Contribution: same percent-point scale as Key Statistics CumulativeReturn (divide by 100 for decimal).
+    # Rows where AvgWeight == "-" are IBKR fee/adjustment lines — not real securities — so skip them.
+    if not df_perf.empty and 'Symbol' in df_perf.columns and 'Contribution' in df_perf.columns:
+        for _, pr in df_perf.iterrows():
+            sym = pr['Symbol']
+            if not _perf_symbol_row_for_contribution(str(sym)):
+                continue
+            avg_weight = str(pr.get('AvgWeight', '')).strip()
+            if avg_weight == '-':
+                continue
+            key = _contribution_lookup_key(sym)
+            if not key:
+                continue
+            contrib_raw_by_symkey[key] = contrib_raw_by_symkey.get(key, 0.0) + _coerce_float(pr.get('Contribution', 0))
 
     # Aggregate all unique symbols
     all_symbols = set(df_open['Symbol']) | set(div_map.keys()) | set(real_map.keys())
@@ -340,7 +380,11 @@ def process_holdings_from_data(sections: QuarterStatementSections) -> pd.DataFra
             
         div = div_map.get(symbol, 0.0)
         real = real_map.get(symbol, 0.0)
-        
+
+        sym_key = _contribution_lookup_key(symbol)
+        contrib_raw = contrib_raw_by_symkey.get(sym_key, 0.0)
+        contribution = contrib_raw / 100.0
+
         # --- RETURN LOGIC ---
         # Use the official IBKR return for the symbol if available (TWR)
         # Fallback to simple ROI only if IBKR data is missing
@@ -352,7 +396,7 @@ def process_holdings_from_data(sections: QuarterStatementSections) -> pd.DataFra
             ret = total_gen / cb
         else:
             ret = 0.0
-    
+
         rows.append({
             'ticker': symbol,
             'description': desc,
@@ -361,17 +405,31 @@ def process_holdings_from_data(sections: QuarterStatementSections) -> pd.DataFra
             'avg_cost': cb,
             'total_dividends': div,
             'realized_pl': real,
-            'cumulative_return': ret
+            'cumulative_return': ret,
+            'contribution': contribution,
         })
-        
+
     df = pd.DataFrame(rows)
-    
+
     # Calculate updated weights strictly based on current values
     if not df.empty:
         total_val = df['raw_value'].sum()
         df['avg_weight'] = df['raw_value'] / total_val if total_val else 0.0
     else:
-        df = pd.DataFrame(columns=['ticker', 'description', 'asset_class', 'raw_value', 'avg_cost', 'total_dividends', 'realized_pl', 'cumulative_return', 'avg_weight'])
+        df = pd.DataFrame(
+            columns=[
+                'ticker',
+                'description',
+                'asset_class',
+                'raw_value',
+                'avg_cost',
+                'total_dividends',
+                'realized_pl',
+                'cumulative_return',
+                'contribution',
+                'avg_weight',
+            ]
+        )
         
     return df
 
