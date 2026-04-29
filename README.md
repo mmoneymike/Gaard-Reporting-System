@@ -190,7 +190,7 @@ flowchart LR
 | `data/Gaard_Keys/` | SSH and PGP key material (paths set on the switchboard). **Excluded from git.** | Store keys securely; point `*_PATH` variables at these files |
 | `data/raw_encrypted_downloads/` | Encrypted downloads from SFTP before decryption. **Excluded from git.** | Inspect failed deliveries; clean up old files if needed |
 | `data/raw_downloads/` | Decrypted CSVs (and extracted archives) used for account pairing. **Excluded from git.** | Refresh by re-running SFTP mode; or copy IBKR exports here for debugging |
-| `data/test_data/` | Folder-per-run style layout for `USE_TEST_DATA = True`. **Excluded from git** (contains client data). | Add subfolders with `inception` / quarterly naming per `scan_test_data_folder` |
+| `data/test_data/` | Folder-per-run style layout for `USE_TEST_DATA = True`. Checked into git so a new developer can run the pipeline immediately. | Add subfolders with `inception` / quarterly naming per `scan_test_data_folder` |
 | `data/info_for_pdf.xlsx` | PDF boilerplate (`key` / `value` / optional `account` columns, header on row 3) | Edit text values without changing code; add `account` column entries for per-client overrides |
 | `data/pdf_resources/fonts/` | Carlito and Calibri fonts used by `fpdf2` | Replace or add fonts |
 | `data/pdf_resources/logos/` | `gaard_logo.png`, `gaard_text_logo.png` | Replace assets to rebrand |
