@@ -1,0 +1,84 @@
+Introduction,Header,Name,Account,Alias,BaseCurrency,AccountType,AnalysisPeriod,PerformanceMeasure
+Introduction,Data,"John P Mattox Roth IRA, Interactive Brokers LLC Custodian",U24210711,,USD,ROTH IRA (Advisor Client),"March 12, 2026 to March 17, 2026 (Daily)",TWR
+Key Statistics,MetaInfo,Analysis Period,"March 12, 2026 - March 17, 2026"
+Key Statistics,Header,BeginningNAV,EndingNAV,CumulativeReturn,5DayReturn,5DayReturnDateRange,10DayReturn,10DayReturnDateRange,BestReturn,BestReturnDate,WorstReturn,WorstReturnDate,MTM,Deposits & Withdrawals,Dividends,Interest,Fees & Commissions,Other,ChangeInNAV
+Key Statistics,Data,0,10017.07,-0.885170281,,,,,0.953317162,20260316,-1.540390223,20260312,-89.46,10106.53,0,0,0,-0,10017.07
+Historical Performance,MetaInfo,Analysis Period,"March 12, 2026 - March 17, 2026"
+Historical Performance,Header,Account,MTD,QTD,YTD,Since Inception
+Historical Performance,Data,U24210711,-0.885170276,-0.885170276,-0.885170276,-0.885170276
+Open Position Summary,MetaInfo,As Of,"March 17, 2026"
+Open Position Summary,Header,Date,FinancialInstrument,Currency,Symbol,Description,Sector,Quantity,ClosePrice,Value,Cost Basis,UnrealizedP&L,FXRateToBase
+Open Position Summary,Data,03/17/2026,ETFs,USD,SPY,SPDR S&P 500 ETF TRUST,Broad,14,670.79,9391.06,9480.52,-89.46,1
+Open Position Summary,Data,Total,ETFs,USD,,,,,,9391.06,9480.52,-89.46
+Open Position Summary,Data,03/17/2026,Cash,USD,USD,United States Dollar,Cash,626.01,1,626.01, , ,1
+Allocation Goals,MetaInfo,As Of,"March 17, 2026"
+Allocation Goals,Header,Asset and Sub-Asset Class,Actual NAV,Actual %,Goal NAV,Goal %,+/- NAV,+/- %
+Allocation Goals,Data,Equities,9391.06,93.750567781,-,45,-,48.750567781
+Allocation Goals,Data,Large Cap,9391.06,93.750567781,-,-,-,93.750567781
+Allocation Goals,Data,Fixed Income,0,0,-,50,-,-50
+Allocation Goals,Data,Cash,626.01,6.249432219,-,5,-,1.249432219
+Allocation Goals,Data,Brokerage Cash,626.01,6.249432219,-,-,-,6.249432219
+Allocation Goals,Data,Total,10017.07,100,-,100,-,0
+Allocation by Asset Class,MetaInfo,Analysis Period,"March 12, 2026 - March 17, 2026"
+Allocation by Asset Class,Header,Date,Equities,Cash,NAV
+Allocation by Asset Class,Data,20260312,9324.84,626.01,9950.85
+Allocation by Asset Class,Data,20260313,9272.06,626.01,9898.07
+Allocation by Asset Class,Data,20260316,9366.42,626.01,9992.43
+Allocation by Asset Class,Data,20260317,9391.06,626.01,10017.07
+Time Period Performance Statistics,MetaInfo,Analysis Period,"March 12, 2026 - March 17, 2026"
+Time Period Performance Statistics,Header,Date,Account,Return
+Time Period Performance Statistics,Data,03/12/26,U24210711,-1.540390223
+Time Period Performance Statistics,Data,03/13/26,U24210711,-0.53040695
+Time Period Performance Statistics,Data,03/16/26,U24210711,0.953317162
+Time Period Performance Statistics,Data,03/17/26,U24210711,0.246586666
+Cumulative Performance Statistics,MetaInfo,Analysis Period,"March 12, 2026 - March 17, 2026"
+Cumulative Performance Statistics,Header,Date,Account,Return
+Cumulative Performance Statistics,Data,03/12/26,U24210711,-1.540390223
+Cumulative Performance Statistics,Data,03/13/26,U24210711,-2.062626836
+Cumulative Performance Statistics,Data,03/16/26,U24210711,-1.12897305
+Cumulative Performance Statistics,Data,03/17/26,U24210711,-0.885170281
+Risk Measures,MetaInfo,Analysis Period,"March 12, 2026 - March 17, 2026"
+Risk Measures,Header,Risk Measure,Account,Account Value
+Risk Measures,Data,Ending VAMI:,U24210711,991.14829719
+Risk Measures,Data,Max Drawdown:,U24210711,2.062626836
+Risk Measures,Data,Peak-To-Valley:,U24210711,Start - 20260313
+Risk Measures,Data,Recovery:,U24210711,Ongoing
+Risk Measures,Data,Sharpe Ratio:,U24210711,-4.030521488
+Risk Measures,Data,Sortino Ratio:,U24210711,-4.53548155
+Risk Measures,Data,Standard Deviation:,U24210711,0.926571417
+Risk Measures,Data,Downside Deviation:,U24210711,0.823411134
+Risk Measures,Data,Mean Return:,U24210711,-0.217723336
+Risk Measures,Data,Positive Periods:,U24210711,2 (50)
+Risk Measures,Data,Negative Periods:,U24210711,2 (50)
+Performance by Asset Class,MetaInfo,Analysis Period,"March 12, 2026 - March 17, 2026"
+Performance by Asset Class,Header,Date,Equities
+Performance by Asset Class,Data,20260312,-1.540390223
+Performance by Asset Class,Data,20260313,-0.53040695
+Performance by Asset Class,Data,20260316,0.953317162
+Performance by Asset Class,Data,20260317,0.246586666
+Performance by Asset Class,Data,Total,-0.885170281
+Performance by Symbol,MetaInfo,Analysis Period,"March 12, 2026 - March 17, 2026"
+Performance by Symbol,Header,Symbol,Description,FinancialInstrument,Sector,AvgWeight,Return,Contribution,Unrealized_P&L,Realized_P&L,Open
+Performance by Symbol,Data,SPY,SPDR S&P 500 ETF TRUST,ETFs,Broad,93.731364186,-0.943619126,-0.885170281,-89.46,0.00,Yes
+Performance by Symbol,Data,Total ETFs,,,,93.731364186,-0.943619126,-0.885170281,-89.46,0.00,
+Performance by Symbol,Data,USD,United States Dollar,Cash,Cash,6.268635814,-0,0,,,Yes
+Performance by Symbol,Data,Total Cash,,,,6.268635814,-0,0,,,
+Performance by Symbol,Data,Total,,,,100,-0.885170281,-0.885170281,-89.46,0.00,
+Deposits And Withdrawals,MetaInfo,Analysis Period,"March 12, 2026 - March 17, 2026"
+Deposits And Withdrawals,Header,Date,Type,Description,Amount
+Deposits And Withdrawals,Data,03/12/26,ACATIN,"ACATS Money Transfer In (0226, 233055221) ",626.01
+Deposits And Withdrawals,Data,03/12/26,ACATIN,Ss Spdr S&p 500 Etf Trust-us (SPY) Quantity: 14,9480.52
+Notes and Disclosure,Header,Type,Note
+Notes and Disclosure,Data,General,"1. The Net Asset Value (NAV) consists of all positions by financial instrument (stock, securities options, warrants, bonds, cash, etc.). All non-base currency amounts are converted to the base currency at the close of period rate."
+Notes and Disclosure,Data,General,2. The gain or loss from future contracts settle into cash each night. The notional value is used when computing the contribution to return.
+Notes and Disclosure,Data,General,"3. Dividend accruals, interest accruals, and insured deposits are included in cash amounts throughout the report."
+Notes and Disclosure,Data,General,4. Price valuations are obtained from outside parties. Clearing Broker shall have no responsibility for the accuracy or timeliness of any such price valuation.
+Notes and Disclosure,Data,General,5. Data from Thomson Reuters Business Classifications and Lipper Global is used to derive our sector classifications. Funds with assorted sector allocations are classified as Broad.
+Notes and Disclosure,Data,General,"6. Amounts are formatted to two decimal places. If amounts are greater than two decimal places, Clearing Broker uses "half-even" rounding. This means that Clearing Broker rounds such amounts up to the nearest even number."
+Notes and Disclosure,Data,General,"7. For accounts opened and funded before 2009, reports with a time period of Since Inception will only include data going back to January 1, 2009. This includes some default reports and both Historical Performance reports."
+Notes and Disclosure,Data,General,"8. If you have elected to trade cryptocurrency/digital asset products at Crypto Provider through the Clearing Broker platform, for your convenience your positions in your linked account at Crypto Provider are reflected in PortfolioAnalyst in connection with your Clearing Broker account."
+Notes and Disclosure,Data,Section,1. Account Overview: The deposit/withdrawal amount displayed includes internal transfers along with cash and position transfers.
+Notes and Disclosure,Data,Section,"2. Risk Measures: Historical US 3 Month Treasury Bill rates are used as the risk free rates when calculating Alpha, the Sharpe ratio, the Sortino ratio, and the downside deviation."
+Notes and Disclosure,Data,Disclosure,"This portfolio report was generated using Clearing Broker's PortfolioAnalyst tool, which allows Clearing Broker clients to generate analyses of their accounts using market data provided by third parties along with trade and account data contained in Clearing Broker's systems. This report is for information purposes only and is provided AS IS. Clearing Broker makes no warranty of any kind, express or implied, as to this report and its contents. The data provided for use in the PortfolioAnalyst tool is believed to be accurate, but completeness and accuracy of the information is not guaranteed, and Clearing Broker has no liability with respect thereto. The data regarding accounts held outside of Clearing Broker is obtained either directly from your input or from the financial institutions holding those accounts through a third-party service provider and Clearing Broker has NOT reviewed its accuracy.
+
+The material in this report is intended only as a reference and should not be relied upon for the maintenance of your books and records for tax, accounting, financial, or regulatory reporting or for any other purposes. This report is not an offer or a solicitation of an offer to buy or sell any security. This material does not, and is not intended to, take into account the particular financial conditions, investment objectives, or requirements of individual customers. Before acting on any material within this report, you should consider whether it is suitable for your particular circumstances and as necessary, seek professional advice."

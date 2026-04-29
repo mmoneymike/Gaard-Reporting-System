@@ -1,0 +1,187 @@
+Introduction,Header,Name,Account,Alias,BaseCurrency,AccountType,AnalysisPeriod,PerformanceMeasure
+Introduction,Data,"Paula C Hurley Roth IRA, Interactive Brokers LLC Custodian",U24146972,,USD,ROTH IRA (Advisor Client),"February 23, 2026 to March 17, 2026 (Daily)",TWR
+Key Statistics,MetaInfo,Analysis Period,"February 23, 2026 - March 17, 2026"
+Key Statistics,Header,BeginningNAV,EndingNAV,CumulativeReturn,5DayReturn,5DayReturnDateRange,10DayReturn,10DayReturnDateRange,BestReturn,BestReturnDate,WorstReturn,WorstReturnDate,MTM,Deposits & Withdrawals,Dividends,Interest,Fees & Commissions,Other,ChangeInNAV
+Key Statistics,Data,0,26517.989421,-0.48428865,-0.160012112,20260311 - 20260317,-0.493034281,20260304 - 20260317,0.442650217,20260316,-0.513185713,20260312,-129.774,26647.04,0,2.34,-8.176579,6.56,26517.989421
+Historical Performance,MetaInfo,Analysis Period,"February 23, 2026 - March 17, 2026"
+Historical Performance,Header,Account,MTD,QTD,YTD,Since Inception
+Historical Performance,Data,U24146972,-0.488665379,-0.484288642,-0.484288642,-0.484288642
+Open Position Summary,MetaInfo,As Of,"March 17, 2026"
+Open Position Summary,Header,Date,FinancialInstrument,Currency,Symbol,Description,Sector,Quantity,ClosePrice,Value,Cost Basis,UnrealizedP&L,FXRateToBase
+Open Position Summary,Data,03/17/2026,ETFs,USD,BCI,ABRDN BLOOMBERG ALL COMMODIT,Basic Materials,58,23.97,1390.26,1323.931635,66.328365,1
+Open Position Summary,Data,03/17/2026,ETFs,USD,BND,VANGUARD TOTAL BOND MARKET,Broad,35,73.98,2589.3,2606.05,-16.75,1
+Open Position Summary,Data,03/17/2026,ETFs,USD,IJR,ISHARES CORE S&P SMALL-CAP E,Broad,4,123.83,495.32,507.53364,-12.21364,1
+Open Position Summary,Data,03/17/2026,ETFs,USD,IMTM,ISHARES MSCI INTL MOMENTUM F,Broad,12,48.91,586.92,606.18294,-19.26294,1
+Open Position Summary,Data,03/17/2026,ETFs,USD,MTUM,ISHARES MSCI USA MOMENTUM FA,Broad,1,248.23,248.23,251.872857,-3.642857,1
+Open Position Summary,Data,03/17/2026,ETFs,USD,QUAL,ISHARES MSCI USA QUALITY FAC,Broad,3,196.88,590.64,606.813255,-16.173255,1
+Open Position Summary,Data,03/17/2026,ETFs,USD,USMV,ISHARES MSCI USA MIN VOL FAC,Broad,3,95.09,285.27,290.149002,-4.879002,1
+Open Position Summary,Data,03/17/2026,ETFs,USD,VBR,VANGUARD SMALL-CAP VALUE ETF,Financials,2,218.39,436.78,446.32305,-9.54305,1
+Open Position Summary,Data,03/17/2026,ETFs,USD,VEA,VANGUARD FTSE DEVELOPED ETF,Broad,27,65.41,1766.07,1810.98504,-44.91504,1
+Open Position Summary,Data,03/17/2026,ETFs,USD,VGIT,VANGUARD INTERMEDIATE-TERM T,Broad,48,59.88,2874.24,2885.76012,-11.52012,1
+Open Position Summary,Data,03/17/2026,ETFs,USD,VGSH,VANGUARD SHORT-TERM TREASURY,Broad,197,58.6,11544.2,11561.26936,-17.06936,1
+Open Position Summary,Data,03/17/2026,ETFs,USD,VNQ,VANGUARD REAL ESTATE ETF,Real Estate,14,93.34,1306.76,1322.12073,-15.36073,1
+Open Position Summary,Data,03/17/2026,ETFs,USD,VTV,VANGUARD VALUE ETF,Broad,2,199.33,398.66,404.278038,-5.618038,1
+Open Position Summary,Data,03/17/2026,ETFs,USD,VWO,VANGUARD FTSE EMERGING MARKE,Broad,28,55.26,1547.28,1574.610912,-27.330912,1
+Open Position Summary,Data,Total,ETFs,USD,,,,,,26059.93,26197.880579,-137.950579
+Open Position Summary,Data,03/17/2026,Cash,USD,USD,United States Dollar,Cash,458.059421,1,458.059421, , ,1
+Allocation Goals,MetaInfo,As Of,"March 17, 2026"
+Allocation Goals,Header,Asset and Sub-Asset Class,Actual NAV,Actual %,Goal NAV,Goal %,+/- NAV,+/- %
+Allocation Goals,Data,Commodities,1390.26,5.242705161,-,0.00,-,5.242705161
+Allocation Goals,Data,Other,1390.26,5.242705161,-,-,-,5.242705161
+Allocation Goals,Data,Equities,7661.93,28.893329273,-,45,-,-16.106670727
+Allocation Goals,Data,Large Cap,4184.8,15.780985253,-,-,-,15.780985253
+Allocation Goals,Data,Other,3477.13,13.11234402,-,-,-,13.11234402
+Allocation Goals,Data,Fixed Income,17007.74,64.136612056,-,50,-,14.136612056
+Allocation Goals,Data,Other,17007.74,64.136612056,-,-,-,64.136612056
+Allocation Goals,Data,Cash,458.059421,1.72735351,-,5,-,-3.27264649
+Allocation Goals,Data,Brokerage Cash,458.059421,1.72735351,-,-,-,1.72735351
+Allocation Goals,Data,Total,26517.989421,100,-,100,-,-0
+Allocation by Asset Class,MetaInfo,Analysis Period,"February 23, 2026 - March 17, 2026"
+Allocation by Asset Class,Header,Date,Commodities,Equities,Fixed Income,Cash,NAV
+Allocation by Asset Class,Data,20260223,0,0,0,26601.58,26601.58
+Allocation by Asset Class,Data,20260224,0,0,0,26601.58,26601.58
+Allocation by Asset Class,Data,20260225,0,0,0,26601.6,26601.6
+Allocation by Asset Class,Data,20260226,0,0,0,26602.77,26602.77
+Allocation by Asset Class,Data,20260227,0,0,0,26602.77,26602.77
+Allocation by Asset Class,Data,20260302,0,0,0,26649.38,26649.38
+Allocation by Asset Class,Data,20260303,0,0,0,26649.38,26649.38
+Allocation by Asset Class,Data,20260304,0,0,0,26650.55,26650.55
+Allocation by Asset Class,Data,20260305,0,0,0,26650.55,26650.55
+Allocation by Asset Class,Data,20260306,0,0,0,26650.55,26650.55
+Allocation by Asset Class,Data,20260309,0,0,0,26652.5,26652.5
+Allocation by Asset Class,Data,20260310,1355.46,7718.13,17032.28,454.619421,26560.489421
+Allocation by Asset Class,Data,20260311,1376.92,7693.69,17001.23,454.619421,26526.459421
+Allocation by Asset Class,Data,20260312,1404.18,7566.12,16965.41,454.619421,26390.329421
+Allocation by Asset Class,Data,20260313,1396.64,7525.92,16966.42,454.619421,26343.599421
+Allocation by Asset Class,Data,20260316,1375.18,7633.73,16996.68,454.619421,26460.209421
+Allocation by Asset Class,Data,20260317,1390.26,7661.93,17007.74,458.059421,26517.989421
+Time Period Performance Statistics,MetaInfo,Analysis Period,"February 23, 2026 - March 17, 2026"
+Time Period Performance Statistics,Header,Date,Account,Return
+Time Period Performance Statistics,Data,02/23/26,U24146972,0
+Time Period Performance Statistics,Data,02/24/26,U24146972,0
+Time Period Performance Statistics,Data,02/25/26,U24146972,-0
+Time Period Performance Statistics,Data,02/26/26,U24146972,0.004398232
+Time Period Performance Statistics,Data,02/27/26,U24146972,0
+Time Period Performance Statistics,Data,03/02/26,U24146972,0.004390539
+Time Period Performance Statistics,Data,03/03/26,U24146972,0
+Time Period Performance Statistics,Data,03/04/26,U24146972,0.004390346
+Time Period Performance Statistics,Data,03/05/26,U24146972,0
+Time Period Performance Statistics,Data,03/06/26,U24146972,0
+Time Period Performance Statistics,Data,03/09/26,U24146972,0.007316922
+Time Period Performance Statistics,Data,03/10/26,U24146972,-0.345223071
+Time Period Performance Statistics,Data,03/11/26,U24146972,-0.128122639
+Time Period Performance Statistics,Data,03/12/26,U24146972,-0.513185713
+Time Period Performance Statistics,Data,03/13/26,U24146972,-0.177072439
+Time Period Performance Statistics,Data,03/16/26,U24146972,0.442650217
+Time Period Performance Statistics,Data,03/17/26,U24146972,0.218365619
+Cumulative Performance Statistics,MetaInfo,Analysis Period,"February 23, 2026 - March 17, 2026"
+Cumulative Performance Statistics,Header,Date,Account,Return
+Cumulative Performance Statistics,Data,02/23/26,U24146972,0
+Cumulative Performance Statistics,Data,02/24/26,U24146972,0
+Cumulative Performance Statistics,Data,02/25/26,U24146972,-0
+Cumulative Performance Statistics,Data,02/26/26,U24146972,0.004398232
+Cumulative Performance Statistics,Data,02/27/26,U24146972,0.004398232
+Cumulative Performance Statistics,Data,03/02/26,U24146972,0.008788964
+Cumulative Performance Statistics,Data,03/03/26,U24146972,0.008788964
+Cumulative Performance Statistics,Data,03/04/26,U24146972,0.013179696
+Cumulative Performance Statistics,Data,03/05/26,U24146972,0.013179696
+Cumulative Performance Statistics,Data,03/06/26,U24146972,0.013179696
+Cumulative Performance Statistics,Data,03/09/26,U24146972,0.020497582
+Cumulative Performance Statistics,Data,03/10/26,U24146972,-0.324796251
+Cumulative Performance Statistics,Data,03/11/26,U24146972,-0.452502753
+Cumulative Performance Statistics,Data,03/12/26,U24146972,-0.963366287
+Cumulative Performance Statistics,Data,03/13/26,U24146972,-1.13873287
+Cumulative Performance Statistics,Data,03/16/26,U24146972,-0.701123256
+Cumulative Performance Statistics,Data,03/17/26,U24146972,-0.48428865
+Risk Measures,MetaInfo,Analysis Period,"February 23, 2026 - March 17, 2026"
+Risk Measures,Header,Risk Measure,Account,Account Value
+Risk Measures,Data,Ending VAMI:,U24146972,995.157113503
+Risk Measures,Data,Max Drawdown:,U24146972,1.158992886
+Risk Measures,Data,Peak-To-Valley:,U24146972,20260309 - 20260313
+Risk Measures,Data,Recovery:,U24146972,Ongoing
+Risk Measures,Data,Sharpe Ratio:,U24146972,-3.453390151
+Risk Measures,Data,Sortino Ratio:,U24146972,-4.115547364
+Risk Measures,Data,Standard Deviation:,U24146972,0.197092314
+Risk Measures,Data,Downside Deviation:,U24146972,0.165381806
+Risk Measures,Data,Mean Return:,U24146972,-0.028358352
+Risk Measures,Data,Positive Periods:,U24146972,13 (76.470588235)
+Risk Measures,Data,Negative Periods:,U24146972,4 (23.529411765)
+Performance by Asset Class,MetaInfo,Analysis Period,"February 23, 2026 - March 17, 2026"
+Performance by Asset Class,Header,Date,Commodities,Equities,Fixed Income,Cash
+Performance by Asset Class,Data,20260223,0,0,0,0
+Performance by Asset Class,Data,20260224,0,0,0,0
+Performance by Asset Class,Data,20260225,0,0,0,-0
+Performance by Asset Class,Data,20260226,0,0,0,0.004398232
+Performance by Asset Class,Data,20260227,0,0,0,0
+Performance by Asset Class,Data,20260302,0,0,0,0.004390539
+Performance by Asset Class,Data,20260303,0,0,0,0
+Performance by Asset Class,Data,20260304,0,0,0,0.004390346
+Performance by Asset Class,Data,20260305,0,0,0,0
+Performance by Asset Class,Data,20260306,0,0,0,0
+Performance by Asset Class,Data,20260309,0,0,0,0.007316922
+Performance by Asset Class,Data,20260310,0.118294213,-0.385477776,-0.078039508,0.000000001
+Performance by Asset Class,Data,20260311,0.080796704,-0.092016377,-0.116902966,0
+Performance by Asset Class,Data,20260312,0.102765317,-0.480916047,-0.135034983,0
+Performance by Asset Class,Data,20260313,-0.028571072,-0.152328527,0.00382716,0
+Performance by Asset Class,Data,20260316,-0.081461913,0.409245518,0.114866611,0
+Performance by Asset Class,Data,20260317,0.056991234,0.119575773,0.041798611,0
+Performance by Asset Class,Data,Total,0.248914946,-0.583180365,-0.169605916,0.020497583
+Performance by Symbol,MetaInfo,Analysis Period,"February 23, 2026 - March 17, 2026"
+Performance by Symbol,Header,Symbol,Description,FinancialInstrument,Sector,AvgWeight,Return,Contribution,Unrealized_P&L,Realized_P&L,Open
+Performance by Symbol,Data,BCI,ABRDN BLOOMBERG ALL COMMODIT,ETFs,Basic Materials,5.180170509,5.009953932,0.248914946,66.33,0.00,Yes
+Performance by Symbol,Data,BND,VANGUARD TOTAL BOND MARKET,ETFs,Broad,9.768157317,-0.642735174,-0.06269187,-16.75,0.00,Yes
+Performance by Symbol,Data,IJR,ISHARES CORE S&P SMALL-CAP E,ETFs,Broad,1.870883845,-2.252784663,-0.042829399,-12.21,0.00,Yes
+Performance by Symbol,Data,IMTM,ISHARES MSCI INTL MOMENTUM F,ETFs,Broad,2.22393404,-3.177743669,-0.072278603,-19.26,0.00,Yes
+Performance by Symbol,Data,MTUM,ISHARES MSCI USA MOMENTUM FA,ETFs,Broad,0.933105703,-1.358962288,-0.012750584,-3.64,0.00,Yes
+Performance by Symbol,Data,QUAL,ISHARES MSCI USA QUALITY FAC,ETFs,Broad,2.246941208,-2.45763501,-0.056009631,-16.17,0.00,Yes
+Performance by Symbol,Data,USMV,ISHARES MSCI USA MIN VOL FAC,ETFs,Broad,1.083004365,-1.274862906,-0.013849713,-4.88,0.00,Yes
+Performance by Symbol,Data,VBR,VANGUARD SMALL-CAP VALUE ETF,ETFs,Financials,1.648942172,-2.13814859,-0.035775128,-9.54,0.00,Yes
+Performance by Symbol,Data,VEA,VANGUARD FTSE DEVELOPED ETF,ETFs,Broad,6.667286038,-2.480144176,-0.16828405,-44.92,0.00,Yes
+Performance by Symbol,Data,VGIT,VANGUARD INTERMEDIATE-TERM T,ETFs,Broad,10.840798949,-0.399205739,-0.043020661,-11.52,0.00,Yes
+Performance by Symbol,Data,VGSH,VANGUARD SHORT-TERM TREASURY,ETFs,Broad,43.578822931,-0.147642611,-0.063818516,-17.07,0.00,Yes
+Performance by Symbol,Data,VNQ,VANGUARD REAL ESTATE ETF,ETFs,Real Estate,4.913475928,-1.161825063,-0.057283169,-15.36,0.00,Yes
+Performance by Symbol,Data,VTV,VANGUARD VALUE ETF,ETFs,Broad,1.503103143,-1.389647092,-0.020996827,-5.62,0.00,Yes
+Performance by Symbol,Data,VWO,VANGUARD FTSE EMERGING MARKE,ETFs,Broad,5.825085531,-1.735724793,-0.10216728,-27.33,0.00,Yes
+Performance by Symbol,Data,Total ETFs,,,,98.28371168,-0.513440691,-0.504682785,-137.95,0.00,
+Performance by Symbol,Data,USD,United States Dollar,Cash,Cash,65.311631172,0.020497613,0.020497583,,,Yes
+Performance by Symbol,Data,Total Cash,,,,65.311631172,0.020497613,0.020497583,,,
+Performance by Symbol,Data,Total,,,,100,-0.48428865,-0.48428865,-137.95,0.00,
+Trade Summary,MetaInfo,Analysis Period,"February 23, 2026 - March 17, 2026"
+Trade Summary,Header,Financial Instrument,Currency,Symbol,Description,Sector,Quantity Bought,Average Price Bought,Proceeds Bought,Proceeds Bought in Base,Quantity Sold,Average Price Sold,Proceeds Sold,Proceeds Sold in Base
+Trade Summary,Data,ETFs,United States Dollar,BCI,ABRDN BLOOMBERG ALL COMMODIT,Basic Materials,58,22.815,-1323.27,-1323.27,0,0,0,0
+Trade Summary,Data,ETFs,United States Dollar,BND,VANGUARD TOTAL BOND MARKET,Broad,35,74.43,-2605.05,-2605.05,0,0,0,0
+Trade Summary,Data,ETFs,United States Dollar,IJR,ISHARES CORE S&P SMALL-CAP E,Broad,4,126.82,-507.28,-507.28,0,0,0,0
+Trade Summary,Data,ETFs,United States Dollar,IMTM,ISHARES MSCI INTL MOMENTUM F,Broad,12,50.49,-605.88,-605.88,0,0,0,0
+Trade Summary,Data,ETFs,United States Dollar,MTUM,ISHARES MSCI USA MOMENTUM FA,Broad,1,251.73,-251.73,-251.73,0,0,0,0
+Trade Summary,Data,ETFs,United States Dollar,QUAL,ISHARES MSCI USA QUALITY FAC,Broad,3,202.17,-606.51,-606.51,0,0,0,0
+Trade Summary,Data,ETFs,United States Dollar,USMV,ISHARES MSCI USA MIN VOL FAC,Broad,3,96.668,-290.004,-290.004,0,0,0,0
+Trade Summary,Data,ETFs,United States Dollar,VBR,VANGUARD SMALL-CAP VALUE ETF,Financials,2,223.05,-446.1,-446.1,0,0,0,0
+Trade Summary,Data,ETFs,United States Dollar,VEA,VANGUARD FTSE DEVELOPED ETF,Broad,27,67.04,-1810.08,-1810.08,0,0,0,0
+Trade Summary,Data,ETFs,United States Dollar,VGIT,VANGUARD INTERMEDIATE-TERM T,Broad,48,60.096666667,-2884.64,-2884.64,0,0,0,0
+Trade Summary,Data,ETFs,United States Dollar,VGSH,VANGUARD SHORT-TERM TREASURY,Broad,197,58.679187817,-11559.8,-11559.8,0,0,0,0
+Trade Summary,Data,ETFs,United States Dollar,VNQ,VANGUARD REAL ESTATE ETF,Real Estate,14,94.39,-1321.46,-1321.46,0,0,0,0
+Trade Summary,Data,ETFs,United States Dollar,VTV,VANGUARD VALUE ETF,Broad,2,202.038,-404.076,-404.076,0,0,0,0
+Trade Summary,Data,ETFs,United States Dollar,VWO,VANGUARD FTSE EMERGING MARKE,Broad,28,56.208,-1573.824,-1573.824,0,0,0,0
+Deposits And Withdrawals,MetaInfo,Analysis Period,"February 23, 2026 - March 17, 2026"
+Deposits And Withdrawals,Header,Date,Type,Description,Amount
+Deposits And Withdrawals,Data,02/23/26,ACATIN,"ACATS Money Transfer In (0164, 27214216) ",26651.58
+Deposits And Withdrawals,Data,02/23/26,ACATIN,"ACATS Money Transfer In (0164, 27214216) ",-50
+Deposits And Withdrawals,Data,02/25/26,ACATIN,"ACATS Money Transfer In (0164, 27214216) ",0.02
+Deposits And Withdrawals,Data,03/02/26,ACATIN,"ACATS Money Transfer In (0164, 27214216) ",45.44
+Interest Details,MetaInfo,Analysis Period,"February 23, 2026 - March 17, 2026"
+Interest Details,Header,Date,Description,Amount
+Interest Details,Data,20260304,USD Credit Interest Received for February 2026,2.34
+Notes and Disclosure,Header,Type,Note
+Notes and Disclosure,Data,General,"1. The Net Asset Value (NAV) consists of all positions by financial instrument (stock, securities options, warrants, bonds, cash, etc.). All non-base currency amounts are converted to the base currency at the close of period rate."
+Notes and Disclosure,Data,General,2. The gain or loss from future contracts settle into cash each night. The notional value is used when computing the contribution to return.
+Notes and Disclosure,Data,General,"3. Dividend accruals, interest accruals, and insured deposits are included in cash amounts throughout the report."
+Notes and Disclosure,Data,General,4. Price valuations are obtained from outside parties. Clearing Broker shall have no responsibility for the accuracy or timeliness of any such price valuation.
+Notes and Disclosure,Data,General,5. Data from Thomson Reuters Business Classifications and Lipper Global is used to derive our sector classifications. Funds with assorted sector allocations are classified as Broad.
+Notes and Disclosure,Data,General,"6. Amounts are formatted to two decimal places. If amounts are greater than two decimal places, Clearing Broker uses "half-even" rounding. This means that Clearing Broker rounds such amounts up to the nearest even number."
+Notes and Disclosure,Data,General,"7. For accounts opened and funded before 2009, reports with a time period of Since Inception will only include data going back to January 1, 2009. This includes some default reports and both Historical Performance reports."
+Notes and Disclosure,Data,General,"8. If you have elected to trade cryptocurrency/digital asset products at Crypto Provider through the Clearing Broker platform, for your convenience your positions in your linked account at Crypto Provider are reflected in PortfolioAnalyst in connection with your Clearing Broker account."
+Notes and Disclosure,Data,Section,1. Account Overview: The deposit/withdrawal amount displayed includes internal transfers along with cash and position transfers.
+Notes and Disclosure,Data,Section,"2. Risk Measures: Historical US 3 Month Treasury Bill rates are used as the risk free rates when calculating Alpha, the Sharpe ratio, the Sortino ratio, and the downside deviation."
+Notes and Disclosure,Data,Disclosure,"This portfolio report was generated using Clearing Broker's PortfolioAnalyst tool, which allows Clearing Broker clients to generate analyses of their accounts using market data provided by third parties along with trade and account data contained in Clearing Broker's systems. This report is for information purposes only and is provided AS IS. Clearing Broker makes no warranty of any kind, express or implied, as to this report and its contents. The data provided for use in the PortfolioAnalyst tool is believed to be accurate, but completeness and accuracy of the information is not guaranteed, and Clearing Broker has no liability with respect thereto. The data regarding accounts held outside of Clearing Broker is obtained either directly from your input or from the financial institutions holding those accounts through a third-party service provider and Clearing Broker has NOT reviewed its accuracy.
+
+The material in this report is intended only as a reference and should not be relied upon for the maintenance of your books and records for tax, accounting, financial, or regulatory reporting or for any other purposes. This report is not an offer or a solicitation of an offer to buy or sell any security. This material does not, and is not intended to, take into account the particular financial conditions, investment objectives, or requirements of individual customers. Before acting on any material within this report, you should consider whether it is suitable for your particular circumstances and as necessary, seek professional advice."

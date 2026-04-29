@@ -16,29 +16,36 @@ C_TEXT_GREY     = (100, 100, 100) # Benchmark rows, "Reportings as of …" lines
 C_WHITE         = (255, 255, 255)  
 
 # --- PAGE DISCLOSURES ---
+# Page: Breakdown of Accounts
+DISCLOSURE_BREAKDOWN = (
+    "Portfolio and account performance are presented net of management fees and third-party commissions and are calculated using the Time-Weighted Return (TWR) method. " 
+    "The total return reflects the consolidated net return across all underlying accounts. "
+    "Account values and performance information are provided for informational purposes only and may be unreconciled, unaudited, and/or based on third-party sources. "
+    "Please refer to monthly account statements from the custodian for finalized information. "
+    "Past performance is no guarantee of future results."
+)
+
+# Page: Change in Portfolio Value
 DISCLOSURE_NAV = (
     "Net Asset Value (NAV): Reflects Mark-to-Market (MTM) valuations, deposits, withdrawals, "
     "and dividends. MTM represents the current market value of assets. Interest includes earned "
     "income; Change in Interest Accruals reflects interest earned but not yet settled. Fees include "
     "management fees and third-party execution commissions via Interactive Brokers LLC. "
-    "Please see disclosures for full descriptions. Past performance is no guarantee of future results."
-)
-
-DISCLOSURE_ALLOCATION = (
-    "Portfolio and account performance are presented net of management fees and third-party commissions, calculated using the Time-Weighted Return (TWR) method. "
-    "Asset class and allocation-level performance are presented net of fees. Returns shown reflect actual, unweighted performance. "
-    "Allocation percentages and market values reflect total portfolio positions. "
-    "Benchmarks are net of fund expense and do not include trading costs. Please see disclosures for full descriptions. "
-    "Account values and performance information may be unreconciled, unaudited and/or provided from outside sources. Please refer to monthly account statements for finalized information. "
+    "Please see disclosures for full descriptions. "
+    "Account values and performance information are provided for informational purposes only and may be unreconciled, unaudited and/or based on third-party sources. "
+    "Please refer to monthly account statements from the custodian for finalized information. "
     "Past performance is no guarantee of future results."
 )
 
-DISCLOSURE_BREAKDOWN = (
-    "Portfolio and account performance are presented net of management fees and third-party commissions and are calculated using the Time-Weighted Return (TWR) method. "
-    "The total row reflects the consolidated net return across all underlying accounts. "
-    "Account values and performance information may be unreconciled, unaudited and/or "
-    "provided from outside sources. Please refer to monthly account statements for "
-    "finalized information. Past performance is no guarantee of future results."
+# Pages: Portfolio Performance by Allocation, Expanded Portfolio Performance by Allocation
+DISCLOSURE_ALLOCATION = (
+    "Portfolio and account performance are presented net of management fees and third-party commissions, calculated using the Time-Weighted Return (TWR) method. "
+    "Asset class performance reflects weighted contributions to total portfolio return. "
+    "Allocation percentages and market values reflect total portfolio positions. "
+    "Benchmark returns reflect actual benchmark performance, net of fund expense and do not include trading costs. Please see disclosures for full descriptions. "
+    "Account values and performance information are provided for informational purposes only and may be unreconciled, unaudited and/or based on third-party sources. "
+    "Please refer to monthly account statements from the custodian for finalized information. "
+    "Past performance is no guarantee of future results."
 )
 
 # Full ETF names for building dynamic benchmark descriptions in disclosures
@@ -57,17 +64,19 @@ def _build_benchmark_description(benchmark_key):
         expanded.append(part)
     return ' / '.join(expanded)
 
+# Page: Portfolio Overview
 def _disclosure_performance(benchmark_key):
     bench_desc = _build_benchmark_description(benchmark_key)
     return (
         "Performance is presented net of management fees and third-party commissions and are calculated using the Time-Weighted Return (TWR) method. "
         f"The Benchmark is comprised of {bench_desc}. "
-        "Benchmarks are net of fund expense and do not include trading costs. Please see disclosures "
-        "for full descriptions. Account values and performance information may be unreconciled, unaudited "
+        "Benchmarks are net of fund expense and do not include trading costs. Please see disclosures for full descriptions. "
+        "Account values and performance information are provided for informational purposes only and may be unreconciled, unaudited "
         "and/or provided from outside sources. Please refer to monthly account statements for finalized information. "
         "Returns greater than one year are annualized. Past performance is no guarantee of future results."
     )
 
+# Page: Risk Analysis
 def _disclosure_risk_metrics(benchmark_key):
     bench_desc = _build_benchmark_description(benchmark_key)
     return (
@@ -76,7 +85,9 @@ def _disclosure_risk_metrics(benchmark_key):
         f"The Benchmark is comprised of {bench_desc}. "
         "Benchmarks are net of fund expense and do not include trading costs. "
         "Relative risk and factor coefficients are statistical estimates based on historical data and should not be viewed as absolute predictors of future "
-        "exposure or performance. Please see disclosures for full descriptions. Past performance is no guarantee of future results."
+        "exposure or performance. Please see disclosures for full descriptions. "
+        "Account values and performance information are provided for informational purposes only and may be unreconciled, unaudited "
+        "and/or provided from outside sources. Please refer to monthly account statements for finalized information.Past performance is no guarantee of future results."
     )
 
 BENCHMARK_DEFINITIONS = [
@@ -187,6 +198,24 @@ def clean_display_name(name: str) -> str:
     return n.strip().rstrip(',').strip()
 
 
+# Table uses f"{x:.1%}" (one decimal in percent). Raw ratios from MV/grand can sit
+# slightly inside/outside the IPS band while still displaying the same as Min/Target
+# (e.g. 9.995% prints 10.0%). Compare at that same 0.1% resolution so compliance
+# matches what the PDF shows.
+_IPS_BAND_COMPARE_DECIMALS = 3  # ratio rounded to 0.001 == 0.1%
+
+
+def _ips_band_compliant(v_cur, v_min, v_max, ndigits=_IPS_BAND_COMPARE_DECIMALS):
+    """True if current is within [min, max] after rounding to the PDF's one-decimal percent precision."""
+    try:
+        c = round(float(v_cur), ndigits)
+        lo = round(float(v_min), ndigits)
+        hi = round(float(v_max), ndigits)
+    except (TypeError, ValueError):
+        return False
+    return lo <= c <= hi
+
+
 #  === IPS COMPLIANCE TABLE DATA ===
 def get_ips_table_data(pdf_info, summary_df):
     """Constructs data rows: (Category, Min, Max, Target, Current)"""
@@ -249,7 +278,7 @@ def generate_ips_chart(ips_rows):
     # 1. Prepare Data
     data = []
     for cat, v_min, v_max, v_tgt, v_cur in ips_rows:
-        is_compliant = (v_min <= v_cur <= v_max)
+        is_compliant = _ips_band_compliant(v_cur, v_min, v_max)
         status_color = "#329632" if is_compliant else "#C83232" # Change to differentiate Compliance Status
         
         data.append({
@@ -489,7 +518,7 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
 
     def render_page_disclosure(pdf_obj, text):
         """Renders a small light-grey disclosure paragraph at the bottom of the current page."""
-        pdf_obj.set_y(-30)
+        pdf_obj.set_y(-33)
         pdf_obj.set_font('Carlito', '', 8)
         pdf_obj.set_text_color(C_TEXT_LIGHT_GREY)
         pdf_obj.multi_cell(w=pdf_obj.w - 24, h=3, text=_disclosure_single_paragraph(text), align='L')
@@ -652,7 +681,7 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
                 r.cell(f"{v_max:.1%}", style=reg_data_style, border="RIGHT")
                 r.cell(f"{v_tgt:.1%}", style=reg_data_style, border="RIGHT")
                 r.cell(f"{v_cur:.1%}", style=reg_data_style, border="RIGHT")
-                status = "Compliant" if v_min <= v_cur <= v_max else "Non-Compliant"
+                status = "Compliant" if _ips_band_compliant(v_cur, v_min, v_max) else "Non-Compliant"
                 r.cell(status, style=reg_data_style)
                 
         pdf.ln(26)
@@ -690,8 +719,7 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
                 os.remove(ips_chart_img)   
         except Exception as e:
             print(f"IPS Chart Error: {e}")
-        
-        
+
     #  ==========================================
     #   CONSOLIDATED ONLY: BREAKDOWN OF ACCOUNTS (after Target Allocations)
     #  ==========================================
@@ -898,7 +926,7 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
                     row_bench.cell(_perf_cell_text(k, val), style=p5_bench_style, align="RIGHT", border=b_style)
 
         if show_footnotes:
-            pdf.set_y(-37)
+            pdf.set_y(-40)
             pdf.set_font('Carlito', '', 7)
             pdf.set_text_color(C_TEXT_LIGHT_GREY)
             pdf.cell(0, 3, "1. Annualized Return", new_x="LMARGIN", new_y="NEXT")
@@ -1022,6 +1050,7 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
         reg_name_style = FontFace(size_pt=12, emphasis=None, color=(0,0,0), fill_color=C_WHITE)
         reg_data_style = FontFace(size_pt=12, emphasis=None, color=(0,0,0), fill_color=C_WHITE)
         pdf.set_font('Carlito', '', 12)
+        page_start = pdf.page
         
         with pdf.table(col_widths=col_widths, 
                        text_align=("LEFT", "LEFT", "RIGHT", "RIGHT", "RIGHT"),
@@ -1070,7 +1099,12 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
                     r.cell(f"{pos['weight']:.2%}", style=reg_data_style, border="RIGHT")
                     r.cell(f"${pos['raw_value']:,.0f}", style=reg_data_style, border="RIGHT")
                     r.cell(ret_str, style=reg_data_style)
-        render_page_disclosure(pdf, DISCLOSURE_ALLOCATION)
+
+        page_end = pdf.page
+        for pg in range(page_start, page_end + 1):
+            pdf.page = pg
+            render_page_disclosure(pdf, DISCLOSURE_ALLOCATION)
+        pdf.page = page_end
 
 
     #  ==========================================
@@ -1280,10 +1314,12 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
         def _discl_section_heading(title):
             pdf.set_font('Carlito', 'B', 11)
             pdf.set_text_color(*C_BLUE_LOGO)
+            # Use y0 + cell height for the rule — not get_y(), which fpdf2 forbids inside unbreakable().
+            y0 = pdf.y
             pdf.cell(0, 6, title, new_x="LMARGIN", new_y="NEXT", align='L')
             pdf.set_draw_color(*C_BLUE_LOGO)
             pdf.set_line_width(0.3)
-            line_y = pdf.get_y()
+            line_y = y0 + 6
             pdf.line(pdf.l_margin, line_y, pdf.w - 12, line_y)
             pdf.ln(3)
 
@@ -1319,50 +1355,62 @@ def write_portfolio_report(summary_df, holdings_df, key_statistics, total_metric
                 r = table.row()
                 r.cell(bench_name, style=discl_row_style); r.cell(bench_desc, style=discl_row_style)
         pdf.ln(5)
-        _discl_section_heading("Risk Metric Definitions & Calculations")
-        risk_definitions = [
-            ("Ending VAMI", "Growth of a hypothetical $1,000 investment since inception.", "Ending value / starting value, scaled to $1,000"),
-            ("Mean Return", "Average daily return over the analysis period, annualized.", "Average of daily returns, annualized"),
-            ("Max Drawdown", "Largest peak-to-trough decline in portfolio value.", "Lowest point vs. prior peak"),
-            ("Peak-To-Valley", "Calendar days from peak to trough of the maximum drawdown.", "Days elapsed from the maximum drawdown's peak to its bottom."),
-            ("Recovery", "Whether the portfolio has recovered from its maximum drawdown.", "Indicates if the portfolio has regained its prior peak post-drawdown (Yes/No/NA)"),
-            ("Std. Deviation", "Annualized total return volatility (both up and down).", "Daily return standard deviation, annualized"),
-            ("Downside Dev.", "Annualized volatility of negative returns only.", "Negative return standard deviation, annualized"),
-            ("Sharpe Ratio", "Excess return over risk-free rate per unit of total volatility.", "(Return - Risk-Free) / Volatility, ann."),
-            ("Sortino Ratio", "Excess return over risk-free rate per unit of downside volatility.", "(Return - Risk-Free) / Downside Vol., ann."),
-            ("Idiosyncratic Risk", "Portfolio volatility not explained by the benchmark.", "Regression residual standard deviation, annualized"),
-            ("R-Squared", "Portfolio return variance explained by the benchmark (0 to 1).", "Squared correlation from regression"),
-            ("Beta: Size (IWM)", "Sensitivity to the small-cap factor (Russell 2000).", "Regression slope vs. factor"),
-            ("Beta: Value (IWD)", "Sensitivity to the value factor (Russell 1000 Value).", "Regression slope vs. factor"),
-            ("Beta: Quality (QUAL)", "Sensitivity to the quality factor (MSCI USA Quality).", "Regression slope vs. factor"),
-            ("Beta: Momentum (MTUM)", "Sensitivity to the momentum factor (MSCI USA Momentum).", "Regression slope vs. factor"),
-        ]
-        risk_calc_style = FontFace(size_pt=8, emphasis="ITALICS", color=(80, 80, 80), fill_color=C_WHITE)
-        pdf.set_font('Carlito', '', 8)
-        with pdf.table(col_widths=(50, 120, 100), text_align=("LEFT", "LEFT", "LEFT"), borders_layout="HORIZONTAL_LINES",
-                       align="LEFT", width=270, line_height=4) as table:
-            h = table.row()
-            h.cell("Metric", style=discl_header_style); h.cell("Definition", style=discl_header_style); h.cell("Calculation", style=discl_header_style)
-            for metric, definition, calc in risk_definitions:
-                r = table.row()
-                r.cell(metric, style=discl_row_style); r.cell(definition, style=discl_row_style); r.cell(calc, style=risk_calc_style)
-        pdf.ln(5)
-        if legal_notes is not None and not legal_notes.empty:
-            _discl_section_heading("Account & Trading Notes")
-            notes_df = legal_notes.copy()
+        def _definitions_and_calculations_table():
+            _discl_section_heading("Definitions & Calculations")
+            metric_definitions = [
+                ("Time-Weighted Return (TWR)", "Return from investments only, not from deposits or withdrawals.", "Sub-period returns linked end-to-end, with flows removed."),
+                ("Ending VAMI", "Growth of a hypothetical $1,000 investment since inception.", "Ending value / starting value, scaled to $1,000"),
+                ("Mean Return", "Average daily return over the analysis period, annualized.", "Average of daily returns, annualized"),
+                ("Max Drawdown", "Largest peak-to-trough decline in portfolio value.", "Lowest point vs. prior peak"),
+                ("Peak-To-Valley", "Calendar days from peak to trough of the maximum drawdown.", "Days elapsed from the maximum drawdown's peak to its bottom."),
+                ("Recovery", "Whether the portfolio has recovered from its maximum drawdown.", "Indicates if the portfolio has regained its prior peak post-drawdown (Yes/No/NA)"),
+                ("Std. Deviation", "Annualized total return volatility (both up and down).", "Daily return standard deviation, annualized"),
+                ("Downside Dev.", "Annualized volatility of negative returns only.", "Negative return standard deviation, annualized"),
+                ("Sharpe Ratio", "Excess return over risk-free rate per unit of total volatility.", "(Return - Risk-Free) / Volatility, ann."),
+                ("Sortino Ratio", "Excess return over risk-free rate per unit of downside volatility.", "(Return - Risk-Free) / Downside Vol., ann."),
+                ("Idiosyncratic Risk", "Portfolio volatility not explained by the benchmark.", "Regression residual standard deviation, annualized"),
+                ("R-Squared", "Portfolio return variance explained by the benchmark (0 to 1).", "Squared correlation from regression"),
+                ("Beta: Size (IWM)", "Sensitivity to the small-cap factor (Russell 2000).", "Regression slope vs. factor"),
+                ("Beta: Value (IWD)", "Sensitivity to the value factor (Russell 1000 Value).", "Regression slope vs. factor"),
+                ("Beta: Quality (QUAL)", "Sensitivity to the quality factor (MSCI USA Quality).", "Regression slope vs. factor"),
+                ("Beta: Momentum (MTUM)", "Sensitivity to the momentum factor (MSCI USA Momentum).", "Regression slope vs. factor"),
+            ]
+            risk_calc_style = FontFace(size_pt=8, emphasis="ITALICS", color=(80, 80, 80), fill_color=C_WHITE)
             pdf.set_font('Carlito', '', 8)
-            with pdf.table(col_widths=(50, 220), text_align=("LEFT", "LEFT"), borders_layout="HORIZONTAL_LINES",
+            with pdf.table(col_widths=(50, 120, 100), text_align=("LEFT", "LEFT", "LEFT"), borders_layout="HORIZONTAL_LINES",
                            align="LEFT", width=270, line_height=4) as table:
                 h = table.row()
-                h.cell("Type", style=discl_header_style); h.cell("Note", style=discl_header_style)
-                note_style = FontFace(size_pt=8, emphasis="", color=(0, 0, 0), fill_color=C_WHITE)
-                for _, row in notes_df.iterrows():
+                h.cell("Metric", style=discl_header_style); h.cell("Definition", style=discl_header_style); h.cell("Calculation", style=discl_header_style)
+                for metric, definition, calc in metric_definitions:
                     r = table.row()
-                    r.cell(str(row.get('Type', '')), style=note_style); r.cell(str(row.get('Note', '')), style=note_style)
-        pdf.ln(8)
-        pdf.set_font('Carlito', '', 8); pdf.set_text_color(120, 120, 120)
-        pdf.cell(0, 4, "\u00A9 2026 All rights reserved. Gaard Capital LLC. May not be used or reproduced without express permission.",
-                 new_x="LMARGIN", new_y="NEXT", align='C')
+                    r.cell(metric, style=discl_row_style); r.cell(definition, style=discl_row_style); r.cell(calc, style=risk_calc_style)
+
+        def _disclosures_copyright_footer():
+            pdf.ln(2)
+            pdf.set_font('Carlito', '', 8); pdf.set_text_color(120, 120, 120)
+            pdf.cell(0, 4, "\u00A9 2026 All rights reserved. Gaard Capital LLC. May not be used or reproduced without express permission.",
+                     new_x="LMARGIN", new_y="NEXT", align='C')
+
+        if legal_notes is not None and not legal_notes.empty:
+            _definitions_and_calculations_table()
+            pdf.ln(5)
+            with pdf.unbreakable():
+                _discl_section_heading("Account & Trading Notes")
+                notes_df = legal_notes.copy()
+                pdf.set_font('Carlito', '', 8)
+                with pdf.table(col_widths=(50, 220), text_align=("LEFT", "LEFT"), borders_layout="HORIZONTAL_LINES",
+                               align="LEFT", width=270, line_height=4) as table:
+                    h = table.row()
+                    h.cell("Type", style=discl_header_style); h.cell("Note", style=discl_header_style)
+                    note_style = FontFace(size_pt=8, emphasis="", color=(0, 0, 0), fill_color=C_WHITE)
+                    for _, row in notes_df.iterrows():
+                        r = table.row()
+                        r.cell(str(row.get('Type', '')), style=note_style); r.cell(str(row.get('Note', '')), style=note_style)
+                _disclosures_copyright_footer()
+        else:
+            with pdf.unbreakable():
+                _definitions_and_calculations_table()
+                _disclosures_copyright_footer()
 
 
     #  ==========================================

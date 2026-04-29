@@ -9,6 +9,15 @@ __pycache__/
 
 # OS / editor junk
 .DS_Store
+.cursor/
 
 # Excel temp/lock files
 ~$*.xlsx
+
+# --- Sensitive / client data ---
+data/Gaard_Keys/
+data/raw_encrypted_downloads/
+data/raw_downloads/
+
+# Generated reports
+output/

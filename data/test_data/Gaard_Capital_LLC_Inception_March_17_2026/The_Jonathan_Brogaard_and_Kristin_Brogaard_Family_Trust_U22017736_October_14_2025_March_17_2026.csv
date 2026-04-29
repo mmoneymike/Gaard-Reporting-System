@@ -1,0 +1,622 @@
+Introduction,Header,Name,Account,Alias,BaseCurrency,AccountType,AnalysisPeriod,PerformanceMeasure
+Introduction,Data,The Jonathan Brogaard and Kristin Brogaard Family Trust,U22017736,,USD,Trust (Advisor Client),"October 14, 2025 to March 17, 2026 (Daily)",TWR
+Key Statistics,MetaInfo,Analysis Period,"October 14, 2025 - March 17, 2026"
+Key Statistics,Header,BeginningNAV,EndingNAV,CumulativeReturn,5DayReturn,5DayReturnDateRange,10DayReturn,10DayReturnDateRange,BestReturn,BestReturnDate,WorstReturn,WorstReturnDate,MTM,Deposits & Withdrawals,Dividends,Interest,Fees & Commissions,Other,ChangeInNAV
+Key Statistics,Data,0,1038157.198906,3.815719891,-0.249823864,20260311 - 20260317,-0.602187725,20260304 - 20260317,0.689942641,20260206,-0.71092229,20260303,18871.8147,1000000,16583.03,2652.41,-140.566094,190.5103,1038157.198906
+Historical Performance,MetaInfo,Analysis Period,"October 14, 2025 - March 17, 2026"
+Historical Performance,Header,Account,MTD,QTD,YTD,Since Inception
+Historical Performance,Data,U22017736,-1.646974254,1.80539035,1.80539035,3.815719885
+Historical Performance,Header,Month,Account,AccountReturn
+Historical Performance,Data,202601,U22017736,1.735195468
+Historical Performance,Data,202602,U22017736,1.744706763
+Historical Performance,Data,202603,U22017736,-
+Historical Performance,Data,202604,U22017736,-
+Historical Performance,Data,202605,U22017736,-
+Historical Performance,Data,202606,U22017736,-
+Historical Performance,Data,202607,U22017736,-
+Historical Performance,Data,202608,U22017736,-
+Historical Performance,Data,202609,U22017736,-
+Historical Performance,Data,202610,U22017736,-
+Historical Performance,Data,202611,U22017736,-
+Historical Performance,Data,202612,U22017736,-
+Historical Performance,Data,202501,U22017736,-
+Historical Performance,Data,202502,U22017736,-
+Historical Performance,Data,202503,U22017736,-
+Historical Performance,Data,202504,U22017736,-
+Historical Performance,Data,202505,U22017736,-
+Historical Performance,Data,202506,U22017736,-
+Historical Performance,Data,202507,U22017736,-
+Historical Performance,Data,202508,U22017736,-
+Historical Performance,Data,202509,U22017736,-
+Historical Performance,Data,202510,U22017736,-
+Historical Performance,Data,202511,U22017736,1.482875799
+Historical Performance,Data,202512,U22017736,0.36278542
+Historical Performance,Header,Quarter,Account,AccountReturn
+Historical Performance,Data,2026 Q1,U22017736,-
+Historical Performance,Data,2026 Q2,U22017736,-
+Historical Performance,Data,2026 Q3,U22017736,-
+Historical Performance,Data,2026 Q4,U22017736,-
+Historical Performance,Data,2025 Q1,U22017736,-
+Historical Performance,Data,2025 Q2,U22017736,-
+Historical Performance,Data,2025 Q3,U22017736,-
+Historical Performance,Data,2025 Q4,U22017736,-
+Historical Performance,Header,Year,Account,AccountReturn
+Historical Performance,Data,YTD,U22017736,1.80539035
+Open Position Summary,MetaInfo,As Of,"March 17, 2026"
+Open Position Summary,Header,Date,FinancialInstrument,Currency,Symbol,Description,Sector,Quantity,ClosePrice,Value,Cost Basis,UnrealizedP&L,FXRateToBase
+Open Position Summary,Data,03/17/2026,ETFs,USD,BCI,ABRDN BLOOMBERG ALL COMMODIT,Basic Materials,1347,23.97,32287.59,30184.914634,2102.675366,1
+Open Position Summary,Data,03/17/2026,ETFs,USD,BND,VANGUARD TOTAL BOND MARKET,Broad,1351,73.98,99946.98,100450.909722,-503.929722,1
+Open Position Summary,Data,03/17/2026,ETFs,USD,IJR,ISHARES CORE S&P SMALL-CAP E,Broad,219,123.83,27118.77,24985.714818,2133.055182,1
+Open Position Summary,Data,03/17/2026,ETFs,USD,IMTM,ISHARES MSCI INTL MOMENTUM F,Broad,481,48.91,23525.71,22530.050582,995.659418,1
+Open Position Summary,Data,03/17/2026,ETFs,USD,MTUM,ISHARES MSCI USA MOMENTUM FA,Broad,21,248.23,5212.83,5077.120462,135.709538,1
+Open Position Summary,Data,03/17/2026,ETFs,USD,QUAL,ISHARES MSCI USA QUALITY FAC,Broad,156,196.88,30713.28,29838.343432,874.936568,1
+Open Position Summary,Data,03/17/2026,ETFs,USD,USMV,ISHARES MSCI USA MIN VOL FAC,Broad,107,95.09,10174.63,9979.892354,194.737646,1
+Open Position Summary,Data,03/17/2026,ETFs,USD,VEA,VANGUARD FTSE DEVELOPED ETF,Broad,1132,65.41,74044.12,67467.224904,6576.895096,1
+Open Position Summary,Data,03/17/2026,ETFs,USD,VFVA,VANGUARD U.S. VALUE FACTOR,Broad,242,135.05,32682.1,29958.90003,2723.19997,1
+Open Position Summary,Data,03/17/2026,ETFs,USD,VGIT,VANGUARD INTERMEDIATE-TERM T,Broad,1838,59.88,110059.44,110545.470436,-486.030436,1
+Open Position Summary,Data,03/17/2026,ETFs,USD,VGSH,VANGUARD SHORT-TERM TREASURY,Broad,7539,58.6,441785.4,443900.405858,-2115.005858,1
+Open Position Summary,Data,03/17/2026,ETFs,USD,VNQ,VANGUARD REAL ESTATE ETF,Real Estate,565,93.34,52737.1,50019.66243,2717.43757,1
+Open Position Summary,Data,03/17/2026,ETFs,USD,VWO,VANGUARD FTSE EMERGING MARKE,Broad,1114,55.26,61559.64,59988.924508,1570.715492,1
+Open Position Summary,Data,Total,ETFs,USD,,,,,,1001847.59,984927.53417,16920.05583
+Open Position Summary,Data,03/17/2026,Cash,USD,USD,United States Dollar,Cash,36309.608906,1,36309.608906, , ,1
+Allocation Goals,MetaInfo,As Of,"March 17, 2026"
+Allocation Goals,Header,Asset and Sub-Asset Class,Actual NAV,Actual %,Goal NAV,Goal %,+/- NAV,+/- %
+Allocation Goals,Data,Commodities,32287.59,3.110086799,-,0.00,-,3.110086799
+Allocation Goals,Data,Other,32287.59,3.110086799,-,-,-,3.110086799
+Allocation Goals,Data,Equities,317768.18,30.608869286,-,45,-,-14.391130714
+Allocation Goals,Data,Large Cap,141415.51,13.621781956,-,-,-,13.621781956
+Allocation Goals,Data,Other,176352.67,16.98708733,-,-,-,16.98708733
+Allocation Goals,Data,Fixed Income,651791.82,62.783538051,-,50,-,12.783538051
+Allocation Goals,Data,Other,651791.82,62.783538051,-,-,-,62.783538051
+Allocation Goals,Data,Cash,36309.608906,3.497505864,-,5,-,-1.502494136
+Allocation Goals,Data,Brokerage Cash,36309.608906,3.497505864,-,-,-,3.497505864
+Allocation Goals,Data,Total,1038157.198906,100,-,100,-,0
+Allocation by Asset Class,MetaInfo,Analysis Period,"October 14, 2025 - March 17, 2026"
+Allocation by Asset Class,Header,Date,Commodities,Equities,Fixed Income,Cash,NAV
+Allocation by Asset Class,Data,20251014,0,0,0,1000000,1000000
+Allocation by Asset Class,Data,20251015,0,0,0,1000071.5,1000071.5
+Allocation by Asset Class,Data,20251016,0,0,0,1000143,1000143
+Allocation by Asset Class,Data,20251017,0,0,0,1000214.78,1000214.78
+Allocation by Asset Class,Data,20251020,0,0,0,1000430.12,1000430.12
+Allocation by Asset Class,Data,20251021,0,0,0,1000501.9,1000501.9
+Allocation by Asset Class,Data,20251022,0,0,0,1000573.68,1000573.68
+Allocation by Asset Class,Data,20251023,0,0,0,1000645.46,1000645.46
+Allocation by Asset Class,Data,20251024,0,0,0,1000717.24,1000717.24
+Allocation by Asset Class,Data,20251027,0,0,0,1000932.58,1000932.58
+Allocation by Asset Class,Data,20251028,0,0,0,1001004.63,1001004.63
+Allocation by Asset Class,Data,20251029,0,0,0,1001076.68,1001076.68
+Allocation by Asset Class,Data,20251030,0,0,0,1001148.73,1001148.73
+Allocation by Asset Class,Data,20251031,0,0,0,1001213.91,1001213.91
+Allocation by Asset Class,Data,20251103,0,0,0,1001408.61,1001408.61
+Allocation by Asset Class,Data,20251104,0,0,0,1001473.79,1001473.79
+Allocation by Asset Class,Data,20251105,0,0,0,1001538.97,1001538.97
+Allocation by Asset Class,Data,20251106,0,0,0,1001604.23,1001604.23
+Allocation by Asset Class,Data,20251107,0,0,0,1001669.49,1001669.49
+Allocation by Asset Class,Data,20251110,0,0,0,1001865.27,1001865.27
+Allocation by Asset Class,Data,20251111,0,0,0,1001930.53,1001930.53
+Allocation by Asset Class,Data,20251112,0,0,0,1001995.79,1001995.79
+Allocation by Asset Class,Data,20251113,0,0,0,1002061.05,1002061.05
+Allocation by Asset Class,Data,20251114,0,0,0,1002126.58,1002126.58
+Allocation by Asset Class,Data,20251117,0,0,0,1002323.17,1002323.17
+Allocation by Asset Class,Data,20251118,0,0,0,1002388.7,1002388.7
+Allocation by Asset Class,Data,20251119,30024.72,360366.63,650445.9,-38481.873656,1002355.376344
+Allocation by Asset Class,Data,20251120,29703.6,356273.71,651512.43,-38416.343656,999073.396344
+Allocation by Asset Class,Data,20251121,29650.08,300472.5,652947.48,22032.714788,1005102.774788
+Allocation by Asset Class,Data,20251124,29797.26,302435.03,653452.95,22011.624788,1007696.864788
+Allocation by Asset Class,Data,20251125,29822.58,306119.69,656590.85,19376.308906,1011909.428906
+Allocation by Asset Class,Data,20251126,30253.62,308371.52,656735.69,19377.318906,1014738.148906
+Allocation by Asset Class,Data,20251127,30253.62,308371.52,656735.69,19377.318906,1014738.148906
+Allocation by Asset Class,Data,20251128,30725.07,309530.21,656426.53,19378.858906,1016060.668906
+Allocation by Asset Class,Data,20251201,30900.18,307984.3,653278.09,21442.888906,1013605.458906
+Allocation by Asset Class,Data,20251202,30738.54,308127.79,653615.34,21442.888906,1013924.558906
+Allocation by Asset Class,Data,20251203,30886.71,309602.54,654287.94,21444.428906,1016221.618906
+Allocation by Asset Class,Data,20251204,30927.12,309889.65,653501.29,21445.508906,1015763.568906
+Allocation by Asset Class,Data,20251205,31196.52,310227.14,653045.12,21446.588906,1015915.368906
+Allocation by Asset Class,Data,20251208,30698.13,309013.01,652674.08,21449.828906,1013835.048906
+Allocation by Asset Class,Data,20251209,30509.55,308814.38,652308.71,21450.908906,1013083.548906
+Allocation by Asset Class,Data,20251210,30752.01,311966.85,653427.74,21451.988906,1017598.588906
+Allocation by Asset Class,Data,20251211,30752.01,313466.68,653690.67,21453.068906,1019362.428906
+Allocation by Asset Class,Data,20251212,30374.85,311431.27,653232.9,21454.068906,1016493.088906
+Allocation by Asset Class,Data,20251215,30320.97,311850.98,653690.94,21457.068906,1017319.958906
+Allocation by Asset Class,Data,20251216,30024.63,308822.24,654365.44,22274.788906,1015487.098906
+Allocation by Asset Class,Data,20251217,30361.38,307555.41,654356.8,22275.788906,1014549.378906
+Allocation by Asset Class,Data,20251218,30145.86,308904.69,652957.32,24401.058906,1016408.928906
+Allocation by Asset Class,Data,20251219,30361.38,307964.39,652567.9,26729.538906,1017623.208906
+Allocation by Asset Class,Data,20251222,30657.72,309193.05,652298.2,27184.888906,1019333.858906
+Allocation by Asset Class,Data,20251223,31075.29,309644.41,651966.62,27661.628906,1020347.948906
+Allocation by Asset Class,Data,20251224,31075.29,310565.07,652619.77,27663.108906,1021923.238906
+Allocation by Asset Class,Data,20251225,31075.29,310565.07,652619.77,27663.108906,1021923.238906
+Allocation by Asset Class,Data,20251226,31425.51,311143.95,653200.77,27666.148906,1023436.378906
+Allocation by Asset Class,Data,20251229,30832.83,310171.08,653647.2,27670.768906,1022321.878906
+Allocation by Asset Class,Data,20251230,26724.48,310324.86,653683.93,32009.328906,1022742.598906
+Allocation by Asset Class,Data,20251231,26306.91,308443.63,652985.38,32010.868906,1019746.788906
+Allocation by Asset Class,Data,20260101,26306.91,308443.63,652985.38,32010.868906,1019746.788906
+Allocation by Asset Class,Data,20260102,26347.32,311447.01,653058.87,32014.708906,1022867.908906
+Allocation by Asset Class,Data,20260105,26818.77,314383.04,653676.36,32020.468906,1026898.638906
+Allocation by Asset Class,Data,20260106,27074.7,316413.72,653620.29,32022.388906,1029131.098906
+Allocation by Asset Class,Data,20260107,26832.24,314455.24,653782.57,32024.308906,1027094.358906
+Allocation by Asset Class,Data,20260108,26899.59,315990.26,653386.38,32026.228906,1028302.458906
+Allocation by Asset Class,Data,20260109,26926.53,317678.88,653376.37,32028.148906,1030009.928906
+Allocation by Asset Class,Data,20260112,27303.69,319345.49,653226.66,32033.908906,1031909.748906
+Allocation by Asset Class,Data,20260113,27451.86,318454.14,653550.4,32035.828906,1031492.228906
+Allocation by Asset Class,Data,20260114,27492.27,319616.71,653975.48,32037.748906,1033122.208906
+Allocation by Asset Class,Data,20260115,27317.16,321169.11,653323.13,32039.668906,1033849.068906
+Allocation by Asset Class,Data,20260116,27303.69,321287.02,652790.61,32041.588906,1033422.908906
+Allocation by Asset Class,Data,20260119,27303.69,321287.02,652790.61,32041.588906,1033422.908906
+Allocation by Asset Class,Data,20260120,27788.61,316935.49,652261.35,32049.268906,1029034.718906
+Allocation by Asset Class,Data,20260121,28219.65,320780.04,652785.87,32051.188906,1033836.748906
+Allocation by Asset Class,Data,20260122,28219.65,321636.25,652695.87,32053.108906,1034604.878906
+Allocation by Asset Class,Data,20260123,28785.39,321715.47,653122.02,32055.028906,1035677.908906
+Allocation by Asset Class,Data,20260126,29014.38,322590.04,653504.67,32060.788906,1037169.878906
+Allocation by Asset Class,Data,20260127,29391.54,325027.15,653556.01,32062.708906,1040037.408906
+Allocation by Asset Class,Data,20260128,29701.35,323808.39,653384.95,32064.628906,1038959.318906
+Allocation by Asset Class,Data,20260129,30078.51,325197.21,653828.68,32066.548906,1041170.948906
+Allocation by Asset Class,Data,20260130,29256.84,321989.61,654126.47,32068.468906,1037441.388906
+Allocation by Asset Class,Data,20260202,27788.61,323157.56,651614.7,34155.198906,1036716.068906
+Allocation by Asset Class,Data,20260203,28529.46,322966.9,651678.48,34157.118906,1037331.958906
+Allocation by Asset Class,Data,20260204,28610.28,323959.8,651637.95,34159.038906,1038367.068906
+Allocation by Asset Class,Data,20260205,28192.71,320961.58,653489.59,34161.148906,1036805.028906
+Allocation by Asset Class,Data,20260206,28394.76,328103.19,653297.18,34163.258906,1043958.388906
+Allocation by Asset Class,Data,20260209,28569.87,330434.68,653530.12,34169.588906,1046704.258906
+Allocation by Asset Class,Data,20260210,28394.76,331511.38,654404.6,34171.698906,1048482.438906
+Allocation by Asset Class,Data,20260211,28691.1,332430.95,653604.44,34173.808906,1048900.298906
+Allocation by Asset Class,Data,20260212,28152.3,328731.09,654975.62,34175.918906,1046034.928906
+Allocation by Asset Class,Data,20260213,28233.12,330724.24,656131.41,34178.028906,1049266.798906
+Allocation by Asset Class,Data,20260216,28233.12,330724.24,656131.41,34178.028906,1049266.798906
+Allocation by Asset Class,Data,20260217,27815.55,331053.65,655818.21,34186.468906,1048873.878906
+Allocation by Asset Class,Data,20260218,28421.7,331626.49,655412.31,34188.578906,1049649.078906
+Allocation by Asset Class,Data,20260219,28623.75,330741.46,655583.37,34190.688906,1049139.268906
+Allocation by Asset Class,Data,20260220,28906.62,333883.56,655682.01,34192.798906,1052664.988906
+Allocation by Asset Class,Data,20260223,29014.38,331040.17,656455.18,34199.128906,1050708.858906
+Allocation by Asset Class,Data,20260224,28973.97,332998.28,656289.93,34201.238906,1052463.418906
+Allocation by Asset Class,Data,20260225,29027.85,335002.4,656076.3,34203.348906,1054309.898906
+Allocation by Asset Class,Data,20260226,29041.32,334924.99,656840.8,34205.458906,1055012.568906
+Allocation by Asset Class,Data,20260227,29378.07,333978.65,657977.41,34207.568906,1055541.698906
+Allocation by Asset Class,Data,20260302,29957.28,331541.63,654304.98,36121.208906,1051925.098906
+Allocation by Asset Class,Data,20260303,29970.75,324323.05,654029.61,36123.318906,1044446.728906
+Allocation by Asset Class,Data,20260304,30091.98,326678.73,653325.92,36125.428906,1046222.058906
+Allocation by Asset Class,Data,20260305,30509.55,321685.95,652800.3,36127.708906,1041123.508906
+Allocation by Asset Class,Data,20260306,31654.5,318014.09,652891.37,36129.988906,1038689.948906
+Allocation by Asset Class,Data,20260309,31183.05,320272.67,653509.66,36136.828906,1041102.208906
+Allocation by Asset Class,Data,20260310,31479.39,320404.94,652733.82,36139.108906,1040757.258906
+Allocation by Asset Class,Data,20260311,31977.78,319333.66,651541.57,36141.388906,1038994.398906
+Allocation by Asset Class,Data,20260312,32610.87,313992.32,650167.45,36143.668906,1032914.308906
+Allocation by Asset Class,Data,20260313,32435.76,312217.79,650205.28,36145.948906,1031004.778906
+Allocation by Asset Class,Data,20260316,31937.37,316552.51,651366.74,36152.788906,1036009.408906
+Allocation by Asset Class,Data,20260317,32287.59,317768.18,651791.82,36309.608906,1038157.198906
+Time Period Performance Statistics,MetaInfo,Analysis Period,"October 14, 2025 - March 17, 2026"
+Time Period Performance Statistics,Header,Date,Account,Return
+Time Period Performance Statistics,Data,10/14/25,U22017736,0
+Time Period Performance Statistics,Data,10/15/25,U22017736,0.00715
+Time Period Performance Statistics,Data,10/16/25,U22017736,0.007149489
+Time Period Performance Statistics,Data,10/17/25,U22017736,0.007176974
+Time Period Performance Statistics,Data,10/20/25,U22017736,0.021529376
+Time Period Performance Statistics,Data,10/21/25,U22017736,0.007174914
+Time Period Performance Statistics,Data,10/22/25,U22017736,0.007174399
+Time Period Performance Statistics,Data,10/23/25,U22017736,0.007173884
+Time Period Performance Statistics,Data,10/24/25,U22017736,0.00717337
+Time Period Performance Statistics,Data,10/27/25,U22017736,0.021518566
+Time Period Performance Statistics,Data,10/28/25,U22017736,0.007198287
+Time Period Performance Statistics,Data,10/29/25,U22017736,0.007197769
+Time Period Performance Statistics,Data,10/30/25,U22017736,0.007197251
+Time Period Performance Statistics,Data,10/31/25,U22017736,0.006510521
+Time Period Performance Statistics,Data,11/03/25,U22017736,0.019446394
+Time Period Performance Statistics,Data,11/04/25,U22017736,0.006508832
+Time Period Performance Statistics,Data,11/05/25,U22017736,0.006508408
+Time Period Performance Statistics,Data,11/06/25,U22017736,0.006515972
+Time Period Performance Statistics,Data,11/07/25,U22017736,0.006515548
+Time Period Performance Statistics,Data,11/10/25,U22017736,0.019545369
+Time Period Performance Statistics,Data,11/11/25,U22017736,0.00651385
+Time Period Performance Statistics,Data,11/12/25,U22017736,0.006513426
+Time Period Performance Statistics,Data,11/13/25,U22017736,0.006513001
+Time Period Performance Statistics,Data,11/14/25,U22017736,0.006539522
+Time Period Performance Statistics,Data,11/17/25,U22017736,0.019617282
+Time Period Performance Statistics,Data,11/18/25,U22017736,0.006537812
+Time Period Performance Statistics,Data,11/19/25,U22017736,-0.003324425
+Time Period Performance Statistics,Data,11/20/25,U22017736,-0.327426787
+Time Period Performance Statistics,Data,11/21/25,U22017736,0.603497047
+Time Period Performance Statistics,Data,11/24/25,U22017736,0.258092015
+Time Period Performance Statistics,Data,11/25/25,U22017736,0.418038823
+Time Period Performance Statistics,Data,11/26/25,U22017736,0.279542805
+Time Period Performance Statistics,Data,11/27/25,U22017736,0
+Time Period Performance Statistics,Data,11/28/25,U22017736,0.13033116
+Time Period Performance Statistics,Data,12/01/25,U22017736,-0.241640098
+Time Period Performance Statistics,Data,12/02/25,U22017736,0.031481677
+Time Period Performance Statistics,Data,12/03/25,U22017736,0.226551372
+Time Period Performance Statistics,Data,12/04/25,U22017736,-0.04507383
+Time Period Performance Statistics,Data,12/05/25,U22017736,0.014944423
+Time Period Performance Statistics,Data,12/08/25,U22017736,-0.204772963
+Time Period Performance Statistics,Data,12/09/25,U22017736,-0.074124484
+Time Period Performance Statistics,Data,12/10/25,U22017736,0.445673015
+Time Period Performance Statistics,Data,12/11/25,U22017736,0.173333574
+Time Period Performance Statistics,Data,12/12/25,U22017736,-0.28148379
+Time Period Performance Statistics,Data,12/15/25,U22017736,0.081345364
+Time Period Performance Statistics,Data,12/16/25,U22017736,-0.18016554
+Time Period Performance Statistics,Data,12/17/25,U22017736,-0.092341892
+Time Period Performance Statistics,Data,12/18/25,U22017736,0.18328827
+Time Period Performance Statistics,Data,12/19/25,U22017736,0.119467664
+Time Period Performance Statistics,Data,12/22/25,U22017736,0.168102495
+Time Period Performance Statistics,Data,12/23/25,U22017736,0.09948556
+Time Period Performance Statistics,Data,12/24/25,U22017736,0.15438753
+Time Period Performance Statistics,Data,12/25/25,U22017736,0
+Time Period Performance Statistics,Data,12/26/25,U22017736,0.148067873
+Time Period Performance Statistics,Data,12/29/25,U22017736,-0.108897829
+Time Period Performance Statistics,Data,12/30/25,U22017736,0.041153379
+Time Period Performance Statistics,Data,12/31/25,U22017736,-0.292919255
+Time Period Performance Statistics,Data,01/01/26,U22017736,0
+Time Period Performance Statistics,Data,01/02/26,U22017736,0.306068137
+Time Period Performance Statistics,Data,01/05/26,U22017736,0.394061634
+Time Period Performance Statistics,Data,01/06/26,U22017736,0.217398282
+Time Period Performance Statistics,Data,01/07/26,U22017736,-0.197908702
+Time Period Performance Statistics,Data,01/08/26,U22017736,0.117623078
+Time Period Performance Statistics,Data,01/09/26,U22017736,0.166047449
+Time Period Performance Statistics,Data,01/12/26,U22017736,0.184446766
+Time Period Performance Statistics,Data,01/13/26,U22017736,-0.040460903
+Time Period Performance Statistics,Data,01/14/26,U22017736,0.158021549
+Time Period Performance Statistics,Data,01/15/26,U22017736,0.070355665
+Time Period Performance Statistics,Data,01/16/26,U22017736,-0.041220717
+Time Period Performance Statistics,Data,01/19/26,U22017736,0
+Time Period Performance Statistics,Data,01/20/26,U22017736,-0.424626739
+Time Period Performance Statistics,Data,01/21/26,U22017736,0.466653837
+Time Period Performance Statistics,Data,01/22/26,U22017736,0.074298965
+Time Period Performance Statistics,Data,01/23/26,U22017736,0.10371399
+Time Period Performance Statistics,Data,01/26/26,U22017736,0.144057336
+Time Period Performance Statistics,Data,01/27/26,U22017736,0.276476405
+Time Period Performance Statistics,Data,01/28/26,U22017736,-0.103658771
+Time Period Performance Statistics,Data,01/29/26,U22017736,0.21286974
+Time Period Performance Statistics,Data,01/30/26,U22017736,-0.358208227
+Time Period Performance Statistics,Data,02/02/26,U22017736,-0.069914311
+Time Period Performance Statistics,Data,02/03/26,U22017736,0.05940778
+Time Period Performance Statistics,Data,02/04/26,U22017736,0.099785801
+Time Period Performance Statistics,Data,02/05/26,U22017736,-0.150432352
+Time Period Performance Statistics,Data,02/06/26,U22017736,0.689942641
+Time Period Performance Statistics,Data,02/09/26,U22017736,0.263024851
+Time Period Performance Statistics,Data,02/10/26,U22017736,0.169883707
+Time Period Performance Statistics,Data,02/11/26,U22017736,0.039853791
+Time Period Performance Statistics,Data,02/12/26,U22017736,-0.27317849
+Time Period Performance Statistics,Data,02/13/26,U22017736,0.30896387
+Time Period Performance Statistics,Data,02/16/26,U22017736,0
+Time Period Performance Statistics,Data,02/17/26,U22017736,-0.037447101
+Time Period Performance Statistics,Data,02/18/26,U22017736,0.073907837
+Time Period Performance Statistics,Data,02/19/26,U22017736,-0.048569566
+Time Period Performance Statistics,Data,02/20/26,U22017736,0.336058339
+Time Period Performance Statistics,Data,02/23/26,U22017736,-0.185826452
+Time Period Performance Statistics,Data,02/24/26,U22017736,0.166988218
+Time Period Performance Statistics,Data,02/25/26,U22017736,0.175443627
+Time Period Performance Statistics,Data,02/26/26,U22017736,0.066647387
+Time Period Performance Statistics,Data,02/27/26,U22017736,0.050153905
+Time Period Performance Statistics,Data,03/02/26,U22017736,-0.342629761
+Time Period Performance Statistics,Data,03/03/26,U22017736,-0.71092229
+Time Period Performance Statistics,Data,03/04/26,U22017736,0.169978032
+Time Period Performance Statistics,Data,03/05/26,U22017736,-0.487329622
+Time Period Performance Statistics,Data,03/06/26,U22017736,-0.233743641
+Time Period Performance Statistics,Data,03/09/26,U22017736,0.232240622
+Time Period Performance Statistics,Data,03/10/26,U22017736,-0.033133154
+Time Period Performance Statistics,Data,03/11/26,U22017736,-0.169382436
+Time Period Performance Statistics,Data,03/12/26,U22017736,-0.585189873
+Time Period Performance Statistics,Data,03/13/26,U22017736,-0.184868191
+Time Period Performance Statistics,Data,03/16/26,U22017736,0.485412881
+Time Period Performance Statistics,Data,03/17/26,U22017736,0.207313754
+Cumulative Performance Statistics,MetaInfo,Analysis Period,"October 14, 2025 - March 17, 2026"
+Cumulative Performance Statistics,Header,Date,Account,Return
+Cumulative Performance Statistics,Data,10/14/25,U22017736,0
+Cumulative Performance Statistics,Data,10/15/25,U22017736,0.00715
+Cumulative Performance Statistics,Data,10/16/25,U22017736,0.0143
+Cumulative Performance Statistics,Data,10/17/25,U22017736,0.021478
+Cumulative Performance Statistics,Data,10/20/25,U22017736,0.043012
+Cumulative Performance Statistics,Data,10/21/25,U22017736,0.05019
+Cumulative Performance Statistics,Data,10/22/25,U22017736,0.057368
+Cumulative Performance Statistics,Data,10/23/25,U22017736,0.064546
+Cumulative Performance Statistics,Data,10/24/25,U22017736,0.071724
+Cumulative Performance Statistics,Data,10/27/25,U22017736,0.093258
+Cumulative Performance Statistics,Data,10/28/25,U22017736,0.100463
+Cumulative Performance Statistics,Data,10/29/25,U22017736,0.107668
+Cumulative Performance Statistics,Data,10/30/25,U22017736,0.114873
+Cumulative Performance Statistics,Data,10/31/25,U22017736,0.121391
+Cumulative Performance Statistics,Data,11/03/25,U22017736,0.140861
+Cumulative Performance Statistics,Data,11/04/25,U22017736,0.147379
+Cumulative Performance Statistics,Data,11/05/25,U22017736,0.153897
+Cumulative Performance Statistics,Data,11/06/25,U22017736,0.160423
+Cumulative Performance Statistics,Data,11/07/25,U22017736,0.166949
+Cumulative Performance Statistics,Data,11/10/25,U22017736,0.186527
+Cumulative Performance Statistics,Data,11/11/25,U22017736,0.193053
+Cumulative Performance Statistics,Data,11/12/25,U22017736,0.199579
+Cumulative Performance Statistics,Data,11/13/25,U22017736,0.206105
+Cumulative Performance Statistics,Data,11/14/25,U22017736,0.212658
+Cumulative Performance Statistics,Data,11/17/25,U22017736,0.232317
+Cumulative Performance Statistics,Data,11/18/25,U22017736,0.23887
+Cumulative Performance Statistics,Data,11/19/25,U22017736,0.235537634
+Cumulative Performance Statistics,Data,11/20/25,U22017736,-0.092660366
+Cumulative Performance Statistics,Data,11/21/25,U22017736,0.510277479
+Cumulative Performance Statistics,Data,11/24/25,U22017736,0.769686479
+Cumulative Performance Statistics,Data,11/25/25,U22017736,1.190942891
+Cumulative Performance Statistics,Data,11/26/25,U22017736,1.473814891
+Cumulative Performance Statistics,Data,11/27/25,U22017736,1.473814891
+Cumulative Performance Statistics,Data,11/28/25,U22017736,1.606066891
+Cumulative Performance Statistics,Data,12/01/25,U22017736,1.360545891
+Cumulative Performance Statistics,Data,12/02/25,U22017736,1.392455891
+Cumulative Performance Statistics,Data,12/03/25,U22017736,1.622161891
+Cumulative Performance Statistics,Data,12/04/25,U22017736,1.576356891
+Cumulative Performance Statistics,Data,12/05/25,U22017736,1.591536891
+Cumulative Performance Statistics,Data,12/08/25,U22017736,1.383504891
+Cumulative Performance Statistics,Data,12/09/25,U22017736,1.308354891
+Cumulative Performance Statistics,Data,12/10/25,U22017736,1.759858891
+Cumulative Performance Statistics,Data,12/11/25,U22017736,1.936242891
+Cumulative Performance Statistics,Data,12/12/25,U22017736,1.649308891
+Cumulative Performance Statistics,Data,12/15/25,U22017736,1.731995891
+Cumulative Performance Statistics,Data,12/16/25,U22017736,1.548709891
+Cumulative Performance Statistics,Data,12/17/25,U22017736,1.454937891
+Cumulative Performance Statistics,Data,12/18/25,U22017736,1.640892891
+Cumulative Performance Statistics,Data,12/19/25,U22017736,1.762320891
+Cumulative Performance Statistics,Data,12/22/25,U22017736,1.933385891
+Cumulative Performance Statistics,Data,12/23/25,U22017736,2.034794891
+Cumulative Performance Statistics,Data,12/24/25,U22017736,2.192323891
+Cumulative Performance Statistics,Data,12/25/25,U22017736,2.192323891
+Cumulative Performance Statistics,Data,12/26/25,U22017736,2.343637891
+Cumulative Performance Statistics,Data,12/29/25,U22017736,2.232187891
+Cumulative Performance Statistics,Data,12/30/25,U22017736,2.274259891
+Cumulative Performance Statistics,Data,12/31/25,U22017736,1.974678891
+Cumulative Performance Statistics,Data,01/01/26,U22017736,1.974678891
+Cumulative Performance Statistics,Data,01/02/26,U22017736,2.286790891
+Cumulative Performance Statistics,Data,01/05/26,U22017736,2.689863891
+Cumulative Performance Statistics,Data,01/06/26,U22017736,2.913109891
+Cumulative Performance Statistics,Data,01/07/26,U22017736,2.709435891
+Cumulative Performance Statistics,Data,01/08/26,U22017736,2.830245891
+Cumulative Performance Statistics,Data,01/09/26,U22017736,3.000992891
+Cumulative Performance Statistics,Data,01/12/26,U22017736,3.190974891
+Cumulative Performance Statistics,Data,01/13/26,U22017736,3.149222891
+Cumulative Performance Statistics,Data,01/14/26,U22017736,3.312220891
+Cumulative Performance Statistics,Data,01/15/26,U22017736,3.384906891
+Cumulative Performance Statistics,Data,01/16/26,U22017736,3.342290891
+Cumulative Performance Statistics,Data,01/19/26,U22017736,3.342290891
+Cumulative Performance Statistics,Data,01/20/26,U22017736,2.903471891
+Cumulative Performance Statistics,Data,01/21/26,U22017736,3.383674891
+Cumulative Performance Statistics,Data,01/22/26,U22017736,3.460487891
+Cumulative Performance Statistics,Data,01/23/26,U22017736,3.567790891
+Cumulative Performance Statistics,Data,01/26/26,U22017736,3.716987891
+Cumulative Performance Statistics,Data,01/27/26,U22017736,4.003740891
+Cumulative Performance Statistics,Data,01/28/26,U22017736,3.895931891
+Cumulative Performance Statistics,Data,01/29/26,U22017736,4.117094891
+Cumulative Performance Statistics,Data,01/30/26,U22017736,3.744138891
+Cumulative Performance Statistics,Data,02/02/26,U22017736,3.671606891
+Cumulative Performance Statistics,Data,02/03/26,U22017736,3.733195891
+Cumulative Performance Statistics,Data,02/04/26,U22017736,3.836706891
+Cumulative Performance Statistics,Data,02/05/26,U22017736,3.680502891
+Cumulative Performance Statistics,Data,02/06/26,U22017736,4.395838891
+Cumulative Performance Statistics,Data,02/09/26,U22017736,4.670425891
+Cumulative Performance Statistics,Data,02/10/26,U22017736,4.848243891
+Cumulative Performance Statistics,Data,02/11/26,U22017736,4.890029891
+Cumulative Performance Statistics,Data,02/12/26,U22017736,4.603492891
+Cumulative Performance Statistics,Data,02/13/26,U22017736,4.926679891
+Cumulative Performance Statistics,Data,02/16/26,U22017736,4.926679891
+Cumulative Performance Statistics,Data,02/17/26,U22017736,4.887387891
+Cumulative Performance Statistics,Data,02/18/26,U22017736,4.964907891
+Cumulative Performance Statistics,Data,02/19/26,U22017736,4.913926891
+Cumulative Performance Statistics,Data,02/20/26,U22017736,5.266498891
+Cumulative Performance Statistics,Data,02/23/26,U22017736,5.070885891
+Cumulative Performance Statistics,Data,02/24/26,U22017736,5.246341891
+Cumulative Performance Statistics,Data,02/25/26,U22017736,5.430989891
+Cumulative Performance Statistics,Data,02/26/26,U22017736,5.501256891
+Cumulative Performance Statistics,Data,02/27/26,U22017736,5.554169891
+Cumulative Performance Statistics,Data,03/02/26,U22017736,5.192509891
+Cumulative Performance Statistics,Data,03/03/26,U22017736,4.444672891
+Cumulative Performance Statistics,Data,03/04/26,U22017736,4.622205891
+Cumulative Performance Statistics,Data,03/05/26,U22017736,4.112350891
+Cumulative Performance Statistics,Data,03/06/26,U22017736,3.868994891
+Cumulative Performance Statistics,Data,03/09/26,U22017736,4.110220891
+Cumulative Performance Statistics,Data,03/10/26,U22017736,4.075725891
+Cumulative Performance Statistics,Data,03/11/26,U22017736,3.899439891
+Cumulative Performance Statistics,Data,03/12/26,U22017736,3.291430891
+Cumulative Performance Statistics,Data,03/13/26,U22017736,3.100477891
+Cumulative Performance Statistics,Data,03/16/26,U22017736,3.600940891
+Cumulative Performance Statistics,Data,03/17/26,U22017736,3.815719891
+Risk Measures,MetaInfo,Analysis Period,"October 14, 2025 - March 17, 2026"
+Risk Measures,Header,Risk Measure,Account,Account Value
+Risk Measures,Data,Ending VAMI:,U22017736,1038.157198906
+Risk Measures,Data,Max Drawdown:,U22017736,2.324580831
+Risk Measures,Data,Peak-To-Valley:,U22017736,20260227 - 20260313
+Risk Measures,Data,Recovery:,U22017736,Ongoing
+Risk Measures,Data,Sharpe Ratio:,U22017736,1.47778098
+Risk Measures,Data,Sortino Ratio:,U22017736,2.16648413
+Risk Measures,Data,Standard Deviation:,U22017736,0.217720226
+Risk Measures,Data,Downside Deviation:,U22017736,0.148509192
+Risk Measures,Data,Mean Return:,U22017736,0.033978936
+Risk Measures,Data,Positive Periods:,U22017736,81 (72.972972973)
+Risk Measures,Data,Negative Periods:,U22017736,30 (27.027027027)
+Performance by Asset Class,MetaInfo,Analysis Period,"October 14, 2025 - March 17, 2026"
+Performance by Asset Class,Header,Date,Commodities,Equities,Fixed Income,Cash
+Performance by Asset Class,Data,20251014,0,0,0,0
+Performance by Asset Class,Data,20251015,0,0,0,0.00715
+Performance by Asset Class,Data,20251016,0,0,0,0.007149489
+Performance by Asset Class,Data,20251017,0,0,0,0.007176974
+Performance by Asset Class,Data,20251020,0,0,0,0.021529376
+Performance by Asset Class,Data,20251021,0,0,0,0.007174914
+Performance by Asset Class,Data,20251022,0,0,0,0.007174399
+Performance by Asset Class,Data,20251023,0,0,0,0.007173884
+Performance by Asset Class,Data,20251024,0,0,0,0.00717337
+Performance by Asset Class,Data,20251027,0,0,0,0.021518566
+Performance by Asset Class,Data,20251028,0,0,0,0.007198287
+Performance by Asset Class,Data,20251029,0,0,0,0.007197769
+Performance by Asset Class,Data,20251030,0,0,0,0.007197251
+Performance by Asset Class,Data,20251031,0,0,0,0.006510521
+Performance by Asset Class,Data,20251103,0,0,0,0.019446394
+Performance by Asset Class,Data,20251104,0,0,0,0.006508832
+Performance by Asset Class,Data,20251105,0,0,0,0.006508408
+Performance by Asset Class,Data,20251106,0,0,0,0.006515972
+Performance by Asset Class,Data,20251107,0,0,0,0.006515548
+Performance by Asset Class,Data,20251110,0,0,0,0.019545369
+Performance by Asset Class,Data,20251111,0,0,0,0.00651385
+Performance by Asset Class,Data,20251112,0,0,0,0.006513426
+Performance by Asset Class,Data,20251113,0,0,0,0.006513001
+Performance by Asset Class,Data,20251114,0,0,0,0.006539522
+Performance by Asset Class,Data,20251117,0,0,0,0.019617282
+Performance by Asset Class,Data,20251118,0,0,0,0.006537812
+Performance by Asset Class,Data,20251119,0.004001498,0.035244595,-0.049107902,0.006537384
+Performance by Asset Class,Data,20251120,-0.032036542,-0.408330229,0.106402382,0.006537601
+Performance by Asset Class,Data,20251121,-0.005356964,0.465919567,0.143638096,-0.000703652
+Performance by Asset Class,Data,20251124,0.014643279,0.195256649,0.05029038,-0.002098293
+Performance by Asset Class,Data,20251125,-0.017364865,0.347502317,0.087801142,0.000100229
+Performance by Asset Class,Data,20251126,0.042596698,0.222532762,0.014313534,0.000099811
+Performance by Asset Class,Data,20251127,0,0,0,0
+Performance by Asset Class,Data,20251128,0.046460262,0.114186108,-0.030466973,0.000151763
+Performance by Asset Class,Data,20251201,0.017234207,-0.152147411,-0.106954243,0.000227349
+Performance by Asset Class,Data,20251202,-0.015947033,0.014156396,0.033272315,0
+Performance by Asset Class,Data,20251203,0.014613513,0.145449677,0.066336296,0.000151885
+Performance by Asset Class,Data,20251204,0.003976495,0.028252696,-0.077409296,0.000106276
+Performance by Asset Class,Data,20251205,0.02652192,0.033225251,-0.044909073,0.000106324
+Performance by Asset Class,Data,20251208,-0.04905822,-0.119510939,-0.036522727,0.000318924
+Performance by Asset Class,Data,20251209,-0.018600659,-0.019591944,-0.036038407,0.000106526
+Performance by Asset Class,Data,20251210,0.023932873,0.311175717,0.11045782,0.000106605
+Performance by Asset Class,Data,20251211,0,0.147389159,0.025838283,0.000106132
+Performance by Asset Class,Data,20251212,-0.036999598,-0.199674811,-0.044907482,0.000098101
+Performance by Asset Class,Data,20251215,-0.005300577,0.04129,0.045060808,0.000295132
+Performance by Asset Class,Data,20251216,-0.029129479,-0.217436017,0.066301658,0.000098297
+Performance by Asset Class,Data,20251217,0.033161426,-0.124750969,-0.000850823,0.000098475
+Performance by Asset Class,Data,20251218,-0.021242929,0.132993034,0.071439598,0.000098566
+Performance by Asset Class,Data,20251219,0.021204064,0.136478533,-0.038313319,0.000098386
+Performance by Asset Class,Data,20251222,0.029120798,0.165183929,-0.026502933,0.000300701
+Performance by Asset Class,Data,20251223,0.040964989,0.090903485,-0.032529087,0.000146174
+Performance by Asset Class,Data,20251224,0,0.090230004,0.064012477,0.000145049
+Performance by Asset Class,Data,20251225,0,0,0,0
+Performance by Asset Class,Data,20251226,0.034270676,0.056646133,0.056853585,0.000297478
+Performance by Asset Class,Data,20251229,-0.057910781,-0.095059158,0.043620689,0.00045142
+Performance by Asset Class,Data,20251230,0.022367711,0.015042229,0.003592802,0.000150637
+Performance by Asset Class,Data,20251231,-0.040828455,-0.183939732,-0.068301643,0.000150576
+Performance by Asset Class,Data,20260101,0,0,0,0
+Performance by Asset Class,Data,20260102,0.003962748,0.294522134,0.007206691,0.000376564
+Performance by Asset Class,Data,20260105,0.046090995,0.287039018,0.060368499,0.000563123
+Performance by Asset Class,Data,20260106,0.024922616,0.197748826,-0.00546013,0.000186971
+Performance by Asset Class,Data,20260107,-0.023559681,-0.190304229,0.015768642,0.000186565
+Performance by Asset Class,Data,20260108,0.006557333,0.149452676,-0.038573866,0.000186935
+Performance by Asset Class,Data,20260109,0.002619852,0.164214331,-0.000973449,0.000186715
+Performance by Asset Class,Data,20260112,0.036617123,0.161805236,-0.014534811,0.000559218
+Performance by Asset Class,Data,20260113,0.014358814,-0.086378678,0.031372899,0.000186063
+Performance by Asset Class,Data,20260114,0.003917625,0.112707587,0.041210199,0.000186138
+Performance by Asset Class,Data,20260115,-0.016949592,0.150262959,-0.063143546,0.000185844
+Performance by Asset Class,Data,20260116,-0.001302898,0.011404953,-0.051508486,0.000185714
+Performance by Asset Class,Data,20260119,0,0,0,0
+Performance by Asset Class,Data,20260120,0.046923674,-0.421079305,-0.05121427,0.000743161
+Performance by Asset Class,Data,20260121,0.0418878,0.373607414,0.050972041,0.000186583
+Performance by Asset Class,Data,20260122,0,0.082818685,-0.008705436,0.000185716
+Performance by Asset Class,Data,20260123,0.054681745,0.007657029,0.041189638,0.000185578
+Performance by Asset Class,Data,20260126,0.022110156,0.084444207,0.036946815,0.000556157
+Performance by Asset Class,Data,20260127,0.036364342,0.234976936,0.004950009,0.000185119
+Performance by Asset Class,Data,20260128,0.029788352,-0.117184246,-0.016447485,0.000184609
+Performance by Asset Class,Data,20260129,0.03630171,0.133674146,0.042709083,0.0001848
+Performance by Asset Class,Data,20260130,-0.078917876,-0.30807621,0.028601451,0.000184408
+Performance by Asset Class,Data,20260202,-0.14152414,0.112579854,-0.041525237,0.000555212
+Performance by Asset Class,Data,20260203,0.071461225,-0.018390763,0.006152118,0.0001852
+Performance by Asset Class,Data,20260204,0.007791141,0.095716708,-0.003907139,0.00018509
+Performance by Asset Class,Data,20260205,-0.040214103,-0.288743749,0.178322296,0.000203204
+Performance by Asset Class,Data,20260206,0.019487753,0.688809352,-0.018557973,0.00020351
+Performance by Asset Class,Data,20260209,0.016773657,0.223331698,0.02231315,0.000606346
+Performance by Asset Class,Data,20260210,-0.016729654,0.102865732,0.083546044,0.000201585
+Performance by Asset Class,Data,20260211,0.028263707,0.087704855,-0.076316014,0.000201243
+Performance by Asset Class,Data,20260212,-0.051368085,-0.352737053,0.130725485,0.000201163
+Performance by Asset Class,Data,20260213,0.007726319,0.19054335,0.110492486,0.000201714
+Performance by Asset Class,Data,20260216,0,0,0,0
+Performance by Asset Class,Data,20260217,-0.039796361,0.031394303,-0.029849415,0.000804371
+Performance by Asset Class,Data,20260218,0.057790552,0.054614765,-0.038698647,0.000201168
+Performance by Asset Class,Data,20260219,0.01924929,-0.084316751,0.016296875,0.00020102
+Performance by Asset Class,Data,20260220,0.026962102,0.299493127,0.009401993,0.000201117
+Performance by Asset Class,Data,20260223,0.010236875,-0.270113477,0.073448819,0.000601331
+Performance by Asset Class,Data,20260224,-0.003845975,0.186360854,-0.015727478,0.000200817
+Performance by Asset Class,Data,20260225,0.005119418,0.19042182,-0.020298093,0.000200482
+Performance by Asset Class,Data,20260226,0.001277613,-0.007342243,0.072511887,0.000200131
+Performance by Asset Class,Data,20260227,0.031919051,-0.089699405,0.107734262,0.000199998
+Performance by Asset Class,Data,20260302,0.054873247,-0.23087861,-0.16722409,0.000599692
+Performance by Asset Class,Data,20260303,0.001280509,-0.686225664,-0.026177719,0.000200585
+Performance by Asset Class,Data,20260304,0.011607102,0.225543336,-0.067374427,0.000202021
+Performance by Asset Class,Data,20260305,0.039912177,-0.477219913,-0.050239812,0.000217927
+Performance by Asset Class,Data,20260306,0.109972543,-0.35268246,0.008747281,0.000218994
+Performance by Asset Class,Data,20260309,-0.045388906,0.217445062,0.059525944,0.000658522
+Performance by Asset Class,Data,20260310,0.028464064,0.012704804,-0.074521021,0.000218999
+Performance by Asset Class,Data,20260311,0.047887247,-0.102932744,-0.114556011,0.000219071
+Performance by Asset Class,Data,20260312,0.060932956,-0.514087468,-0.132254803,0.000219443
+Performance by Asset Class,Data,20260313,-0.016953004,-0.171798375,0.003662453,0.000220735
+Performance by Asset Class,Data,20260316,-0.048340222,0.42043646,0.112653212,0.00066343
+Performance by Asset Class,Data,20260317,0.033804712,0.132258451,0.041030515,0.000220075
+Performance by Asset Class,Data,Total,0.621655427,2.219110315,0.667028262,0.268227796
+Performance by Symbol,MetaInfo,Analysis Period,"October 14, 2025 - March 17, 2026"
+Performance by Symbol,Header,Symbol,Description,FinancialInstrument,Sector,AvgWeight,Return,Contribution,Unrealized_P&L,Realized_P&L,Open
+Performance by Symbol,Data,BCI,ABRDN BLOOMBERG ALL COMMODIT,ETFs,Basic Materials,2.854906236,24.595449317,0.621655427,"2,102.68",0.00,Yes
+Performance by Symbol,Data,BND,VANGUARD TOTAL BOND MARKET,ETFs,Broad,9.748225083,0.791569265,0.078225907,-503.93,0.00,Yes
+Performance by Symbol,Data,IJR,ISHARES CORE S&P SMALL-CAP E,ETFs,Broad,2.662058611,9.214732227,0.231087147,"2,133.06",0.00,Yes
+Performance by Symbol,Data,IMTM,ISHARES MSCI INTL MOMENTUM F,ETFs,Broad,2.321162461,8.142343115,0.18274043,995.66,0.00,Yes
+Performance by Symbol,Data,MTUM,ISHARES MSCI USA MOMENTUM FA,ETFs,Broad,0.513179259,3.038780933,0.016025951,135.71,0.00,Yes
+Performance by Symbol,Data,QUAL,ISHARES MSCI USA QUALITY FAC,ETFs,Broad,3.036635792,3.46878604,0.105628704,874.94,0.00,Yes
+Performance by Symbol,Data,USMV,ISHARES MSCI USA MIN VOL FAC,ETFs,Broad,0.98697117,2.79644709,0.027408902,194.74,0.00,Yes
+Performance by Symbol,Data,VEA,VANGUARD FTSE DEVELOPED ETF,ETFs,Broad,7.108838461,11.573325015,0.769239791,"6,576.90",0.00,Yes
+Performance by Symbol,Data,VFVA,VANGUARD U.S. VALUE FACTOR,ETFs,Broad,3.430629555,8.489356646,0.302373691,"2,723.20",105.69,Yes
+Performance by Symbol,Data,VGIT,VANGUARD INTERMEDIATE-TERM T,ETFs,Broad,12.655936295,0.723101866,0.257038894,-486.03,"1,705.50",Yes
+Performance by Symbol,Data,VGSH,VANGUARD SHORT-TERM TREASURY,ETFs,Broad,41.447909921,0.910195809,0.331447366,"-2,115.01",0.00,Yes
+Performance by Symbol,Data,VNQ,VANGUARD REAL ESTATE ETF,ETFs,Real Estate,4.997792417,6.389187262,0.308638618,"2,717.44",0.00,Yes
+Performance by Symbol,Data,VWO,VANGUARD FTSE EMERGING MARKE,ETFs,Broad,6.003124441,4.591413226,0.273505096,"1,570.72",0.00,Yes
+Performance by Symbol,Data,Total ETFs,,,,97.767369702,3.505289018,3.537975712,"16,920.06","1,811.19",
+Performance by Symbol,Data,USD,United States Dollar,Cash,Cash,25.133095273,0.505032898,0.268227796,,,Yes
+Performance by Symbol,Data,Total Cash,,,,25.133095273,0.505032898,0.268227796,,,
+Performance by Symbol,Data,Total,,,,100,3.815719891,3.815719891,"16,920.06","1,811.19",
+Trade Summary,MetaInfo,Analysis Period,"October 14, 2025 - March 17, 2026"
+Trade Summary,Header,Financial Instrument,Currency,Symbol,Description,Sector,Quantity Bought,Average Price Bought,Proceeds Bought,Proceeds Bought in Base,Quantity Sold,Average Price Sold,Proceeds Sold,Proceeds Sold in Base
+Trade Summary,Data,ETFs,United States Dollar,BCI,ABRDN BLOOMBERG ALL COMMODIT,Basic Materials,1347,22.403262806,-30177.195,-30177.195,0,0,0,0
+Trade Summary,Data,ETFs,United States Dollar,BND,VANGUARD TOTAL BOND MARKET,Broad,1351,74.352242783,-100449.88,-100449.88,0,0,0,0
+Trade Summary,Data,ETFs,United States Dollar,IJR,ISHARES CORE S&P SMALL-CAP E,Broad,219,114.085,-24984.615,-24984.615,0,0,0,0
+Trade Summary,Data,ETFs,United States Dollar,IMTM,ISHARES MSCI INTL MOMENTUM F,Broad,481,46.835,-22527.635,-22527.635,0,0,0,0
+Trade Summary,Data,ETFs,United States Dollar,MTUM,ISHARES MSCI USA MOMENTUM FA,Broad,21,241.72,-5076.12,-5076.12,0,0,0,0
+Trade Summary,Data,ETFs,United States Dollar,QUAL,ISHARES MSCI USA QUALITY FAC,Broad,156,191.265,-29837.34,-29837.34,0,0,0,0
+Trade Summary,Data,ETFs,United States Dollar,USMV,ISHARES MSCI USA MIN VOL FAC,Broad,107,93.27,-9979.89,-9979.89,0,0,0,0
+Trade Summary,Data,ETFs,United States Dollar,VEA,VANGUARD FTSE DEVELOPED ETF,Broad,1132,59.595,-67461.54,-67461.54,0,0,0,0
+Trade Summary,Data,ETFs,United States Dollar,VFVA,VANGUARD U.S. VALUE FACTOR,Broad,837,123.812801673,-103631.315,-103631.315,-595,124.005823529,73783.465,73783.465
+Trade Summary,Data,ETFs,United States Dollar,VGIT,VANGUARD INTERMEDIATE-TERM T,Broad,7346,60.135980125,-441758.91,-441758.91,-5508,60.455021786,332986.26,332986.26
+Trade Summary,Data,ETFs,United States Dollar,VGSH,VANGUARD SHORT-TERM TREASURY,Broad,7539,58.875433745,-443861.895,-443861.895,0,0,0,0
+Trade Summary,Data,ETFs,United States Dollar,VNQ,VANGUARD REAL ESTATE ETF,Real Estate,565,88.52360177,-50015.835,-50015.835,0,0,0,0
+Trade Summary,Data,ETFs,United States Dollar,VWO,VANGUARD FTSE EMERGING MARKE,Broad,1114,53.845,-59983.33,-59983.33,0,0,0,0
+Deposits And Withdrawals,MetaInfo,Analysis Period,"October 14, 2025 - March 17, 2026"
+Deposits And Withdrawals,Header,Date,Type,Description,Amount
+Deposits And Withdrawals,Data,10/14/25,DEPOSIT,Cash Receipts / Electronic Fund Transfers ,1000000
+Dividends,MetaInfo,Analysis Period,"October 14, 2025 - March 17, 2026"
+Dividends,Header,PayDate,Ex-Date,Symbol,Quantity,DividendPerShare,Amount
+Dividends,Data,20251203,20251201,BND,1351,0.24,322.31
+Dividends,Data,20251203,20251201,VGSH,7539,0.19,1397.73
+Dividends,Data,20251203,20251201,VGIT,1838,0.19,341.68
+Dividends,Data,20251219,20251216,MTUM,21,0.67,14.09
+Dividends,Data,20251219,20251216,USMV,107,0.39,41.79
+Dividends,Data,20251219,20251216,QUAL,156,0.61,95.32
+Dividends,Data,20251219,20251216,IJR,219,0.57,125.19
+Dividends,Data,20251222,20251218,BND,1351,0.25,333.21
+Dividends,Data,20251222,20251218,VGSH,7539,0.19,1434.67
+Dividends,Data,20251222,20251218,VGIT,1838,0.19,356.39
+Dividends,Data,20251219,20251216,IMTM,481,1.72,828.01
+Dividends,Data,20251223,20251219,VWO,1114,1.03,1150.21
+Dividends,Data,20251223,20251219,VEA,1132,1.04,1177.28
+Dividends,Data,20251224,20251222,VNQ,565,0.80,452.28
+Dividends,Data,20251226,20251223,VFVA,242,0.78,187.57
+Dividends,Data,20251231,20251230,BCI,1347,3.22,4337.02
+Dividends,Data,20260204,20260202,BND,1351,0.25,331.63
+Dividends,Data,20260204,20260202,VGSH,7539,0.19,1397.73
+Dividends,Data,20260204,20260202,VGIT,1838,0.19,351.61
+Dividends,Data,20260304,20260302,VGIT,1838,0.17,320.91
+Dividends,Data,20260304,20260302,BND,1351,0.23,307.79
+Dividends,Data,20260304,20260302,VGSH,7539,0.17,1278.61
+Interest Details,MetaInfo,Analysis Period,"October 14, 2025 - March 17, 2026"
+Interest Details,Header,Date,Description,Amount
+Interest Details,Data,20251105,USD Credit Interest Received for October 2025,1278.81
+Interest Details,Data,20251203,USD Credit Interest Received for November 2025,1246.82
+Interest Details,Data,20251203,USD Debit Interest Paid for November 2025,-28.12
+Interest Details,Data,20260106,USD Credit Interest Received for December 2025,36.87
+Interest Details,Data,20260204,USD Credit Interest Received for January 2026,59.52
+Interest Details,Data,20260304,USD Credit Interest Received for February 2026,58.51
+Notes and Disclosure,Header,Type,Note
+Notes and Disclosure,Data,General,"1. The Net Asset Value (NAV) consists of all positions by financial instrument (stock, securities options, warrants, bonds, cash, etc.). All non-base currency amounts are converted to the base currency at the close of period rate."
+Notes and Disclosure,Data,General,2. The gain or loss from future contracts settle into cash each night. The notional value is used when computing the contribution to return.
+Notes and Disclosure,Data,General,"3. Dividend accruals, interest accruals, and insured deposits are included in cash amounts throughout the report."
+Notes and Disclosure,Data,General,4. Price valuations are obtained from outside parties. Clearing Broker shall have no responsibility for the accuracy or timeliness of any such price valuation.
+Notes and Disclosure,Data,General,5. Data from Thomson Reuters Business Classifications and Lipper Global is used to derive our sector classifications. Funds with assorted sector allocations are classified as Broad.
+Notes and Disclosure,Data,General,"6. Amounts are formatted to two decimal places. If amounts are greater than two decimal places, Clearing Broker uses "half-even" rounding. This means that Clearing Broker rounds such amounts up to the nearest even number."
+Notes and Disclosure,Data,General,"7. For accounts opened and funded before 2009, reports with a time period of Since Inception will only include data going back to January 1, 2009. This includes some default reports and both Historical Performance reports."
+Notes and Disclosure,Data,General,"8. If you have elected to trade cryptocurrency/digital asset products at Crypto Provider through the Clearing Broker platform, for your convenience your positions in your linked account at Crypto Provider are reflected in PortfolioAnalyst in connection with your Clearing Broker account."
+Notes and Disclosure,Data,Section,1. Account Overview: The deposit/withdrawal amount displayed includes internal transfers along with cash and position transfers.
+Notes and Disclosure,Data,Section,"2. Risk Measures: Historical US 3 Month Treasury Bill rates are used as the risk free rates when calculating Alpha, the Sharpe ratio, the Sortino ratio, and the downside deviation."
+Notes and Disclosure,Data,Disclosure,"This portfolio report was generated using Clearing Broker's PortfolioAnalyst tool, which allows Clearing Broker clients to generate analyses of their accounts using market data provided by third parties along with trade and account data contained in Clearing Broker's systems. This report is for information purposes only and is provided AS IS. Clearing Broker makes no warranty of any kind, express or implied, as to this report and its contents. The data provided for use in the PortfolioAnalyst tool is believed to be accurate, but completeness and accuracy of the information is not guaranteed, and Clearing Broker has no liability with respect thereto. The data regarding accounts held outside of Clearing Broker is obtained either directly from your input or from the financial institutions holding those accounts through a third-party service provider and Clearing Broker has NOT reviewed its accuracy.
+
+The material in this report is intended only as a reference and should not be relied upon for the maintenance of your books and records for tax, accounting, financial, or regulatory reporting or for any other purposes. This report is not an offer or a solicitation of an offer to buy or sell any security. This material does not, and is not intended to, take into account the particular financial conditions, investment objectives, or requirements of individual customers. Before acting on any material within this report, you should consider whether it is suitable for your particular circumstances and as necessary, seek professional advice."
